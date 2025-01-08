@@ -66,6 +66,15 @@ exports.gstinverify = async (req, res, next) => {
           createdDate:new Date().toLocaleDateString(),
           createdTime:new Date().toLocaleTimeString()
         };
+        if(!obj?.success){
+          console.error("Error saving GSTIN verification data:", error);
+          let errorMessage = {
+            message:
+              `No Data Found for this gst_in Number ${gstinNumber}`,
+            statusCode: 404,
+          };
+          return next(errorMessage);
+        }
         const newGstinVerification = await gstin_verifyModel.create(gstinData);
         console.log(
           "legalName === companyName=== in gst>",

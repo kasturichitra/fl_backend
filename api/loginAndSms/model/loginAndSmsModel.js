@@ -15,11 +15,11 @@ const smsSchema = new mongoose.Schema(
       type: Number,
     },
     createdTime: {
-      type: Date,
+      type: String,
       default: Date.now,
     },
     createdDate: {
-      type: Date,
+      type: String,
       default: Date.now,
     },
   },

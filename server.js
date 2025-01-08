@@ -12,6 +12,8 @@ const gstRouter = require("./api/gstin_verify/routes/gstin_verify.route")
 const serviceRouter = require("./api/ServiceTrackingModel/routes/ServiceTrackingModel.route")
 const Accountrouter = require("./api/accountdata/routes/accountdata.route")
 const faceRouter = require("./api/facematch/routes/facematch.route")
+const nameRouter = require("./api/compareNames/routes/compareNames.route")
+const verifyNameRouter = require("./api/verifyPanHolderName/routes/verifyName.route")
 const helmet = require("helmet")
 const bodyParser = require("body-parser")
 
@@ -57,6 +59,8 @@ app.use("/gst", gstRouter);
 app.use("/service", serviceRouter);
 app.use("/face",faceRouter)
 app.use('/account',Accountrouter)
+app.use("/name", nameRouter)
+app.use("/verify", verifyNameRouter)
 
 const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController")
 app.use(exeptionHandling.GlobalExceptionHandling);
