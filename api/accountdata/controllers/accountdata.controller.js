@@ -97,18 +97,24 @@ exports.verifyBankAccount = async (req, res, next) => {
     if (activeService) {
       let response;
       if (activeService?.serviceName === "EaseBuzz") {
-        response = await verifyBankAccountEaseBuz(account_no, ifsc, check, MerchantId);
-        console.log("response of ease buzz===>", response);
-        return res.status(200).json({ response });
+        result = await verifyBankAccountEaseBuz(account_no, ifsc, check, MerchantId);
+        console.log("response of ease buzz===>", result);
+        const response = {
+          BeneficiaryName: result?.beneficiaryName,
+          AccountNumber : result?.data?.accountNo,
+          IFSC : result?.data?.accountIFSCCode,
+          Message: result?.data?.responseData?.result?.verification_status,
+        }
+        return res.status(200).json( response );
 
       } else if (activeService?.serviceName === "Zoop") {
         result = await verifyBankAccountZoop(account_no, ifsc, check, MerchantId);
         console.log("response of eazz zoop===>", result);
         const response = {
           BeneficiaryName: result?.beneficiaryName,
-          AccountNumber : result?.accountNo,
-          IFSC : result?.accountIFSCCode,
-          Message: result?.responseData?.result?.verification_status,
+          AccountNumber : result?.data?.accountNo,
+          IFSC : result?.data?.accountIFSCCode,
+          Message: result?.data?.responseData?.result?.verification_status,
         }
         return res.status(200).json( response );
 
@@ -183,6 +189,8 @@ async function verifyBankAccountZoop(account_no, ifsc, token, MerchantId) {
       accountIFSCCode: ifsc,
       accountHolderName: accountusername,
       responseData: obj,
+      createdDate:new Date().toLocaleDateString(),
+      createdTime:new Date().toLocaleTimeString()
     };
     const beneficiarySmallerName = accountusername?.toLowerCase()
     if (accountusername) {
@@ -230,6 +238,8 @@ async function verifyBankAccountEaseBuz(account_no, ifsc, token, MerchantId) {
       accountIFSCCode: ifsc,
       accountHolderName: accountusername,
       responseData: response.data.data,
+      createdDate:new Date().toLocaleDateString(),
+      createdTime:new Date().toLocaleTimeString()
     };
     if (accountusername) {
       await accountdataModel.create(detailsToSave);

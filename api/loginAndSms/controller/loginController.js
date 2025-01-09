@@ -135,7 +135,6 @@ const handleOTPSend = async (user, res , next) => {
 const verifyOtp = async (req, res , next) => {
   try {
     const { submittedOtp } = req.body;
-    const submittedOTP = Number(submittedOtp)
     const authHeader = req.headers.authorization;
 
     const check = await checkingDetails(authHeader , next)
@@ -148,11 +147,11 @@ const verifyOtp = async (req, res , next) => {
       };
       return next(errorMessage);
     }
-    console.log("Submitted OTP:", submittedOTP);
+    console.log("Submitted OTP:", submittedOtp);
     console.log("Stored OTP:", storedOTP);
 
-    if (submittedOTP === storedOTP) {
-      res.status(200).json({ message: "Login Successful" , success: "Otp Verified Successfully"})
+    if (submittedOtp === storedOTP) {
+      res.status(200).json({ message: "Login Successful" , success: "Otp Verified Successfully" , token: check})
 
     } else {
       let errorMessage = {

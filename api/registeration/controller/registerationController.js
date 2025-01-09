@@ -41,7 +41,7 @@ const registerationVerify = async (req, res, next) => {
 
     if (!userWithMobileNumberOrEmail) {
       const hashedPassword = await bcrypt.hash(password, 10)
-      const merchantId = generateMerchantId()
+      const merchantId =  generateMerchantId()
 
     const newUser = new registeration({
         name,
@@ -56,7 +56,7 @@ const registerationVerify = async (req, res, next) => {
       });
 
       const savedUser = await newUser.save();
-      res.status(201).json({ user : savedUser , message : "Registeration Successfull"});
+      res.status(201).json({ user : savedUser , message : "Registeration Successfull 😊"});
     }
 
   } catch (err) {

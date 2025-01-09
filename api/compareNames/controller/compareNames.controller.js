@@ -67,12 +67,17 @@ exports.compareNames = async (req, res, next) => {
     const existingDetails = await comparingNamesModel.findOne({ firstName: firstName , secondName:secondName  });
     if (existingDetails) {
       console.log("response in existing===>", existingDetails?.responseData);
-      return res.status(200).json({message : existingDetails?.responseData})     
+      const response = {
+        firstName : existingDetails?.firstName,
+        secondName : existingDetails?.secondName,
+        responseData : existingDetails?.responseData
+      }
+      return res.status(200).json(response)     
     }else{
       const result = await compareNames(firstName , secondName)
       console.log("======>>>>>result in compareNames" , result)
 
-      if(result){
+      if(result > 30){
         const newSet = await comparingNamesModel.create({
           firstName : firstName,
           secondName : secondName,
@@ -84,8 +89,21 @@ exports.compareNames = async (req, res, next) => {
           createdDate:new Date().toLocaleDateString(),
           createdTime:new Date().toLocaleTimeString()
         })
+        const response = {
+          secondName : secondName,
+          MerchantId : MerchantId,
+          responseData : {
+            data : `Your Name Comparison Comes with a accuracy of ${result}`
+          },
+        }
+        return res.status(200).json(response)
+      }else{
+        let errorMessage = {
+          message: "No Match Found",
+          statusCode: 404,
+        };
+        return next(errorMessage);
       }
-      return res.status(200).json({message : result})
     }
   } catch (error) {
     console.log('Error performing comparing Names:', error.response?.data || error.message);

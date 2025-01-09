@@ -12,7 +12,7 @@ const smsSchema = new mongoose.Schema(
       type: String,
     },
     otp: {
-      type: Number,
+      type: String,
     },
     createdTime: {
       type: String,
