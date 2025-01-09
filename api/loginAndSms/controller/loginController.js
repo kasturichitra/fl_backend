@@ -135,6 +135,7 @@ const handleOTPSend = async (user, res , next) => {
 const verifyOtp = async (req, res , next) => {
   try {
     const { submittedOtp } = req.body;
+    console.log(submittedOtp,'<==Submited otp')
     const submittedOTP = Number(submittedOtp)
     const authHeader = req.headers.authorization;
 

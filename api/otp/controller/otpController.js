@@ -93,6 +93,7 @@ const handleOTPSend = async (user, mobileNumber, token, res, next) => {
 const verifyMobileOtp = async (req, res, next) => {
   try {
     const { submittedOtp, mobile } = req.body;
+    console.log(submittedOtp)
     const submittedOTP = Number(submittedOtp);
 
     const authHeader = req.headers.authorization;
