@@ -14,6 +14,9 @@ const Accountrouter = require("./api/accountdata/routes/accountdata.route")
 const faceRouter = require("./api/facematch/routes/facematch.route")
 const nameRouter = require("./api/compareNames/routes/compareNames.route")
 const verifyNameRouter = require("./api/verifyPanHolderName/routes/verifyName.route")
+const binRouter = require("./api/BinApi/routes/BinRoutes")
+const jwtauth = require("./middleware/jwt.middleware")
+const validateMerchant = require("./middleware/validation.middleware")
 const helmet = require("helmet")
 const bodyParser = require("body-parser")
 
@@ -51,8 +54,8 @@ mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).
 
 app.use("/registeration", registerationRouter)
 app.use("/login", loginRouter)
-app.use("/pan", panRouter);
-app.use("/aadhaar", aadhaarRouter);
+app.use("/pan", jwtauth , validateMerchant , panRouter);
+app.use("/aadhaar",  aadhaarRouter);
 app.use("/otp", otpRouter);
 app.use("/shop", shopRouter);
 app.use("/gst", gstRouter);
@@ -61,6 +64,7 @@ app.use("/face",faceRouter)
 app.use('/account',Accountrouter)
 app.use("/name", nameRouter)
 app.use("/verify", verifyNameRouter)
+app.use("/bin", binRouter)
 
 const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController")
 app.use(exeptionHandling.GlobalExceptionHandling);

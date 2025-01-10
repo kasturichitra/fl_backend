@@ -3,7 +3,7 @@ const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 const mobileModel = require("../model/otpModel");
 const axios = require("axios");
 const logger = require("../../Logger/logger");
-const checkingDetails = require("../../../middleware/authorization");
+const checkingDetails = require("../../../utlis/authorization");
 
 dotenv.config();
 const {

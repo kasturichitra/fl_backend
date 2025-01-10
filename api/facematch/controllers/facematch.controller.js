@@ -1,5 +1,5 @@
 const axios = require("axios");
-const checkingDetails = require("../../../middleware/authorization");
+const checkingDetails = require("../../../utlis/authorization");
 const faceMatch = require("../models/facematch.model");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 

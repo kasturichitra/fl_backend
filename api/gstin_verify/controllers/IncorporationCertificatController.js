@@ -1,7 +1,7 @@
 
 const IncorporationCertificateModel = require("../models/IncorporationCertificateModel")
 const { default: axios } = require("axios");
-const checkingDetails = require("../../../middleware/authorization");
+const checkingDetails = require("../../../utlis/authorization");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 
 exports.handleCINVerification = async (req, res , next) => {

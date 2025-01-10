@@ -1,6 +1,6 @@
 const gstin_verifyModel = require("../models/gstin_verify.model");
 const request = require("request");
-const checkingDetails = require("../../../middleware/authorization");
+const checkingDetails = require("../../../utlis/authorization");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 
 exports.gstinverify = async (req, res, next) => {

@@ -1,4 +1,4 @@
-const checkingDetails = require("../../../middleware/authorization");
+const checkingDetails = require("../../../utlis/authorization");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 const comparingNamesModel = require("../models/compareName.model")
 
@@ -90,6 +90,7 @@ exports.compareNames = async (req, res, next) => {
           createdTime:new Date().toLocaleTimeString()
         })
         const response = {
+          firstName: firstName,
           secondName : secondName,
           MerchantId : MerchantId,
           responseData : {
