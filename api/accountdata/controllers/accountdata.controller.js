@@ -3,7 +3,7 @@ const axios = require('axios');
 const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/ServiceTrackingModel.model")
 const accountdataModel = require("../models/accountdata.model");
 require('dotenv').config();
-const checkingDetails = require("../../../middleware/authorization");
+const checkingDetails = require("../../../utlis/authorization");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 
 const EASEBUZZ_KEY = process.env.EASEBUZZ_KEY;

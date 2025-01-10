@@ -2,8 +2,9 @@ const shopestablishmentModel = require("../models/shopestablishment.model");
 const axios = require("axios");
 const INVINCIBLE_CLIENT_ID = process.env.INVINCIBLE_CLIENT_ID;
 const INVINCIBLE_SECRET_KEY = process.env.INVINCIBLE_SECRET_KEY;
-const checkingDetails = require("../../../middleware/authorization");
+const checkingDetails = require("../../../utlis/authorization");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
+const { response } = require("express");
 
 exports.handleCreateShopEstablishment = async (req, res, next) => {
   const { registrationNumber, state } = req.body;
@@ -18,7 +19,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
     });
 
     if (existingDetails) {
-      return res.status(200).send({ message: "AlreadyExist", success: true });
+      return res.status(200).json ({ message: "Valid", success: true , response : existingDetails?.response });
     } else {
       const requestData = {
         registrationNumber,

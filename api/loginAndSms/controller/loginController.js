@@ -6,7 +6,7 @@ const registeration = require("../../registeration/model/registerationModel")
 const loginAndSms = require("../model/loginAndSmsModel")
 const axios = require("axios")
 const logger = require("../../Logger/logger")
-const checkingDetails = require("../../../middleware/authorization")
+const checkingDetails = require("../../../utlis/authorization")
 
 dotenv.config()
 const {
@@ -222,4 +222,51 @@ console.log("req.body==>>",req.body)
 
 }
 
-module.exports = { loginDetails, verifyOtp };
+const getUser = async (req,res,next)=>{
+
+  const authHeader = req.headers.authorization;
+
+  const check = await checkingDetails(authHeader , next)
+
+  try{
+    const storedUser = await loginAndSms.findOne({ token : check });
+
+    if(!storedUser){
+      let errorMessage = {
+        message: "User Not Login correctly",
+        statusCode: 404,
+      };
+      return next(errorMessage);
+    }
+
+    const merchantId = storedUser?.merchantId
+
+    const foundUser = await registeration.findOne({merchantId : merchantId})
+
+    if(!foundUser){
+      let errorMessage = {
+        message: "User Not Registered",
+        statusCode: 404,
+      };
+      return next(errorMessage);
+    }
+
+    const foundUserResponse = {
+      name : foundUser?.name,
+      email : foundUser?.email,
+      mobileNumber : foundUser?.mobileNumber
+    }
+
+    res.status(200).json({message:"valid" , success:true , response:foundUserResponse})
+
+  }catch(err){
+    console.log("Err in sending user Details" , err)
+    let errorMessage = {
+      message: "Internal Server Error try again after some time",
+      statusCode: 500,
+    };
+    return next(errorMessage);
+  }
+}
+
+module.exports = { loginDetails, verifyOtp, getUser };
