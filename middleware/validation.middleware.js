@@ -1,4 +1,4 @@
-const loginAndSms = require('../api/loginAndSms/model/loginAndSmsModel'); // Adjust the path to your model
+  const loginAndSms = require('../api/loginAndSms/model/loginAndSmsModel'); // Adjust the path to your model
 
 const validateMerchant = async (req, res, next) => {
 

@@ -17,8 +17,10 @@ const verifyNameRouter = require("./api/verifyPanHolderName/routes/verifyName.ro
 const binRouter = require("./api/BinApi/routes/BinRoutes")
 const jwtauth = require("./middleware/jwt.middleware")
 const validateMerchant = require("./middleware/validation.middleware")
+const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController")
 const helmet = require("helmet")
 const bodyParser = require("body-parser")
+const router = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
 
 const app = express()
 
@@ -65,8 +67,9 @@ app.use('/account',Accountrouter)
 app.use("/name", nameRouter)
 app.use("/verify", verifyNameRouter)
 app.use("/bin", binRouter)
+app.use("/api",router)
 
-const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController")
+
 app.use(exeptionHandling.GlobalExceptionHandling);
 
 app.listen(port, (err) => {

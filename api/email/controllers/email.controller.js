@@ -52,7 +52,6 @@ exports.storeEmail = async (req, res) => {
     console.log('Email stored:', responseAfterSaving);
     }
     // Create a new entry in the emailModel with the provided email and token
-    
 
     // Update the user document with the new email
     const responseAfterUpdate = await merchantModel.updateOne({ token }, { $set: { email } });

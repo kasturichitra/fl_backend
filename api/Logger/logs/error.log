@@ -3,3 +3,9 @@
 2024-12-26T05:01:47.069Z [error]: InternalServiceError
 2024-12-30T12:41:40.791Z [error]: InternalServiceError
 2024-12-30T12:42:24.425Z [error]: InternalServiceError
+2025-01-13T13:01:38.455Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-13T13:01:38.455Z [error]: An unexpected error occurred during order creation.
+2025-01-13T13:08:01.403Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-13T13:08:01.404Z [error]: An unexpected error occurred during order creation.
+2025-01-13T13:08:24.611Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+2025-01-13T13:08:24.612Z [error]: An unexpected error occurred during order creation.

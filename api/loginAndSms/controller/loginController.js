@@ -225,8 +225,11 @@ console.log("req.body==>>",req.body)
 const getUser = async (req,res,next)=>{
 
   const authHeader = req.headers.authorization;
+  console.log(authHeader , "authHeader")
+
 
   const check = await checkingDetails(authHeader , next)
+  console.log(check , "check")
 
   try{
     const storedUser = await loginAndSms.findOne({ token : check });

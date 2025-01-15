@@ -32,13 +32,13 @@ const registerSchema = new mongoose.Schema(
       type: String,
     },
     createdTime: {
-        type: String,
-        default: Date.now,
-      },
-      createdDate: {
-        type: String,
-        default: Date.now,
-      },
+      type: String,
+      default: Date.now,
+    },
+    createdDate: {
+      type: String,
+      default: Date.now,
+    },
   },
   {
     timestamps: true,

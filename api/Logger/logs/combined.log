@@ -208,3 +208,41 @@
 2025-01-10T09:13:02.855Z [info]: existing otp user==>>>
 2025-01-10T10:43:16.682Z [info]: existing otp user==>>>
 2025-01-10T10:48:13.428Z [info]: existing otp user==>>>
+2025-01-10T11:23:44.599Z [info]: client_id, otp in aadhaar otp verification===>
+2025-01-10T11:28:07.203Z [info]: client_id, otp in aadhaar otp verification===>
+2025-01-10T11:28:54.962Z [info]: client_id, otp in aadhaar otp verification===>
+2025-01-10T11:29:31.627Z [info]: existing otp user==>>>
+2025-01-10T11:41:47.706Z [info]: existing otp user==>>>
+2025-01-10T11:46:49.115Z [info]: existing otp user==>>>
+2025-01-10T12:21:01.091Z [info]: existing otp user==>>>
+2025-01-13T04:07:59.976Z [info]: existing otp user==>>>
+2025-01-13T04:10:02.181Z [info]: existing otp user==>>>
+2025-01-13T05:36:22.589Z [info]: existing otp user==>>>
+2025-01-13T05:42:52.186Z [info]: existing otp user==>>>
+2025-01-13T05:45:04.312Z [info]: existing otp user==>>>
+2025-01-13T05:49:51.683Z [info]: existing otp user==>>>
+2025-01-13T05:52:43.615Z [info]: existing otp user==>>>
+2025-01-13T05:57:03.453Z [info]: existing otp user==>>>
+2025-01-13T06:01:23.694Z [info]: existing otp user==>>>
+2025-01-13T06:02:05.986Z [info]: existing otp user==>>>
+2025-01-13T12:10:05.496Z [info]: existing otp user==>>>
+2025-01-13T12:15:54.413Z [info]: existing otp user==>>>
+2025-01-13T12:54:45.086Z [info]: Incoming request to create order with details: {"userid":"user123","amount":1,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":1000,"actualAmount":1000,"subService":"Top_Up","finalPayableAmount":1000}
+2025-01-13T13:01:38.307Z [info]: Incoming request to create order with details: {"userid":"user123","amount":1,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":1000,"actualAmount":1000,"subService":"Top_Up","finalPayableAmount":1000}
+2025-01-13T13:01:38.308Z [info]: Token validation successful createOrder.
+2025-01-13T13:01:38.309Z [info]: Generated receipt number in createOrder: order_rcptid_1736773298309
+2025-01-13T13:01:38.309Z [info]: Creating order with Razorpay API...
+2025-01-13T13:01:38.455Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-13T13:01:38.455Z [error]: An unexpected error occurred during order creation.
+2025-01-13T13:08:01.252Z [info]: Incoming request to create order with details: {"userid":"user123","amount":1,"MerchantId":"MERCHANT93313900","userName":"Vishnu","mobileNumber":"8688571181","chargedAmount":100,"actualAmount":100,"subService":"Top_Up","finalPayableAmount":100}
+2025-01-13T13:08:01.254Z [info]: Token validation successful createOrder.
+2025-01-13T13:08:01.255Z [info]: Generated receipt number in createOrder: order_rcptid_1736773681255
+2025-01-13T13:08:01.256Z [info]: Creating order with Razorpay API...
+2025-01-13T13:08:01.403Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-13T13:08:01.404Z [error]: An unexpected error occurred during order creation.
+2025-01-13T13:08:24.454Z [info]: Incoming request to create order with details: {"userid":"user123","amount":1,"MerchantId":"MERCHANT93313900","userName":"Vishnu","mobileNumber":"8688571181","chargedAmount":100,"actualAmount":100,"subService":"Top_Up","finalPayableAmount":100}
+2025-01-13T13:08:24.456Z [info]: Token validation successful createOrder.
+2025-01-13T13:08:24.456Z [info]: Generated receipt number in createOrder: order_rcptid_1736773704456
+2025-01-13T13:08:24.457Z [info]: Creating order with Razorpay API...
+2025-01-13T13:08:24.611Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+2025-01-13T13:08:24.612Z [error]: An unexpected error occurred during order creation.
