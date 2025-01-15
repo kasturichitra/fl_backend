@@ -1,4 +1,5 @@
 const panverificationModel = require("../models/panverification.model");
+const panDobModel = require("../models/panDob.model");
 const axios = require("axios");
 require("dotenv").config();
 const ServiceTrackingModel = require("../../ServiceTrackingModel/models/ServiceTrackingModel.model");
@@ -136,6 +137,96 @@ exports.verifyPanHolderName = async (req, res, next) => {
       if (panUsername == name) {
       } else {
       }
+    }
+
+    const activeService = await ServiceTrackingModel.findOne({
+      serviceFor: "Pan",
+      serviceStatus: "Active",
+    });
+    console.log("activeService====>", activeService);
+    if (activeService) {
+      if (activeService?.serviceName === "Invincible") {
+        const response = await invinciblePanVerification(
+          panNumber,
+          check,
+          MerchantId
+        );
+        console.log(response);
+        if (response.message == "Valid") {
+          return res.json({ message: response?.result });
+        }
+        if (response.message == "NoDataFound") {
+          let errorMessage = {
+            message: `No Data Found for this panNumber ${panNumber}`,
+            statusCode: 404,
+          };
+          return next(errorMessage);
+        }
+        if (response.message == "NoBalance") {
+          let errorMessage = {
+            message: `No Balance for this verification`,
+            statusCode: 404,
+          };
+          return next(errorMessage);
+        }
+      } else if (activeService?.serviceName === "Zoop") {
+        const response = await zoopPanVerification(
+          panNumber,
+          check,
+          MerchantId
+        );
+        console.log("response from zoop............", response);
+        const username = response?.username;
+        console.log(response);
+        if (response.message == "Valid") {
+          return res.json({ message: response?.result });
+        }
+        if (response.message == "NoDataFound") {
+          let errorMessage = {
+            message: `No Data Found for this panNumber ${panNumber}`,
+            statusCode: 404,
+          };
+          return next(errorMessage);
+        }
+      }
+    } else {
+      console.log("No active service available");
+      let errorMessage = {
+        message: "No Active Service Available",
+        statusCode: 404,
+      };
+      return next(errorMessage);
+    }
+  } catch (err) {}
+};
+exports.dobverify = async (req, res, next) => {
+  const { panNumber } = req.body;
+  console.log("pan number from frontend===>", panNumber);
+
+  if (!panNumber) {
+    let errorMessage = {
+      message: "PAN number is mandatory field",
+      statusCode: 400,
+    };
+    return next(errorMessage);
+  }
+
+  try {
+    const existingPanNumber = await panverificationModel.findOne({
+      panNumber: panNumber,
+    });
+    console.log("existingPanNumber===>", existingPanNumber);
+    if (existingPanNumber) {
+      const userDob = existingPanNumber?.response?.result?.DOB;
+      const newRecord = await panDobModel.create({
+        panNumber : panNumber,
+        response:{
+
+        }, 
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+
+      })
     }
 
     const activeService = await ServiceTrackingModel.findOne({

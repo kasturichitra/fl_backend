@@ -5,6 +5,7 @@ const panverificationController = require('../controllers/panverification.contro
 const panverificationValidator = require("../validations/panverification.validator")
 
 panRouter.post('/panverifying', panverificationValidator.verifyPan , panverificationController.verifyPan);
+panRouter.post('/panHolderNameVerify', panverificationValidator.verifyPanHolderName , panverificationController.verifyPanHolderName);
 panRouter.post('/panHolderNameVerify', panverificationValidator.verifyPanHolderName , panverificationController.verifyPan);
 
 module.exports = panRouter;
