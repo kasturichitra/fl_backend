@@ -39,6 +39,7 @@ exports.createOrder = async (req, res, next) => {
   const date = new Date();
   const formattedDate = date.toLocaleDateString('en-GB');
   const { userid, amount, MerchantId, userName, mobileNumber, chargedAmount, actualAmount, subService, finalPayableAmount} = req.body;
+  // const { userid, amount, MerchantId, userName, mobileNumber } = req.body;
   const authHeader = req.headers.authorization;
   const detailsToSave = req.body;
   const validToken = await checkingDetails(authHeader, next)
@@ -49,7 +50,7 @@ exports.createOrder = async (req, res, next) => {
   if (validToken) {
     logger.info("Token validation successful createOrder.");
     console.log("validToken in create order===>", validToken)
-    let amountInPaise = 0;
+    let amountInPaise = 1;
     if (subService === "Top_Up" || subService === "PRO[T+1]") {
       amountInPaise = Math.round(actualAmount * 100);
     } else {
