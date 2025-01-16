@@ -5,6 +5,8 @@ const RapidApiBankModel =require("../models/BinApiBankModel")
 let RapidApiKey = process.env.RAPIDAPI_KEY
 let RapidApiHost = process.env.RAPIDAPI_BIN_HOST
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST
+
+
 exports.getCardDetailsByNumber = async (req ,res)=>{
     const {bin} = req.body; 
     // const bin = 457704; 
@@ -42,7 +44,6 @@ exports.getCardDetailsByNumber = async (req ,res)=>{
       res.status(500).json({ error: 'Failed to fetch BIN information' });
     }
 }
-
 
 exports.getBankDetailsByIfsc = async (req, res) => {
   const { ifsc } = req.body; // Access the IFSC code from URL parameters

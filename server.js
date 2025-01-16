@@ -20,7 +20,8 @@ const validateMerchant = require("./middleware/validation.middleware")
 const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController")
 const helmet = require("helmet")
 const bodyParser = require("body-parser")
-const router = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
+const UPIrouter = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
+const Emailroutes = require("./api/email/routes/email.route")
 
 const app = express()
 
@@ -67,7 +68,8 @@ app.use('/account',Accountrouter)
 app.use("/name", nameRouter)
 app.use("/verify", verifyNameRouter)
 app.use("/bin", binRouter)
-app.use("/api",router)
+app.use("/upi",UPIrouter)
+app.use("/email", jwtauth, validateMerchant ,Emailroutes)
 
 
 app.use(exeptionHandling.GlobalExceptionHandling);

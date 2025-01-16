@@ -246,3 +246,38 @@
 2025-01-13T13:08:24.457Z [info]: Creating order with Razorpay API...
 2025-01-13T13:08:24.611Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
 2025-01-13T13:08:24.612Z [error]: An unexpected error occurred during order creation.
+2025-01-15T04:17:37.395Z [info]: Incoming request to create order with details: {"userid":"user123","amount":1,"MerchantId":"MERCHANT93313900","userName":"Vishnu","mobileNumber":"8688571181","chargedAmount":100,"actualAmount":100,"subService":"Top_Up","finalPayableAmount":100}
+2025-01-15T04:19:57.370Z [info]: existing otp user==>>>
+2025-01-15T04:22:36.289Z [info]: Incoming request to create order with details: {"userid":"user123","amount":1,"MerchantId":"MERCHANT93313900","userName":"Vishnu","mobileNumber":"8688571181","chargedAmount":100,"actualAmount":100,"subService":"Top_Up","finalPayableAmount":100}
+2025-01-15T04:22:36.290Z [info]: Token validation successful createOrder.
+2025-01-15T04:22:36.290Z [info]: Generated receipt number in createOrder: order_rcptid_1736914956290
+2025-01-15T04:22:36.291Z [info]: Creating order with Razorpay API...
+2025-01-15T04:22:36.918Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-15T04:22:36.919Z [error]: An unexpected error occurred during order creation.
+2025-01-15T04:43:11.172Z [info]: Incoming request to create order with details: {"userid":"12345","amount":5,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"subService":"Top_Up","finalPayableAmount":5}
+2025-01-15T04:43:11.179Z [info]: Token validation successful createOrder.
+2025-01-15T04:43:11.181Z [info]: Generated receipt number in createOrder: order_rcptid_1736916191180
+2025-01-15T04:43:11.185Z [info]: Creating order with Razorpay API...
+2025-01-15T04:43:11.383Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+2025-01-15T04:43:11.385Z [error]: An unexpected error occurred during order creation.
+2025-01-15T05:19:13.525Z [info]: Incoming request to create order with details: {"userid":"12345","amount":5,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"subService":"Top_Up","finalPayableAmount":5}
+2025-01-15T05:19:13.527Z [info]: Token validation successful createOrder.
+2025-01-15T05:19:13.528Z [info]: Generated receipt number in createOrder: order_rcptid_1736918353528
+2025-01-15T05:19:13.529Z [info]: Creating order with Razorpay API...
+2025-01-15T05:19:13.799Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+2025-01-15T05:19:13.801Z [error]: An unexpected error occurred during order creation.
+2025-01-15T05:28:59.599Z [info]: Incoming request to create order with details: {"userid":"12345","amount":5,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"subService":"Top_Up","finalPayableAmount":5}
+2025-01-15T05:28:59.601Z [info]: Token validation successful createOrder.
+2025-01-15T05:28:59.602Z [info]: Generated receipt number in createOrder: order_rcptid_1736918939602
+2025-01-15T05:28:59.602Z [info]: Creating order with Razorpay API...
+2025-01-15T05:29:00.377Z [info]: Order created successfully in createOrder: {"amount":500,"amount_due":500,"amount_paid":0,"attempts":0,"created_at":1736918941,"currency":"INR","entity":"order","id":"order_PjbVDQ9M3Wg626","notes":[],"offer_id":null,"receipt":"order_rcptid_1736918939602","status":"created"}
+2025-01-15T05:29:00.383Z [info]: Order data to save in database in createOrder: {"order_id":"order_PjbVDQ9M3Wg626","amount":"500","reciept_no":"order_rcptid_1736918939602","currency":"INR","status":"created","MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"orderCreationResponse":{"amount":500,"amount_due":500,"amount_paid":0,"attempts":0,"created_at":1736918941,"currency":"INR","entity":"order","id":"order_PjbVDQ9M3Wg626","notes":[],"offer_id":null,"receipt":"order_rcptid_1736918939602","status":"created"},"detailsToSend":{"userid":"12345","amount":5,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"subService":"Top_Up","finalPayableAmount":5},"transactionTime":"10:59:00 AM","transactionDate":"15/01/2025","_id":"6787479c320db8b02900d744"}
+2025-01-15T05:29:00.402Z [info]: Successfully inserted order details into the database in createOrder.
+2025-01-15T06:34:32.758Z [info]: Incoming request to create order with details: {"userid":"12345","amount":5,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"subService":"Top_Up","finalPayableAmount":5}
+2025-01-15T06:34:32.760Z [info]: Token validation successful createOrder.
+2025-01-15T06:34:32.761Z [info]: Generated receipt number in createOrder: order_rcptid_1736922872761
+2025-01-15T06:34:32.761Z [info]: Creating order with Razorpay API...
+2025-01-15T06:34:33.553Z [info]: Order created successfully in createOrder: {"amount":500,"amount_due":500,"amount_paid":0,"attempts":0,"created_at":1736922874,"currency":"INR","entity":"order","id":"order_PjccSc7uGCpX8T","notes":[],"offer_id":null,"receipt":"order_rcptid_1736922872761","status":"created"}
+2025-01-15T06:34:33.566Z [info]: Order data to save in database in createOrder: {"order_id":"order_PjccSc7uGCpX8T","amount":"500","reciept_no":"order_rcptid_1736922872761","currency":"INR","status":"created","MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"orderCreationResponse":{"amount":500,"amount_due":500,"amount_paid":0,"attempts":0,"created_at":1736922874,"currency":"INR","entity":"order","id":"order_PjccSc7uGCpX8T","notes":[],"offer_id":null,"receipt":"order_rcptid_1736922872761","status":"created"},"detailsToSend":{"userid":"12345","amount":5,"MerchantId":"merchant123","userName":"John Doe","mobileNumber":"9876543210","chargedAmount":5,"actualAmount":5,"subService":"Top_Up","finalPayableAmount":5},"transactionTime":"12:04:33 PM","transactionDate":"15/01/2025","_id":"678756f940ece69fb2671d00"}
+2025-01-15T06:34:33.588Z [info]: Successfully inserted order details into the database in createOrder.
+2025-01-15T09:32:46.419Z [info]: existing otp user==>>>
