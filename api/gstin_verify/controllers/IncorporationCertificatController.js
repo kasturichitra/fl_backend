@@ -6,9 +6,9 @@ const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 
 exports.handleCINVerification = async (req, res , next) => {
   const { CIN } = req.body;
-  const authHeader = req.headers.authorization;
-
-  const check = await checkingDetails(authHeader , next)
+  
+  const MerchantId = req.merchantId
+  const check = req.token
 
   if (!CIN) {
     let errorMessage = {
@@ -17,7 +17,6 @@ exports.handleCINVerification = async (req, res , next) => {
     };
     return next(errorMessage);
   }
-  const merchantDetails = await loginAndSms.findOne({ token:check })
 
   const cinDetails = await IncorporationCertificateModel.findOne({ cinNumber : CIN })
 
@@ -59,7 +58,8 @@ exports.handleCINVerification = async (req, res , next) => {
     const newCinVerification = await IncorporationCertificateModel.create({
       response: companyDetails,
       cinNumber: CIN,
-      MerchantId: merchantDetails?.merchantId,
+      token: check,
+      MerchantId: MerchantId,
       createdDate:new Date().toLocaleDateString(),
       createdTime:new Date().toLocaleTimeString()
     });

@@ -13,6 +13,7 @@ exports.getCardDetailsByNumber = async (req ,res)=>{
     console.log("RAPID Bin API HOST =---> ",RapidApiHost)
     console.log("RAPID Bank  API HOST =---> ",RapidApiBankHost)
 
+ 
     const options = {
       method: 'GET',
       url: 'https://bin-info.p.rapidapi.com/bin.php', 
@@ -24,7 +25,15 @@ exports.getCardDetailsByNumber = async (req ,res)=>{
     };
   
     try {
-      const response = await axios.request(options);
+
+      const exsistingDetails = await RapidApiModel.findOne({bin})
+
+      if(exsistingDetails){
+        return res.status(200).json({
+          message : "valid" , success : true , response : exsistingDetails?.response
+         }) 
+      }else{
+        const response = await axios.request(options);
       if(response.statusText === "OK"){
        let saveData =  await RapidApiModel({
           bin: bin,
@@ -37,6 +46,9 @@ exports.getCardDetailsByNumber = async (req ,res)=>{
         }
       }
       res.json(response.data); 
+      }
+  
+      
     } catch (error) {
       console.error('Error fetching BIN info:', error.message);
       res.status(500).json({ error: 'Failed to fetch BIN information' });

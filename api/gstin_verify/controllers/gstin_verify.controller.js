@@ -6,11 +6,9 @@ const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 exports.gstinverify = async (req, res, next) => {
   try {
     const { gstinNumber } = req.body;
-    const authHeader = req.headers.authorization;
 
-    const check = await checkingDetails(authHeader, next);
-
-    const user = await loginAndSms.findOne({ token: check });
+      const MerchantId = req.merchantId
+     const check = req.token
 
     const existingGstin = await gstin_verifyModel.findOne({ gstinNumber });
     console.log(
@@ -61,7 +59,8 @@ exports.gstinverify = async (req, res, next) => {
         const gstinData = {
           gstinNumber,
           response: obj,
-          MerchantId: user.merchantId,
+          token: check,
+          MerchantId: MerchantId,
           companyName: legalName,
           createdDate:new Date().toLocaleDateString(),
           createdTime:new Date().toLocaleTimeString()

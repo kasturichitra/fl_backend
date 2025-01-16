@@ -246,3 +246,7 @@
 2025-01-13T13:08:24.457Z [info]: Creating order with Razorpay API...
 2025-01-13T13:08:24.611Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
 2025-01-13T13:08:24.612Z [error]: An unexpected error occurred during order creation.
+2025-01-15T04:52:15.761Z [info]: existing otp user==>>>
+2025-01-15T05:51:06.338Z [info]: existing otp user==>>>
+2025-01-15T09:54:22.795Z [info]: existing otp user==>>>
+2025-01-15T10:25:47.796Z [info]: existing otp user==>>>

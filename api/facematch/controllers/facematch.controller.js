@@ -23,19 +23,9 @@ exports.facematchapi = async (req, res, next) => {
   try {
     const { userimage, aadharImage } = req.body;
     console.log(userimage , aadharImage )
-    const authHeader = req.headers.authorization;
 
-    const token = await checkingDetails(authHeader, next);
-
-    const merchant = await loginAndSms.findOne({token : token})
-
-    if(!merchant){
-      let errorMessage = {
-        message: "You are not Eligible for this Verification",
-        statusCode: 500,
-      };
-      return next(errorMessage);
-    }
+    const MerchantId = req.merchantId;
+    const check = req.token;
 
     const faceMatchingResponse = await axios.post(
       "https://live.zoop.one/api/v1/in/ml/face/match",
@@ -68,7 +58,8 @@ exports.facematchapi = async (req, res, next) => {
           adhaarimage : aadharImage,
           userimage : userimage,
           response : responseObject,
-          MerchantId : merchant.merchantId,
+          MerchantId : MerchantId,
+          token:check,
           createdDate:new Date().toLocaleDateString(),
           createdTime:new Date().toLocaleTimeString()
         })

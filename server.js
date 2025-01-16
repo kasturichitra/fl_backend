@@ -57,16 +57,16 @@ mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).
 app.use("/registeration", registerationRouter)
 app.use("/login", loginRouter)
 app.use("/pan", jwtauth , validateMerchant , panRouter);
-app.use("/aadhaar",  aadhaarRouter);
+app.use("/aadhaar", jwtauth , validateMerchant ,  aadhaarRouter);
 app.use("/otp", otpRouter);
 app.use("/shop", shopRouter);
-app.use("/gst", gstRouter);
+app.use("/gst",jwtauth , validateMerchant , gstRouter);
 app.use("/service", serviceRouter);
-app.use("/face",faceRouter)
+app.use("/face",jwtauth , validateMerchant ,faceRouter)
 app.use('/account',Accountrouter)
-app.use("/name", nameRouter)
+app.use("/name",jwtauth , validateMerchant , nameRouter)
 app.use("/verify", verifyNameRouter)
-app.use("/bin", binRouter)
+app.use("/bin",jwtauth , validateMerchant , binRouter)
 app.use("/api",router)
 
 

@@ -40,9 +40,8 @@ function levenshteinDistance(a, b) {
 exports.compareNames = async (req, res, next) => {
   try {
     const { firstName, secondName } = req.body;
-    const authHeader = req.headers.authorization;
-
-    const check = await checkingDetails(authHeader , next)
+    const MerchantId = req.merchantId;
+    const check = req.token;
 
     if (!firstName || !secondName) {
         let errorMessage = {
@@ -51,18 +50,6 @@ exports.compareNames = async (req, res, next) => {
         };
         return next(errorMessage);
        }
-
-    const merchantDetails = await loginAndSms.findOne({ token:check });
-
-    const MerchantId = merchantDetails?.merchantId;
-    if (!MerchantId) {
-        let errorMessage = {
-            message: "You are not authorized for this verification",
-            statusCode: 400,
-          };
-          return next(errorMessage);
-    }
-    console.log("merchant id in account===>", MerchantId);
 
     const existingDetails = await comparingNamesModel.findOne({ firstName: firstName , secondName:secondName  });
     if (existingDetails) {
@@ -77,7 +64,7 @@ exports.compareNames = async (req, res, next) => {
       const result = await compareNames(firstName , secondName)
       console.log("======>>>>>result in compareNames" , result)
 
-      if(result > 30){
+      if(result > 60){
         const newSet = await comparingNamesModel.create({
           firstName : firstName,
           secondName : secondName,

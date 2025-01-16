@@ -1,16 +1,52 @@
 const panverificationModel = require("../models/panverification.model");
 const panDobModel = require("../models/panDob.model");
+const panHolderDetails = require("../models/panHolderName.model");
 const axios = require("axios");
 require("dotenv").config();
 const ServiceTrackingModel = require("../../ServiceTrackingModel/models/ServiceTrackingModel.model");
 const logger = require("../../Logger/logger");
 
+function compareNames(fName, sName) {
+  const distance = levenshteinDistance(fName, sName);
+  const maxLength = Math.max(fName.length, sName.length);
+  const similarity = 1 - distance / maxLength;
+  return similarity * 100;
+}
+function levenshteinDistance(a, b) {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  const matrix = [];
+  for (let i = 0; i <= b.length; i++) {
+    matrix[i] = [i];
+  }
+
+  for (let j = 0; j <= a.length; j++) {
+    matrix[0][j] = j;
+  }
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+
+  return matrix[b.length][a.length];
+}
+
 exports.verifyPan = async (req, res, next) => {
   const { panNumber } = req.body;
   console.log("pan number from frontend===>", panNumber);
 
-  const MerchantId = req.merchantId
-  const check = req.token
+  const MerchantId = req.merchantId;
+  const check = req.token;
 
   if (!panNumber) {
     let errorMessage = {
@@ -117,7 +153,9 @@ exports.verifyPan = async (req, res, next) => {
 exports.verifyPanHolderName = async (req, res, next) => {
   const { panNumber, name } = req.body;
   console.log("pan number from frontend===>", panNumber);
-  const authHeader = req.headers.authorization;
+
+  const MerchantId = req.merchantId;
+  const check = req.token;
 
   if (!panNumber || !name) {
     let errorMessage = {
@@ -131,77 +169,170 @@ exports.verifyPanHolderName = async (req, res, next) => {
     const existingPanNumber = await panverificationModel.findOne({
       panNumber: panNumber,
     });
-    console.log("existingPanNumber===>", existingPanNumber);
-    if (existingPanNumber) {
-      const panUsername = existingPanNumber?.userName;
-      if (panUsername == name) {
-      } else {
-      }
-    }
-
-    const activeService = await ServiceTrackingModel.findOne({
-      serviceFor: "Pan",
-      serviceStatus: "Active",
+    const existingPanHolderName = await panHolderDetails.findOne({
+      panNumber: panNumber,
     });
-    console.log("activeService====>", activeService);
-    if (activeService) {
-      if (activeService?.serviceName === "Invincible") {
-        const response = await invinciblePanVerification(
-          panNumber,
-          check,
-          MerchantId
-        );
-        console.log(response);
-        if (response.message == "Valid") {
-          return res.json({ message: response?.result });
-        }
-        if (response.message == "NoDataFound") {
+    console.log("existingPanNumber===>", existingPanNumber);
+    const panUsername = existingPanNumber?.userName;
+    console.log("==============>>>>", panUsername);
+    if (existingPanNumber && !existingPanHolderName) {
+      console.log("single having");
+      if (panUsername == name) {
+        console.log("new record");
+        const newData = await panHolderDetails.create({
+          panNumber: panNumber,
+          verificationName: name,
+          result: `Your name is exactly matched with your pan card Name`,
+          token: check,
+          MerchantId: MerchantId,
+          responseData: existingPanNumber?.response,
+          createdDate: new Date().toLocaleDateString(),
+          createdTime: new Date().toLocaleTimeString(),
+        });
+        console.log("new Record Saved");
+
+        return res.status(200).json({
+          success: true,
+          message: "valid",
+          response: newData?.result,
+        });
+      } else{
+        console.log("panUsernnnnnnname===>>", panUsername);
+        const result = compareNames(panUsername, name);
+
+        if (result > 80) {
+          console.log("if====>>>");
+          const comparedData = await panHolderDetails.create({
+            panNumber: panNumber,
+            verificationName: name,
+            result: `Your name is matched with your pan card Name with accuracy ${result}`,
+            token: check,
+            MerchantId: MerchantId,
+            responseData: existingPanNumber?.response,
+            createdDate: new Date().toLocaleDateString(),
+            createdTime: new Date().toLocaleTimeString(),
+          });
+          res.status(200).json({
+            success: true,
+            message: "valid",
+            response: comparedData?.result,
+          });
+        }else{
+          console.log("elseeeeee===>>", result);
+
           let errorMessage = {
-            message: `No Data Found for this panNumber ${panNumber}`,
+            message: `No Match Found Between the Names`,
             statusCode: 404,
           };
           return next(errorMessage);
         }
-        if (response.message == "NoBalance") {
-          let errorMessage = {
-            message: `No Balance for this verification`,
-            statusCode: 404,
-          };
-          return next(errorMessage);
-        }
-      } else if (activeService?.serviceName === "Zoop") {
-        const response = await zoopPanVerification(
-          panNumber,
-          check,
-          MerchantId
-        );
-        console.log("response from zoop............", response);
-        const username = response?.username;
-        console.log(response);
-        if (response.message == "Valid") {
-          return res.json({ message: response?.result });
-        }
-        if (response.message == "NoDataFound") {
-          let errorMessage = {
-            message: `No Data Found for this panNumber ${panNumber}`,
-            statusCode: 404,
-          };
-          return next(errorMessage);
-        }
+        console.log("end of iffff===>>", result);
+      }
+    } else if (existingPanNumber && existingPanHolderName) {
+      if( name === existingPanHolderName?.verificationName){
+        const resultedData = existingPanHolderName?.result;
+        return res.status(200).json({
+          success: true,
+          message: "valid",
+          response: resultedData,
+        });
+      }else{
+        
+        let errorMessage = {
+          message: `No Match Found Between the Names`,
+          statusCode: 404,
+        };
+        return next(errorMessage);
       }
     } else {
-      console.log("No active service available");
+      const activeService = await ServiceTrackingModel.findOne({
+        serviceFor: "Pan",
+        serviceStatus: "Active",
+      });
+      console.log("activeService====>", activeService);
+      if (activeService) {
+        if (activeService?.serviceName === "Invincible") {
+          const response = await invinciblePanVerification(
+            panNumber,
+            check,
+            MerchantId
+          );
+          console.log(response);
+          if (response.message == "Valid") {
+            return res.json({ message: response?.result });
+          }
+          if (response.message == "NoDataFound") {
+            let errorMessage = {
+              message: `No Data Found for this panNumber ${panNumber}`,
+              statusCode: 404,
+            };
+            return next(errorMessage);
+          }
+          if (response.message == "NoBalance") {
+            let errorMessage = {
+              message: `No Balance for this verification`,
+              statusCode: 404,
+            };
+            return next(errorMessage);
+          }
+        } else if (activeService?.serviceName === "Zoop") {
+          const response = await zoopPanVerification(
+            panNumber,
+            check,
+            MerchantId
+          );
+          console.log("response from zoop............", response);
+          const username = response?.username;
+          console.log(response);
+          if (response.message == "Valid") {
+            res.json({ message: response?.result });
+          }
+          if (response.message == "NoDataFound") {
+            let errorMessage = {
+              message: `No Data Found for this panNumber ${panNumber}`,
+              statusCode: 404,
+            };
+            return next(errorMessage);
+          }
+        }
+      } else {
+        console.log("No active service available");
+        let errorMessage = {
+          message: "No Active Service Available",
+          statusCode: 404,
+        };
+        return next(errorMessage);
+      }
+    }
+  } catch (error) {
+    console.log("Error in PAN verification:", error);
+    if (error.response) {
       let errorMessage = {
-        message: "No Active Service Available",
-        statusCode: 404,
+        message: error?.response?.data,
+        statusCode: 500,
+      };
+      return next(errorMessage);
+    } else if (error.request) {
+      let errorMessage = {
+        message: "No response received from server",
+        statusCode: 500,
+      };
+      return next(errorMessage);
+    } else {
+      let errorMessage = {
+        message: "Error in PAN verification Try again after some time",
+        statusCode: 500,
       };
       return next(errorMessage);
     }
-  } catch (err) {}
+  }
 };
+
 exports.dobverify = async (req, res, next) => {
   const { panNumber } = req.body;
   console.log("pan number from frontend===>", panNumber);
+  const MerchantId = req.merchantId;
+  const check = req.token;
 
   if (!panNumber) {
     let errorMessage = {
@@ -216,78 +347,129 @@ exports.dobverify = async (req, res, next) => {
       panNumber: panNumber,
     });
     console.log("existingPanNumber===>", existingPanNumber);
-    if (existingPanNumber) {
+    const dobExisting = await panDobModel.findOne({
+      panNumber: panNumber,
+    });
+    if (existingPanNumber && !dobExisting) {
       const userDob = existingPanNumber?.response?.result?.DOB;
+      const Data = existingPanNumber?.response?.result;
       const newRecord = await panDobModel.create({
-        panNumber : panNumber,
-        response:{
-
-        }, 
+        panNumber: panNumber,
+        responseData: Data,
+        token: check,
+        MerchantId: MerchantId,
+        result: `Your Date of Birth in Pan is ${userDob}`,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
-
-      })
-    }
-
-    const activeService = await ServiceTrackingModel.findOne({
-      serviceFor: "Pan",
-      serviceStatus: "Active",
-    });
-    console.log("activeService====>", activeService);
-    if (activeService) {
-      if (activeService?.serviceName === "Invincible") {
-        const response = await invinciblePanVerification(
-          panNumber,
-          check,
-          MerchantId
-        );
-        console.log(response);
-        if (response.message == "Valid") {
-          return res.json({ message: response?.result });
-        }
-        if (response.message == "NoDataFound") {
-          let errorMessage = {
-            message: `No Data Found for this panNumber ${panNumber}`,
-            statusCode: 404,
-          };
-          return next(errorMessage);
-        }
-        if (response.message == "NoBalance") {
-          let errorMessage = {
-            message: `No Balance for this verification`,
-            statusCode: 404,
-          };
-          return next(errorMessage);
-        }
-      } else if (activeService?.serviceName === "Zoop") {
-        const response = await zoopPanVerification(
-          panNumber,
-          check,
-          MerchantId
-        );
-        console.log("response from zoop............", response);
-        const username = response?.username;
-        console.log(response);
-        if (response.message == "Valid") {
-          return res.json({ message: response?.result });
-        }
-        if (response.message == "NoDataFound") {
-          let errorMessage = {
-            message: `No Data Found for this panNumber ${panNumber}`,
-            statusCode: 404,
-          };
-          return next(errorMessage);
-        }
-      }
+      });
+      res
+        .status(200)
+        .json({ message: "valid", success: true, response: newRecord });
+    } else if (existingPanNumber && dobExisting) {
+      const resp = dobExisting?.result;
+      res
+        .status(200)
+        .json({ message: { message: "valid", success: true, result: resp } });
     } else {
-      console.log("No active service available");
+      const activeService = await ServiceTrackingModel.findOne({
+        serviceFor: "Pan",
+        serviceStatus: "Active",
+      });
+      console.log("activeService====>", activeService);
+      if (activeService) {
+        if (activeService?.serviceName === "Invincible") {
+          const response = await invinciblePanVerification(
+            panNumber,
+            check,
+            MerchantId
+          );
+          console.log(response);
+          if (response.message == "Valid") {
+            const newRecord = await panDobModel.create({
+              panNumber: panNumber,
+              responseData: response?.result?.result,
+              token: check,
+              MerchantId: MerchantId,
+              result: `Your Date of Birth in Pan is ${response?.result?.result?.DOB}`,
+              createdDate: new Date().toLocaleDateString(),
+              createdTime: new Date().toLocaleTimeString(),
+            });
+            res.json({ response: newRecord });
+          }
+          if (response.message == "NoDataFound") {
+            let errorMessage = {
+              message: `No Data Found for this panNumber ${panNumber}`,
+              statusCode: 404,
+            };
+            return next(errorMessage);
+          }
+          if (response.message == "NoBalance") {
+            let errorMessage = {
+              message: `No Balance for this verification`,
+              statusCode: 404,
+            };
+            return next(errorMessage);
+          }
+        } else if (activeService?.serviceName === "Zoop") {
+          const response = await zoopPanVerification(
+            panNumber,
+            check,
+            MerchantId
+          );
+          console.log("response from zoop............", response);
+          const username = response?.username;
+          console.log(response);
+          if (response.message == "Valid") {
+            const newRecord = await panDobModel.create({
+              panNumber: panNumber,
+              responseData: response?.result?.result,
+              token: check,
+              MerchantId: MerchantId,
+              result: `Your Date of Birth in Pan is ${response?.result?.result?.DOB}`,
+              createdDate: new Date().toLocaleDateString(),
+              createdTime: new Date().toLocaleTimeString(),
+            });
+            res.json({ response: newRecord });
+          }
+          if (response.message == "NoDataFound") {
+            let errorMessage = {
+              message: `No Data Found for this panNumber ${panNumber}`,
+              statusCode: 404,
+            };
+            return next(errorMessage);
+          }
+        }
+      } else {
+        console.log("No active service available");
+        let errorMessage = {
+          message: "No Active Service Available",
+          statusCode: 404,
+        };
+        return next(errorMessage);
+      }
+    }
+  } catch (error) {
+    console.log("Error in PAN verification:", error);
+    if (error.response) {
       let errorMessage = {
-        message: "No Active Service Available",
-        statusCode: 404,
+        message: error?.response?.data,
+        statusCode: 500,
+      };
+      return next(errorMessage);
+    } else if (error.request) {
+      let errorMessage = {
+        message: "No response received from server",
+        statusCode: 500,
+      };
+      return next(errorMessage);
+    } else {
+      let errorMessage = {
+        message: "Error in PAN verification Try again after some time",
+        statusCode: 500,
       };
       return next(errorMessage);
     }
-  } catch (err) {}
+  }
 };
 
 async function invinciblePanVerification(panNumber, token, MerchantId) {

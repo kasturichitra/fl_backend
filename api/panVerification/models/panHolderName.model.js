@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const panDobDetails = new mongoose.Schema({
+const panHolderDetails = new mongoose.Schema({
   panNumber: {
     type: String,
   },
@@ -17,6 +17,9 @@ const panDobDetails = new mongoose.Schema({
   MerchantId: {
     type: Object,
   },
+  verificationName:{
+    type:String
+  },
   createdTime: {
     type: String,
     default: Date.now,
@@ -31,4 +34,4 @@ const panDobDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panDobDetails", panDobDetails);
+module.exports = mongoose.model("panHolderDetails", panHolderDetails);

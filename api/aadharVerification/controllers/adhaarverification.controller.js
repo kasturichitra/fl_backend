@@ -12,8 +12,8 @@ exports.sentadhaarotp = async (req, res, next) => {
   const { aadharNumber } = req.body;
   console.log("aadharNumber from frontend:", aadharNumber);
 
-  const authHeader = req.headers.authorization;
-  const check = await checkingDetails(authHeader , next)
+  const check = req.token
+
   const hashCode = "drGxU6kMCwN";
 
   const activeService = await ServiceTrackingModelModel.findOne({ serviceFor: "Aadhar", serviceStatus: "Active" });
@@ -176,12 +176,14 @@ async function ZoopAadharSendOtp(aadharNumber, hashCode, token) {
 }
 
 exports.adhaarotpverify = async (req, res , next) => {
+  const MerchantId = req.merchantId
+
   try {
     const { client_id, otp, task_id, aadharNumber } = req.body;
-    const authHeader = req.headers.authorization;
     console.log("client_id, otp in aadhaar otp verification===>", client_id, otp)
     logger.info("client_id, otp in aadhaar otp verification===>", client_id, otp)
-    const check = await checkingDetails(authHeader , next)
+
+    const check = req.token
     if (!client_id || !otp) {
       let errorMessage = {
         message: "client_id and otp are required",
@@ -191,23 +193,6 @@ exports.adhaarotpverify = async (req, res , next) => {
 
     }
     console.log(check , "check")
-    const merchant = await loginAndSms.findOne({ token : check });
-    if (!merchant) {
-      let errorMessage = {
-        message: "User not found",
-        statusCode: 404,
-      };
-      return next(errorMessage);
-    }
-    const MerchantId = merchant.merchantId;
-
-    if (!MerchantId) {
-      let errorMessage = {
-        message: "merchant ID not found for the user",
-        statusCode: 404,
-      };
-      return next(errorMessage);
-    }
 
     if(MerchantId){
       const activeService = await ServiceTrackingModelModel.findOne({ serviceFor: "Aadhar", serviceStatus: "Active" })
