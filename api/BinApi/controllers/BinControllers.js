@@ -29,7 +29,7 @@ exports.getCardDetailsByNumber = async (req ,res)=>{
     try {
 
       const exsistingDetails = await RapidApiModel.findOne({bin})
-
+      console.log("==============================>>>>>bin existing" , exsistingDetails)
       if(exsistingDetails){
         return res.status(200).json({
           message : "valid" , success : true , response : exsistingDetails?.response
@@ -47,7 +47,9 @@ exports.getCardDetailsByNumber = async (req ,res)=>{
           console.log("Data save to db successfully ")
         }
       }
-      res.json(response.data); 
+      return res.status(200).json({
+        message : "valid" , success : true , response : response?.data
+       })
       }
   
       
@@ -74,20 +76,32 @@ exports.getBankDetailsByIfsc = async (req, res) => {
   };
 
   try {
-    const response = await axios.request(options);
+      const existingBankDetails = await RapidApiBankModel.findOne({Ifsc : ifsc})
+
+      if(existingBankDetails){
+        return res.status(200).json({
+          message : "valid" , success : true , response : existingBankDetails?.response
+         }) 
+      }else{
+        const response = await axios.request(options);
   
-      if(response.statusText === "OK"){
-        let saveData =  await RapidApiBankModel({
-           Ifsc: ifsc,
-           response: response.data
-         })
-         let done = await saveData.save();
-         if(done){
-           console.log("Bank Data save to db successfully ")
+        if(response.statusText === "OK"){
+          let saveData =  await RapidApiBankModel({
+             Ifsc: ifsc,
+             response: response.data
+           })
+           let done = await saveData.save();
+           if(done){
+             console.log("Bank Data save to db successfully ")
+           }
          }
-       }
-      console.log('Bank details fetched successfully:', response.data);
-      res.json(response.data);
+        console.log('Bank details fetched successfully:', response.data);
+        return res.status(200).json({
+          message : "valid" , success : true , response : response?.data
+         }) 
+      }
+
+
    
   } catch (error) {
     console.error('Error fetching Bank info:', error.message);

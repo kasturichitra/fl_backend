@@ -22,6 +22,7 @@ const helmet = require("helmet")
 const bodyParser = require("body-parser")
 const UPIrouter = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
 const Emailroutes = require("./api/email/routes/email.route")
+const testingApiRouter = require("./api/testing_api_keys/routes/testing.route")
 
 const app = express()
 
@@ -70,6 +71,7 @@ app.use("/verify", verifyNameRouter)
 app.use("/bin",jwtauth, validateMerchant, binRouter)
 app.use("/upi",UPIrouter)
 app.use("/email", jwtauth, validateMerchant ,Emailroutes)
+app.use("/key",jwtauth , validateMerchant , testingApiRouter)
 
 
 app.use(exeptionHandling.GlobalExceptionHandling);
