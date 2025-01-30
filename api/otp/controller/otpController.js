@@ -6,23 +6,18 @@ const logger = require("../../Logger/logger");
 const checkingDetails = require("../../../utlis/authorization");
 
 dotenv.config();
-const {
-  DOVE_SOFT_USER,
-  DOVE_SOFT_KEY,
-  DOVE_SOFT_API_URL,
-  DOVE_SOFT_ENTITYID,
-  DOVE_SOFT_TEMPID,
-  DOVE_SOFT_SENDERID,
-} = process.env;
+
+const { DOVE_SOFT_USER, DOVE_SOFT_KEY, DOVE_SOFT_API_URL, DOVE_SOFT_ENTITYID, DOVE_SOFT_TEMPID, DOVE_SOFT_SENDERID } = process.env;
+
+
 
 const sendSMS = async (mobileNumber, message) => {
   try {
     let config = {
-      method: "get",
+      method: 'get',
       url: `${DOVE_SOFT_API_URL}&user=${DOVE_SOFT_USER}&key=${DOVE_SOFT_KEY}&mobile=+91${mobileNumber}&message=${message}&senderid=${DOVE_SOFT_SENDERID}&accusage=1&entityid=${DOVE_SOFT_ENTITYID}&tempid=${DOVE_SOFT_TEMPID}`,
     };
     const response = await axios.request(config);
-    console.log(response);
     console.log("SMS Service Response:", response.data);
     return response.data; // Return the response data to be stored
   } catch (error) {
@@ -45,7 +40,6 @@ const getOTP = async (mNo) => {
 
 const handleOTPSend = async (user, mobileNumber, token, res, next) => {
   const { merchantId } = user;
-
   try {
     // Generate OTP and message
     const otp = Math.floor(1000 + Math.random() * 9000).toString();

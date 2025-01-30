@@ -9,9 +9,9 @@ const { response } = require("express");
 exports.handleCreateShopEstablishment = async (req, res, next) => {
   const { registrationNumber, state } = req.body;
   console.log("registrationNumber===>", registrationNumber);
-  const authHeader = req.headers.authorization;
-
-  const check = await checkingDetails(authHeader, next);
+    
+  const MerchantId = req.merchantId;
+  const check = req.token;
 
   try {
     const existingDetails = await shopestablishmentModel.findOne({
@@ -59,19 +59,14 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
           "Invalid response structure: Missing shopName or shopAddress"
         );
       }
-      const merchant = await loginAndSms.findOne({ token: check });
-      console.log(
-        "merchant==============================>",
-        merchant?.merchantId
-      );
       const shopest = {
         registrationNumber,
         state,
         response: responseData,
-        token,
+        token:check,
         shopName,
         shopAddress,
-        MerchantId: merchant?.merchantId,
+        MerchantId: MerchantId,
         createdDate:new Date().toLocaleDateString(),
         createdTime:new Date().toLocaleTimeString()
       };

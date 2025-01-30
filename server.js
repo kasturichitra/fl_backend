@@ -60,7 +60,7 @@ app.use("/login", loginRouter)
 app.use("/pan", jwtauth , validateMerchant , panRouter);
 app.use("/aadhaar", jwtauth , validateMerchant ,  aadhaarRouter);
 app.use("/otp", otpRouter);
-app.use("/shop", shopRouter);
+app.use("/shop",jwtauth , validateMerchant , shopRouter);
 app.use("/gst",jwtauth , validateMerchant , gstRouter);
 app.use("/service", serviceRouter);
 app.use("/face",jwtauth , validateMerchant ,faceRouter)

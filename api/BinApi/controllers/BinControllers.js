@@ -58,12 +58,15 @@ exports.getCardDetailsByNumber = async (req ,res)=>{
 }
 
 exports.getBankDetailsByIfsc = async (req, res) => {
-  const { ifsc } = req.body; // Access the IFSC code from URL parameters
+  const { ifsc } = req.body; 
+
   console.log('IFSC Code:', ifsc);
+  // const MerchantId = req.merchantId;
+  // const check = req.token;
 
   const options = {
     method: 'GET',
-    url: `https://ifsc-lookup-api.p.rapidapi.com/${ifsc}`, // Use the correct URL format
+    url: `https://ifsc-lookup-api.p.rapidapi.com/${ifsc}`,
     headers: {
       'x-rapidapi-key': RapidApiKey,
       'x-rapidapi-host': RapidApiBankHost,
