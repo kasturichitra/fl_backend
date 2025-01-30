@@ -6,6 +6,12 @@ const RapidApiModel = mongoose.Schema({
     },
     response :{
         type :Object
+    },
+    token:{
+        type: String
+    },
+    MerchantId:{
+        type:String
     }
 
 },{timestamps : true})

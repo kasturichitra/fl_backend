@@ -4,6 +4,9 @@ const testingApiKeys = new mongoose.Schema({
     MerchantId:{
         type:String
     },
+    token:{
+        type:String
+    },
     service:{
         type:String
     },
