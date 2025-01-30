@@ -5,7 +5,6 @@ const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/Ser
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel")
 const invincibleClientId = process.env.INVINCIBLE_CLIENT_ID
 const invincibleSecretKey = process.env.INVINCIBLE_SECRET_KEY
-const checkingDetails = require("../../../utlis/authorization");
 const logger = require("../../Logger/logger");
 
 exports.sentadhaarotp = async (req, res, next) => {
@@ -64,10 +63,6 @@ async function invincibleAadharSendOtp(aadharNumber, hashCode, token) {
 
     const clientId = details.data.result.data.client_id;
     console.log("aadhar response from servcice=====>", details.data)
-    const merchant = await loginAndSms.findOne({ token : token });
-    if (!merchant) {
-      return ({ message: 'merchant not found' });
-    }
     const MerchantId = merchant.merchantId;
     console.log("aadhaar verify MerchantId", MerchantId);
 
@@ -129,10 +124,6 @@ async function ZoopAadharSendOtp(aadharNumber, hashCode, token) {
     console.log('Response from Aadhaar verification API in Zoop:', responseData);
 
     if (responseData) {
-      const merchant = await panverificationModel.findOne({ token : token });
-      if (!merchant) {
-        return { status: 0, message: 'Merchant not found' };
-      }
       const MerchantId = merchant.MerchantId;
       const detailsToSend = {
         aadharNumber,
@@ -206,7 +197,7 @@ exports.adhaarotpverify = async (req, res , next) => {
       }
       console.log("activeService in aadhar===>", activeService)
       if (activeService.serviceName === "Invincible") {
-        const response = await invincibleAadharOtpVerify(client_id, otp, check, MerchantId,aadharNumber, task_id)
+        const response = await invincibleAadharOtpVerify(client_id, otp, aadharNumber, check, MerchantId, task_id)
         console.log("response after verfying aadhar otp====>", response)
         if (response.message === "Otp Verified Successfully") {
           return res.status(200).json( response );
@@ -241,7 +232,7 @@ exports.adhaarotpverify = async (req, res , next) => {
         }
       }
       else if (activeService.serviceName === "Zoop") {
-        const response = await ZoopOtpVerify(client_id, otp, check, MerchantId,aadharNumber, task_id)
+        const response = await ZoopOtpVerify(client_id, otp, aadharNumber, check, MerchantId, task_id)
         console.log("response after verfying aadhar otp in zoop===>", response)
         if (response.message === "Otp Verified Successfully") {
           return res.status(200).json( response );
@@ -289,7 +280,7 @@ exports.adhaarotpverify = async (req, res , next) => {
   }
 };
 
-async function invincibleAadharOtpVerify(client_id, otp, aadharNumber, task_id) {
+async function invincibleAadharOtpVerify(client_id, otp, aadharNumber, token, MerchantId, task_id) {
   const requestData = { client_id, otp };
   try {
     console.log("hello")
@@ -352,7 +343,7 @@ async function invincibleAadharOtpVerify(client_id, otp, aadharNumber, task_id) 
     }
   }
 }
-async function ZoopOtpVerify(client_id, otp, token, MerchantId, aadharNumber, task_id) {
+async function ZoopOtpVerify(client_id, otp, aadharNumber,  token, MerchantId, task_id) {
   try {
     const response = await axios.post('https://live.zoop.one/in/identity/okyc/otp/verify', {
       data: {
@@ -423,32 +414,5 @@ async function ZoopOtpVerify(client_id, otp, token, MerchantId, aadharNumber, ta
   }
 }
 
-function levenshteinDistance(a, b) {
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
 
-  const matrix = [];
-  for (let i = 0; i <= b.length; i++) {
-    matrix[i] = [i];
-  }
-
-  for (let j = 0; j <= a.length; j++) {
-    matrix[0][j] = j;
-  }
-  for (let i = 1; i <= b.length; i++) {
-    for (let j = 1; j <= a.length; j++) {
-      if (b.charAt(i - 1) === a.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-
-  return matrix[b.length][a.length];
-}
 

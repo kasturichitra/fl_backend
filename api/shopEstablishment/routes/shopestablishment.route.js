@@ -5,7 +5,7 @@ const shopestablishmentController = require('../controllers/shopestablishment.co
 const shopestablishmentValidator = require('../validations/shopestablishment.validator');
 
 //router.post('/createShopEstablishment', shopestablishmentValidator.createShopEstablishment,shopestablishmentController.createShopEstablishment);
-shopRouter.post("/shopest",shopestablishmentValidator.handleCreateShopEstablishment,shopestablishmentController.handleCreateShopEstablishment)
+shopRouter.post("/shopest",shopestablishmentController.handleCreateShopEstablishment)
 
 module.exports = shopRouter;
  

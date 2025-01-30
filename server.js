@@ -21,6 +21,7 @@ const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionH
 const helmet = require("helmet")
 const bodyParser = require("body-parser")
 const router = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
+const testingApiRouter = require("./api/testing_api_keys/routes/testing.route")
 
 const app = express()
 
@@ -67,6 +68,7 @@ app.use('/account',Accountrouter)
 app.use("/name",jwtauth , validateMerchant , nameRouter)
 app.use("/verify", verifyNameRouter)
 app.use("/bin",jwtauth , validateMerchant , binRouter)
+app.use("/key",jwtauth , validateMerchant , testingApiRouter)
 app.use("/api",router)
 
 
