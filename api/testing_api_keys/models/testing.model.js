@@ -10,10 +10,10 @@ const testingApiKeys = new mongoose.Schema({
     service:{
         type:String
     },
-    test_key:{
+    client_id:{
         type:String
     },
-    test_salt:{
+    secret_key:{
         type:String
     },
     limit:{

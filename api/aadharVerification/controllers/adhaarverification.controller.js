@@ -12,6 +12,7 @@ exports.sentadhaarotp = async (req, res, next) => {
   console.log("aadharNumber from frontend:", aadharNumber);
 
   const check = req.token
+  const MerchantId = req.MerchantId
 
   const hashCode = "drGxU6kMCwN";
 
@@ -27,12 +28,12 @@ exports.sentadhaarotp = async (req, res, next) => {
   }
 
   if (activeService?.serviceName === "Invincible") {
-    const response = await invincibleAadharSendOtp(aadharNumber, hashCode, check);
+    const response = await invincibleAadharSendOtp(aadharNumber, hashCode, check, MerchantId);
     console.log("Response after verifying Aadhaar number in Invincible:", response);
     return res.json(response);
   } else if (activeService.serviceName === "Zoop") {
     console.log("Verifying Aadhaar from Zoop");
-    const response = await ZoopAadharSendOtp(aadharNumber, hashCode, check);
+    const response = await ZoopAadharSendOtp(aadharNumber, hashCode, check, MerchantId);
     console.log("Response after verifying Aadhaar number in Zoop:", response);
     return res.json(response);
   } else {
@@ -43,7 +44,7 @@ exports.sentadhaarotp = async (req, res, next) => {
     return next(errorMessage)
   }
 };
-async function invincibleAadharSendOtp(aadharNumber, hashCode, token) {
+async function invincibleAadharSendOtp(aadharNumber, hashCode, token, MerchantId) {
   const aadharDetails = {
     aadhaarNumber: aadharNumber,
   }
@@ -63,7 +64,6 @@ async function invincibleAadharSendOtp(aadharNumber, hashCode, token) {
 
     const clientId = details.data.result.data.client_id;
     console.log("aadhar response from servcice=====>", details.data)
-    const MerchantId = merchant.merchantId;
     console.log("aadhaar verify MerchantId", MerchantId);
 
     const detailsToSend = {
@@ -98,7 +98,7 @@ async function invincibleAadharSendOtp(aadharNumber, hashCode, token) {
 
   }
 }
-async function ZoopAadharSendOtp(aadharNumber, hashCode, token) {
+async function ZoopAadharSendOtp(aadharNumber, hashCode, token, MerchantId) {
   try {
     const response = await axios.post('https://live.zoop.one/in/identity/okyc/otp/request', {
       mode: 'sync',
@@ -124,7 +124,6 @@ async function ZoopAadharSendOtp(aadharNumber, hashCode, token) {
     console.log('Response from Aadhaar verification API in Zoop:', responseData);
 
     if (responseData) {
-      const MerchantId = merchant.MerchantId;
       const detailsToSend = {
         aadharNumber,
         request_id: responseData?.request_id,
@@ -168,6 +167,7 @@ async function ZoopAadharSendOtp(aadharNumber, hashCode, token) {
 
 exports.adhaarotpverify = async (req, res , next) => {
   const MerchantId = req.merchantId
+  const check = req.token
 
   try {
     const { client_id, otp, task_id, aadharNumber } = req.body;

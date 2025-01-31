@@ -260,6 +260,7 @@ const getUser = async (req,res,next)=>{
       mobileNumber : foundUser?.mobileNumber,
       companyName : foundUser?.companyName,
       createdDate : foundUser?.createdDate,
+      MerchantId : foundUser?.merchantId,
     }
 
     res.status(200).json({message:"valid" , success:true , response:foundUserResponse})
