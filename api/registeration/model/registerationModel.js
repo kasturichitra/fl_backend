@@ -25,7 +25,7 @@ const registerSchema = new mongoose.Schema(
       unique: true,
     },
     ipAddress: {
-      type: String,
+      type: [],
       default: null,
     },
     companyName: {

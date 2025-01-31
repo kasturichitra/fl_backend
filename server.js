@@ -23,12 +23,22 @@ const bodyParser = require("body-parser")
 const UPIrouter = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
 const Emailroutes = require("./api/email/routes/email.route")
 const testingApiRouter = require("./api/testing_api_keys/routes/testing.route")
+const checkWhitelist = require('./middleware/IPAddresswhitelist.middleware')
+const ipRouter = require("./api/whitelistapi/routes/whitelistApi.routes")
 
 const app = express()
 
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
-app.use(cors())
+
+// const corsOptions = {
+//   origin: ['http://127.0.0.1:3000'], // List allowed IPs or domains
+//   methods: ['GET', 'POST'],
+//   allowedHeaders: ['Content-Type', 'Authorization'],
+// };
+
+// app.use(cors(corsOptions));
+app.use(cors());
 dotenv.config()
 const port = process.env.PORT
 
@@ -56,22 +66,23 @@ mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).
     console.log("DB Connection Failed", err)
 })
 
-app.use("/registeration", registerationRouter)
-app.use("/login", loginRouter)
-app.use("/pan", jwtauth , validateMerchant , panRouter);
-app.use("/aadhaar", jwtauth , validateMerchant ,  aadhaarRouter);
-app.use("/otp", otpRouter);
-app.use("/shop",jwtauth , validateMerchant , shopRouter);
-app.use("/gst",jwtauth , validateMerchant , gstRouter);
-app.use("/service", serviceRouter);
-app.use("/face",jwtauth , validateMerchant ,faceRouter)
-app.use('/account',Accountrouter)
-app.use("/name",jwtauth , validateMerchant , nameRouter)
-app.use("/verify", verifyNameRouter)
-app.use("/bin",jwtauth, validateMerchant, binRouter)
-app.use("/upi",UPIrouter)
-app.use("/email", jwtauth, validateMerchant ,Emailroutes)
-app.use("/key",jwtauth , validateMerchant , testingApiRouter)
+app.use("/registeration", checkWhitelist, registerationRouter)
+app.use("/login",checkWhitelist, loginRouter)
+app.use("/pan", checkWhitelist, jwtauth , validateMerchant , panRouter);
+app.use("/aadhaar",checkWhitelist, jwtauth , validateMerchant ,  aadhaarRouter);
+app.use("/otp",checkWhitelist, otpRouter);
+app.use("/shop", checkWhitelist, jwtauth , validateMerchant , shopRouter);
+app.use("/gst", checkWhitelist, jwtauth , validateMerchant , gstRouter);
+app.use("/service",checkWhitelist, serviceRouter);
+app.use("/face",checkWhitelist, jwtauth , validateMerchant ,faceRouter)
+app.use('/account',checkWhitelist, jwtauth , validateMerchant ,Accountrouter)
+app.use("/name",checkWhitelist,jwtauth , validateMerchant , nameRouter)
+app.use("/verify",checkWhitelist, verifyNameRouter)
+app.use("/bin" ,checkWhitelist,jwtauth, validateMerchant, binRouter)
+app.use("/upi", checkWhitelist, UPIrouter)
+app.use("/email",checkWhitelist, jwtauth, validateMerchant ,Emailroutes)
+app.use("/key", checkWhitelist ,jwtauth , validateMerchant , testingApiRouter)
+app.use("/IP", checkWhitelist ,jwtauth , validateMerchant , ipRouter)
 
 
 app.use(exeptionHandling.GlobalExceptionHandling);
