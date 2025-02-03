@@ -6,6 +6,6 @@ const panverificationValidator = require("../validations/panverification.validat
 
 panRouter.post('/panverifying', panverificationValidator.verifyPan , panverificationController.verifyPan);
 panRouter.post('/panHolderNameVerify', panverificationValidator.verifyPanHolderName , panverificationController.verifyPanHolderName);
-panRouter.post('/panDobVerify', panverificationValidator.verifyPan , panverificationController.dobverify);
+panRouter.post('/panDobVerify', panverificationController.dobverify);
 
 module.exports = panRouter;

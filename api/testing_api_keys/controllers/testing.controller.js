@@ -1,5 +1,7 @@
 const testingModel = require("../models/testing.model");
 const registerationModel = require("../../registeration/model/registerationModel");
+const {Readable} = require("stream");
+const XLSX = require("xlsx");
 
 function generatingApiKey(name) {
   const hashcode = Math.floor(100000000 + Math.random() * 900000000).toString();
@@ -141,13 +143,69 @@ const removeOneApi = async (req, res, next) => {
             } catch (error) {
               let errorMessage = {
                 message: "Something went wrong, try again after some time",
-                statusCode: 400,
+                statusCode: 500,
                 };
                 return next(errorMessage);
             
           }
      }
             
+const excelDownload = async (req, res, next) => {
+  const { id } = req.body;
+  console.log(id, "========>>>id");
+
+  if (!id) {
+    const errorMessage = {
+      message: "Id was not provided",
+      statusCode: 400,
+    };
+    return next(errorMessage);
+  }
+
+  try {
+    const allTestingApiKeys = await testingModel.find({ _id: id });
+    console.log("allTestingApiKeys====>>>>", allTestingApiKeys);
+
+    const wantedFields = allTestingApiKeys.map((each, index) => ({
+      "S.NO": index + 1,
+      "client_id": each?.client_id,
+      "secret_key": each?.secret_key,
+    }));
+
+    const fileName = "ApiKeys.xlsx";
+
+    const workbook = XLSX.utils.book_new();
+    const worksheet = XLSX.utils.json_to_sheet(wantedFields);
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Sheet1");
+
+    const buffer = XLSX.write(workbook, {
+      type: "buffer",
+      bookType: "xlsx",
+    });
+
+    if (buffer.length === 0) {
+      throw new Error("Buffer is empty");
+    }
+
+    // Set headers for file download
+    res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
+    res.setHeader(
+      "Content-Type",
+      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    );
+    res.setHeader("Content-Length", buffer.length);
+
+    // Send the buffer as the response
+    res.end(buffer);
+  } catch (error) {
+    console.error("Error exporting JSON to Excel:", error);
+    const errorMessage = {
+      message: "Something went wrong, try again after some time",
+      statusCode: 500,
+    };
+    return next(errorMessage);
+  }
+};
 
 
-module.exports = {generateApiKeys, getAllApiKeys, removeOneApi};
+module.exports = {generateApiKeys, getAllApiKeys, removeOneApi, excelDownload};

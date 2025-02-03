@@ -173,6 +173,7 @@ exports.verifyPanHolderName = async (req, res, next) => {
       panNumber: panNumber,
     });
     console.log("existingPanNumber===>", existingPanNumber);
+    console.log("existingPanHolderName===>", existingPanHolderName);
     const panUsername = existingPanNumber?.userName;
     console.log("==============>>>>", panUsername);
     if (existingPanNumber && !existingPanHolderName) {
@@ -196,11 +197,11 @@ exports.verifyPanHolderName = async (req, res, next) => {
           message: "valid",
           response: newData?.result,
         });
-      } else{
+      } else {
         console.log("panUsernnnnnnname===>>", panUsername);
         const result = compareNames(panUsername, name);
 
-        if (result > 80) {
+        if (result > 90) {
           console.log("if====>>>");
           const comparedData = await panHolderDetails.create({
             panNumber: panNumber,
@@ -217,7 +218,7 @@ exports.verifyPanHolderName = async (req, res, next) => {
             message: "valid",
             response: comparedData?.result,
           });
-        }else{
+        } else {
           console.log("elseeeeee===>>", result);
 
           let errorMessage = {
@@ -229,15 +230,72 @@ exports.verifyPanHolderName = async (req, res, next) => {
         console.log("end of iffff===>>", result);
       }
     } else if (existingPanNumber && existingPanHolderName) {
-      if( name === existingPanHolderName?.verificationName){
+      console.log("having in both tables")
+      console.log("====>>both records are existing" , name , existingPanHolderName?.verificationName);
+      if (name == existingPanHolderName?.verificationName) {
         const resultedData = existingPanHolderName?.result;
         return res.status(200).json({
           success: true,
           message: "valid",
           response: resultedData,
         });
-      }else{
-        
+      } else if (name != existingPanHolderName?.verificationName) {
+        console.log("=====>>>>Not matching of verification name and name")
+        if (panUsername == name) {
+          console.log("names in pan and name given are same" , panUsername , name);
+          const newData = await panHolderDetails.create({
+            panNumber: panNumber,
+            verificationName: name,
+            result: `Your name is exactly matched with your pan card Name`,
+            token: check,
+            MerchantId: MerchantId,
+            responseData: existingPanNumber?.response,
+            createdDate: new Date().toLocaleDateString(),
+            createdTime: new Date().toLocaleTimeString(),
+          });
+
+          console.log("new Record Saved");
+
+          return res.status(200).json({
+            success: true,
+            message: "valid",
+            response: newData?.result,
+          });
+        } else if (panUsername != name) {
+          const result = compareNames(panUsername, name);
+
+          if (result > 90) {
+            console.log("if====>>>", "both having result " , result);
+            const comparedData = await panHolderDetails.create({
+              panNumber: panNumber,
+              verificationName: name,
+              result: `Your name is matched with your pan card Name with accuracy ${result}`,
+              token: check,
+              MerchantId: MerchantId,
+              responseData: existingPanNumber?.response,
+              createdDate: new Date().toLocaleDateString(),
+              createdTime: new Date().toLocaleTimeString(),
+            });
+            res.status(200).json({
+              success: true,
+              message: "valid",
+              response: comparedData?.result,
+            });
+          } else {
+            let errorMessage = {
+              message: `No Match Found Between the Names`,
+              statusCode: 404,
+            };
+            return next(errorMessage);
+          }
+        } else {
+          let errorMessage = {
+            message: `No Match Found Between the Names`,
+            statusCode: 404,
+          };
+          return next(errorMessage);
+        }
+      } else {
         let errorMessage = {
           message: `No Match Found Between the Names`,
           statusCode: 404,
@@ -259,7 +317,64 @@ exports.verifyPanHolderName = async (req, res, next) => {
           );
           console.log(response);
           if (response.message == "Valid") {
-            return res.json({ message: response?.result });
+            const panNameStored =
+              response?.result?.result?.FIRST_NAME +
+              response?.result?.result?.MIDDLE_NAME +
+              response?.result?.result?.LAST_NAME;
+            console.log("=====>>>>>pan name from invincible" , panNameStored)  
+            if (panNameStored == name) {
+              const newData = await panHolderDetails.create({
+                panNumber: panNumber,
+                verificationName: name,
+                result: `Your name is exactly matched with your pan card Name`,
+                token: check,
+                MerchantId: MerchantId,
+                responseData: existingPanNumber?.response,
+                createdDate: new Date().toLocaleDateString(),
+                createdTime: new Date().toLocaleTimeString(),
+              });
+
+              console.log("new Record Saved");
+
+              return res.status(200).json({
+                success: true,
+                message: "valid",
+                response: newData?.result,
+              });
+            } else if (panNameStored !== name) {
+          const result = compareNames(panNameStored, name);
+
+              if (result > 90) {
+                console.log("if====>>>");
+                const comparedData = await panHolderDetails.create({
+                  panNumber: panNumber,
+                  verificationName: name,
+                  result: `Your name is matched with your pan card Name with accuracy ${result}`,
+                  token: check,
+                  MerchantId: MerchantId,
+                  responseData: existingPanNumber?.response,
+                  createdDate: new Date().toLocaleDateString(),
+                  createdTime: new Date().toLocaleTimeString(),
+                });
+                res.status(200).json({
+                  success: true,
+                  message: "valid",
+                  response: comparedData?.result,
+                });
+              } else {
+                let errorMessage = {
+                  message: `No Match Found Between the Names`,
+                  statusCode: 404,
+                };
+                return next(errorMessage);
+              }
+            } else {
+              let errorMessage = {
+                message: `No Match Found Between the Names`,
+                statusCode: 404,
+              };
+              return next(errorMessage);
+            }
           }
           if (response.message == "NoDataFound") {
             let errorMessage = {
@@ -285,7 +400,62 @@ exports.verifyPanHolderName = async (req, res, next) => {
           const username = response?.username;
           console.log(response);
           if (response.message == "Valid") {
-            res.json({ message: response?.result });
+            const panNameStored =
+              response?.result?.result?.user_full_name 
+              console.log("====>>>panNameStored in zoop", panNameStored);
+            if (panNameStored == name) {
+              const newData = await panHolderDetails.create({
+                panNumber: panNumber,
+                verificationName: name,
+                result: `Your name is exactly matched with your pan card Name`,
+                token: check,
+                MerchantId: MerchantId,
+                responseData: existingPanNumber?.response,
+                createdDate: new Date().toLocaleDateString(),
+                createdTime: new Date().toLocaleTimeString(),
+              });
+
+              console.log("new Record Saved");
+
+              return res.status(200).json({
+                success: true,
+                message: "valid",
+                response: newData?.result,
+              });
+            } else if (panNameStored != name) {
+          const result = compareNames(panNameStored, name);
+
+              if (result > 90) {
+                console.log("if====>>>");
+                const comparedData = await panHolderDetails.create({
+                  panNumber: panNumber,
+                  verificationName: name,
+                  result: `Your name is matched with your pan card Name with accuracy ${result}`,
+                  token: check,
+                  MerchantId: MerchantId,
+                  responseData: existingPanNumber?.response,
+                  createdDate: new Date().toLocaleDateString(),
+                  createdTime: new Date().toLocaleTimeString(),
+                });
+                res.status(200).json({
+                  success: true,
+                  message: "valid",
+                  response: comparedData?.result,
+                });
+              } else {
+                let errorMessage = {
+                  message: `No Match Found Between the Names`,
+                  statusCode: 404,
+                };
+                return next(errorMessage);
+              }
+            } else {
+              let errorMessage = {
+                message: `No Match Found Between the Names`,
+                statusCode: 404,
+              };
+              return next(errorMessage);
+            }
           }
           if (response.message == "NoDataFound") {
             let errorMessage = {
