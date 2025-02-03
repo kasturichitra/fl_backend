@@ -7,6 +7,7 @@ const loginAndSms = require("../model/loginAndSmsModel")
 const axios = require("axios")
 const logger = require("../../Logger/logger")
 const checkingDetails = require("../../../utlis/authorization")
+const Whitelistapi = require('../../whitelistapi/models/whitelistapi.models')
 
 dotenv.config()
 const {
@@ -78,7 +79,7 @@ const getOTP = async (token) => {
 };
 
 
-const handleOTPSend = async (user, res , next) => {
+const handleOTPSend = async (user, res, next) => {
   const { mobileNumber, merchantId } = user;
 
   try {
@@ -104,8 +105,8 @@ const handleOTPSend = async (user, res , next) => {
       otp,
       token,
       merchantId,
-      createdDate:new Date().toLocaleDateString(),
-      createdTime:new Date().toLocaleTimeString()
+      createdDate: new Date().toLocaleDateString(),
+      createdTime: new Date().toLocaleTimeString()
     };
 
     const existingUser = await loginAndSms.findOneAndUpdate(
@@ -132,14 +133,14 @@ const handleOTPSend = async (user, res , next) => {
 };
 
 
-const verifyOtp = async (req, res , next) => {
+const verifyOtp = async (req, res, next) => {
   try {
     const { submittedOtp } = req.body;
     const authHeader = req.headers.authorization;
-
-    const check = await checkingDetails(authHeader , next)
+    const check = await checkingDetails(authHeader, next)
 
     const storedOTP = await getOTP(check);
+
     if (!storedOTP) {
       let errorMessage = {
         message: "Please try Mobile Verify Again",
@@ -151,7 +152,8 @@ const verifyOtp = async (req, res , next) => {
     console.log("Stored OTP:", storedOTP);
 
     if (submittedOtp === storedOTP) {
-      res.status(200).json({ message: "Login Successful" , success: "Otp Verified Successfully" , token: check})
+      
+      res.status(200).json({ message: "Login Successful", success: "Otp Verified Successfully", token: check })
 
     } else {
       let errorMessage = {
@@ -173,7 +175,7 @@ const verifyOtp = async (req, res , next) => {
 
 const loginDetails = async (req, res, next) => {
   const { email, mobileNumber, password } = req.body
-console.log("req.body==>>",req.body)
+  console.log("req.body==>>", req.body)
   if (!mobileNumber || !password || !email) {
     let errorMessage = {
       message: "Mandatory Fields are not there",
@@ -183,7 +185,7 @@ console.log("req.body==>>",req.body)
   }
 
   // const password = await decryptPassword(pass)
-  console.log("password===>>>",password)
+  console.log("password===>>>", password)
   try {
 
     const user = await registeration.findOne({ mobileNumber: mobileNumber, email: email })
@@ -222,19 +224,19 @@ console.log("req.body==>>",req.body)
 
 }
 
-const getUser = async (req,res,next)=>{
+const getUser = async (req, res, next) => {
 
   const authHeader = req.headers.authorization;
-  console.log(authHeader , "authHeader")
+  console.log(authHeader, "authHeader")
 
 
-  const check = await checkingDetails(authHeader , next)
-  console.log(check , "check")
+  const check = await checkingDetails(authHeader, next)
+  console.log(check, "check")
 
-  try{
-    const storedUser = await loginAndSms.findOne({ token : check });
+  try {
+    const storedUser = await loginAndSms.findOne({ token: check });
 
-    if(!storedUser){
+    if (!storedUser) {
       let errorMessage = {
         message: "User Not Login correctly",
         statusCode: 404,
@@ -244,9 +246,9 @@ const getUser = async (req,res,next)=>{
 
     const merchantId = storedUser?.merchantId
 
-    const foundUser = await registeration.findOne({merchantId : merchantId})
+    const foundUser = await registeration.findOne({ merchantId: merchantId })
 
-    if(!foundUser){
+    if (!foundUser) {
       let errorMessage = {
         message: "User Not Registered",
         statusCode: 404,
@@ -263,10 +265,10 @@ const getUser = async (req,res,next)=>{
       MerchantId : foundUser?.merchantId,
     }
 
-    res.status(200).json({message:"valid" , success:true , response:foundUserResponse})
+    res.status(200).json({ message: "valid", success: true, response: foundUserResponse })
 
-  }catch(err){
-    console.log("Err in sending user Details" , err)
+  } catch (err) {
+    console.log("Err in sending user Details", err)
     let errorMessage = {
       message: "Internal Server Error try again after some time",
       statusCode: 500,

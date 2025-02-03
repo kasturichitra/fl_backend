@@ -52,7 +52,6 @@ exports.verifyBankAccount = async (req, res, next) => {
   console.log("account_no, ifsc===>", account_no, ifsc)
 
   const check = await checkingDetails(authHeader , next)
-
   try {
 
     if (!account_no || !ifsc) {
