@@ -3,7 +3,9 @@ const dotenv = require("dotenv");
 dotenv.config();
 
 const checkToken = (req, res, next) => {
+  console.log("=====>>>>>" , req)
   const token = req.headers["authorization"];
+
 
   if (!token) {
     let errorMessage = {
