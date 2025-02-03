@@ -66,8 +66,8 @@ mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).
     console.log("DB Connection Failed", err)
 })
 
-app.use("/registeration", checkWhitelist, registerationRouter)
-app.use("/login",checkWhitelist, loginRouter)
+app.use("/registeration", registerationRouter)
+app.use("/login", loginRouter)
 app.use("/pan", checkWhitelist, jwtauth , validateMerchant , panRouter);
 app.use("/aadhaar",checkWhitelist, jwtauth , validateMerchant ,  aadhaarRouter);
 app.use("/otp",checkWhitelist, otpRouter);
