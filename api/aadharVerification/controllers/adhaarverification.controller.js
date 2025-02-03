@@ -64,7 +64,6 @@ async function invincibleAadharSendOtp(aadharNumber, hashCode, token, MerchantId
 
     const clientId = details.data.result.data.client_id;
     console.log("aadhar response from servcice=====>", details.data)
-    const MerchantId = MerchantId;
     console.log("aadhaar verify MerchantId", MerchantId);
 
     const detailsToSend = {
@@ -125,7 +124,6 @@ async function ZoopAadharSendOtp(aadharNumber, hashCode, token, MerchantId) {
     console.log('Response from Aadhaar verification API in Zoop:', responseData);
 
     if (responseData) {
-      const MerchantId = MerchantId;
       const detailsToSend = {
         aadharNumber,
         request_id: responseData?.request_id,
