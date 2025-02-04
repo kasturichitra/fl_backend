@@ -1,5 +1,5 @@
 
-let whitelist = new Set(["192.168.0.250"]);
+let whitelist = new Set(["192.168.0.235"]);
 
 const checkWhitelist = (req, res, next) => {
     let ip = req.headers["x-forwarded-for"]?.split(",")[0] || req.connection.remoteAddress;

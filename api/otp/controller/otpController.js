@@ -1,20 +1,23 @@
 const dotenv = require("dotenv");
-const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 const mobileModel = require("../model/otpModel");
 const axios = require("axios");
 const logger = require("../../Logger/logger");
-const checkingDetails = require("../../../utlis/authorization");
 
 dotenv.config();
 
-const { DOVE_SOFT_USER, DOVE_SOFT_KEY, DOVE_SOFT_API_URL, DOVE_SOFT_ENTITYID, DOVE_SOFT_TEMPID, DOVE_SOFT_SENDERID } = process.env;
-
-
+const {
+  DOVE_SOFT_USER,
+  DOVE_SOFT_KEY,
+  DOVE_SOFT_API_URL,
+  DOVE_SOFT_ENTITYID,
+  DOVE_SOFT_TEMPID,
+  DOVE_SOFT_SENDERID,
+} = process.env;
 
 const sendSMS = async (mobileNumber, message) => {
   try {
     let config = {
-      method: 'get',
+      method: "get",
       url: `${DOVE_SOFT_API_URL}&user=${DOVE_SOFT_USER}&key=${DOVE_SOFT_KEY}&mobile=+91${mobileNumber}&message=${message}&senderid=${DOVE_SOFT_SENDERID}&accusage=1&entityid=${DOVE_SOFT_ENTITYID}&tempid=${DOVE_SOFT_TEMPID}`,
     };
     const response = await axios.request(config);
@@ -38,8 +41,7 @@ const getOTP = async (mNo) => {
   }
 };
 
-const handleOTPSend = async (user, mobileNumber, token, res, next) => {
-  const { merchantId } = user;
+const handleOTPSend = async (merchantId, mobileNumber, token, res, next) => {
   try {
     // Generate OTP and message
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
@@ -58,8 +60,8 @@ const handleOTPSend = async (user, mobileNumber, token, res, next) => {
       merchantId,
       mobileNumber,
       token,
-      createdDate:new Date().toLocaleDateString(),
-      createdTime:new Date().toLocaleTimeString()
+      createdDate: new Date().toLocaleDateString(),
+      createdTime: new Date().toLocaleTimeString(),
     };
 
     const existingUser = await mobileModel.findOneAndUpdate(
@@ -87,22 +89,11 @@ const handleOTPSend = async (user, mobileNumber, token, res, next) => {
 const verifyMobileOtp = async (req, res, next) => {
   try {
     const { submittedOtp, mobile } = req.body;
-    console.log(submittedOtp)
+    console.log(submittedOtp);
     const submittedOTP = Number(submittedOtp);
 
-    const authHeader = req.headers.authorization;
-    const check = await checkingDetails(authHeader, next);
-
-    const user = await loginAndSms.findOne({ token: check });
-
-    if (!user) {
-      let errorMessage = {
-        message: "You are not authorized to check",
-        statusCode: 400,
-      };
-      return next(errorMessage);
-    }
-
+    const MerchantId = req.merchantId;
+    const check = req.token;
     const storedOTP = await getOTP(mobile);
 
     if (!storedOTP) {
@@ -151,18 +142,8 @@ const verifyMobileOtp = async (req, res, next) => {
 const mobileOtpGeneration = async (req, res, next) => {
   const { mobileNumber } = req.body;
 
-  const authHeader = req.headers.authorization;
-  const check = await checkingDetails(authHeader, next);
-
-  const user = await loginAndSms.findOne({ token: check });
-
-  if (!user) {
-    let errorMessage = {
-      message: "You are not authorized to check",
-      statusCode: 400,
-    };
-    return next(errorMessage);
-  }
+  const MerchantId = req.merchantId;
+  const check = req.token;
 
   if (!mobileNumber) {
     let errorMessage = {
@@ -172,8 +153,8 @@ const mobileOtpGeneration = async (req, res, next) => {
     return next(errorMessage);
   }
   try {
-    if (user) {
-      await handleOTPSend(user, mobileNumber, check, res, next);
+    if (MerchantId) {
+      await handleOTPSend(MerchantId, mobileNumber, check, res, next);
     }
   } catch (err) {
     let errorMessage = {

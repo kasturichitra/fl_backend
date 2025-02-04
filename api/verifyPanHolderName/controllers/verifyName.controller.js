@@ -47,7 +47,6 @@ function levenshteinDistance(a, b) {
 exports.verifyholdername = async (req, res, next) => {
   try {
     const { account_no, ifsc, panHolderName } = req.body;
-    const authHeader = req.headers.authorization;
 
     if (!account_no || !ifsc || !panHolderName) {
       let errorMessage = {
@@ -57,17 +56,10 @@ exports.verifyholdername = async (req, res, next) => {
       return next(errorMessage);
     }
 
-    const check = await checkingDetails(authHeader, next);
+    const MerchantId = req.merchantId;
+    const check = req.token;
 
-    const merchantDetails = await loginAndSms.findOne({ token: check });
-    const MerchantId = merchantDetails?.merchantId;
-    if (!MerchantId) {
-      let errorMessage = {
-        message: "You are not authorized person for this verification",
-        statusCode: 400,
-      };
-      return next(errorMessage);
-    }
+
     console.log("merchant id in verify name===>", MerchantId);
     console.log("panHolderName===>", panHolderName);
 
@@ -214,7 +206,7 @@ exports.verifyholdername = async (req, res, next) => {
     if (activeService) {
       let response;
       if (activeService?.serviceName === "EaseBuzz") {
-        response = await verifyAccountEaseBuz(
+        response = await verifyUserNameEaseBuz(
           account_no,
           ifsc,
           check,
@@ -447,7 +439,7 @@ async function verifyUserNameZoop(
     };
   }
 }
-async function verifyAccountEaseBuz(
+async function verifyUserNameEaseBuz(
   account_no,
   ifsc,
   token,

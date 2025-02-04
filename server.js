@@ -25,6 +25,7 @@ const Emailroutes = require("./api/email/routes/email.route")
 const testingApiRouter = require("./api/testing_api_keys/routes/testing.route")
 const checkWhitelist = require('./middleware/IPAddresswhitelist.middleware')
 const ipRouter = require("./api/whitelistapi/routes/whitelistApi.routes")
+const checkKeys = require("./middleware/keyValidation.middleware")
 
 const app = express()
 
@@ -68,21 +69,21 @@ mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).
 
 app.use("/registeration", registerationRouter)
 app.use("/login", loginRouter)
-app.use("/pan", checkWhitelist, jwtauth , validateMerchant , panRouter);
-app.use("/aadhaar",checkWhitelist, jwtauth , validateMerchant ,  aadhaarRouter);
-app.use("/otp",checkWhitelist, otpRouter);
-app.use("/shop", checkWhitelist, jwtauth , validateMerchant , shopRouter);
-app.use("/gst", checkWhitelist, jwtauth , validateMerchant , gstRouter);
+app.use("/pan", checkWhitelist, jwtauth, validateMerchant, checkKeys, panRouter);
+app.use("/aadhaar",checkWhitelist, jwtauth, validateMerchant, checkKeys,  aadhaarRouter);
+app.use("/otp",checkWhitelist, jwtauth, validateMerchant, checkKeys, otpRouter);
+app.use("/shop", checkWhitelist, jwtauth, validateMerchant, checkKeys,  shopRouter);
+app.use("/gst", checkWhitelist, jwtauth, validateMerchant, checkKeys, gstRouter);
 app.use("/service",checkWhitelist, serviceRouter);
-app.use("/face",checkWhitelist, jwtauth , validateMerchant ,faceRouter)
-app.use('/account',checkWhitelist, jwtauth , validateMerchant ,Accountrouter)
-app.use("/name",checkWhitelist,jwtauth , validateMerchant , nameRouter)
-app.use("/verify",checkWhitelist, verifyNameRouter)
-app.use("/bin" ,checkWhitelist,jwtauth, validateMerchant, binRouter)
+app.use("/face",checkWhitelist, jwtauth, validateMerchant, checkKeys, faceRouter)
+app.use('/account',checkWhitelist, jwtauth, validateMerchant, checkKeys, Accountrouter)
+app.use("/name",checkWhitelist,jwtauth, validateMerchant, checkKeys, nameRouter)
+app.use("/verify",checkWhitelist, jwtauth, validateMerchant, checkKeys, verifyNameRouter)
+app.use("/bin" ,checkWhitelist,jwtauth, validateMerchant, checkKeys, binRouter)
 app.use("/upi", checkWhitelist, UPIrouter)
-app.use("/email",checkWhitelist, jwtauth, validateMerchant ,Emailroutes)
-app.use("/key", checkWhitelist ,jwtauth , validateMerchant , testingApiRouter)
-app.use("/IP", checkWhitelist ,jwtauth , validateMerchant , ipRouter)
+app.use("/email",checkWhitelist, jwtauth, validateMerchant, checkKeys, Emailroutes)
+app.use("/key", checkWhitelist, jwtauth, validateMerchant, testingApiRouter)
+app.use("/IP", checkWhitelist, jwtauth, validateMerchant, ipRouter)
 
 
 app.use(exeptionHandling.GlobalExceptionHandling);

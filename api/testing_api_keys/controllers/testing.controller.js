@@ -104,9 +104,8 @@ const getAllApiKeys = async(req,res,next)=>{
 
     try{
       const existingKeys = await testingModel.find({MerchantId})
-      console.log(existingKeys , "========>>>existingKeys")
+      console.log(existingKeys?.length , "========>>>existingKeys")
       if(existingKeys?.length > 0){
-
         res.status(200).json({message:"Valid",success:true,response:existingKeys})
       }else{
         let errorMessage = {
