@@ -1,5 +1,5 @@
 const Whitelistapi = require('../api/whitelistapi/models/whitelistapi.models');
-const requestIp = require('request-ip'); // Best practice for extracting IPs
+const requestIp = require('request-ip');
 
 const checkWhitelist = async (req, res, next) => {
     try {

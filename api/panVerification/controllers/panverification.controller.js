@@ -59,7 +59,7 @@ exports.verifyPan = async (req, res, next) => {
     const existingPanNumber = await panverificationModel.findOne({
       panNumber: panNumber,
     });
-    console.log("existingPanNumber===>", existingPanNumber);
+    console.log("existingPanNumber===>",  existingPanNumber?.response);
     if (existingPanNumber) {
       await panverificationModel.updateOne(
         { _id: existingPanNumber._id },
