@@ -40,7 +40,6 @@ function levenshteinDistance(a, b) {
 
   return matrix[b.length][a.length];
 }
-
 exports.verifyPan = async (req, res, next) => {
   const { panNumber } = req.body;
   console.log("pan number from frontend===>", panNumber);
@@ -149,7 +148,6 @@ exports.verifyPan = async (req, res, next) => {
     }
   }
 };
-
 exports.verifyPanHolderName = async (req, res, next) => {
   const { panNumber, name } = req.body;
   console.log("pan number from frontend===>", panNumber);
