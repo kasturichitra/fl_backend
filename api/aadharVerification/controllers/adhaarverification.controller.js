@@ -5,7 +5,7 @@ const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/Ser
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel")
 const invincibleClientId = process.env.INVINCIBLE_CLIENT_ID
 const invincibleSecretKey = process.env.INVINCIBLE_SECRET_KEY
-const logger = require("../../Logger/logger");
+// const //logger = require("../..///logger///logger");
 
 exports.sentadhaarotp = async (req, res, next) => {
   const { aadharNumber } = req.body;
@@ -172,7 +172,7 @@ exports.adhaarotpverify = async (req, res , next) => {
   try {
     const { client_id, otp, task_id, aadharNumber } = req.body;
     console.log("client_id, otp in aadhaar otp verification===>", client_id, otp)
-    logger.info("client_id, otp in aadhaar otp verification===>", client_id, otp)
+    //logger.info("client_id, otp in aadhaar otp verification===>", client_id, otp)
 
     const check = req.token
     if (!client_id || !otp) {
@@ -271,7 +271,7 @@ exports.adhaarotpverify = async (req, res , next) => {
   
   } catch (error) {
     console.log('Error performing adhaarotp verification:', error);
-    logger.error('Error performing adhaarotp verification:', error)
+    //logger.error('Error performing adhaarotp verification:', error)
     let errorMessage = {
       message: "Failed to perform adhaarotp verification",
       statusCode: 500,

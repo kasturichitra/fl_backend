@@ -1,6 +1,6 @@
 // const registeration = require("../model/registerationModel")
 // const bcrypt = require("bcrypt")
-// const logger = require("../../Logger/logger")
+// const //logger = require("../..///logger///logger")
 // const Whitelistapi = require("../../whitelistapi/models/whitelistapi.models")
 
 
@@ -15,7 +15,7 @@
 //   console.log(req.body)
 
 //   if (!email || !mobileNumber || !password) {
-//     logger.info(`All Fields Should Be Filled`)
+//     //logger.info(`All Fields Should Be Filled`)
 //     let errorMessage = {
 //       message: "Email , MobileNumber and Password Fields are mandatory 😁",
 //       statusCode: 400,
@@ -31,7 +31,7 @@
 //     // const userWithEmail = await registeration.findOne({ email });
 
 //     if (userWithMobileNumberOrEmail) {
-//       logger.info(`User with this mobile number or email already exists 😒`)
+//       //logger.info(`User with this mobile number or email already exists 😒`)
 //       let errorMessage = {
 //         message: "User with this mobile number or email already exists 😒",
 //         statusCode: 401,
@@ -67,7 +67,7 @@
 //     }
 
 //   } catch (err) {
-//     logger.error("InternalServiceError")
+//     //logger.error("InternalServiceError")
 //     let errorMessage = {
 //       message: "InternalServiceError",
 //       statusCode: 500,
@@ -84,7 +84,7 @@
 //     if (allUsers.length > 0) {
 //       res.status(200).send(allUsers)
 //     }else{
-//       logger.error("No Users")
+//       //logger.error("No Users")
 //       let errorMessage = {
 //         message: "No users",
 //         statusCode: 404,
@@ -93,7 +93,7 @@
 //     }
 
 //   } catch (err) {
-//     logger.error("InternalServiceError")
+//     //logger.error("InternalServiceError")
 //     let errorMessage = {
 //       message: "InternalServiceError",
 //       statusCode: 500,
@@ -109,7 +109,7 @@
 
 const registeration = require("../model/registerationModel");
 const bcrypt = require("bcrypt");
-const logger = require("../../Logger/logger");
+// const //logger = require("../..///logger///logger");
 const Whitelistapi = require("../../whitelistapi/models/whitelistapi.models");
 const { Op } = require("sequelize"); // Only needed for Sequelize queries
 
@@ -123,7 +123,7 @@ const registerationVerify = async (req, res, next) => {
     const { name, email, mobileNumber, password, companyName, ipAddress } = req.body;
     
     if (!email || !mobileNumber || !password) {
-      logger.info("All Fields Should Be Filled");
+      //logger.info("All Fields Should Be Filled");
       return next({
         message: "Email, Mobile Number, and Password fields are mandatory 😁",
         statusCode: 400,
@@ -138,7 +138,7 @@ const registerationVerify = async (req, res, next) => {
     });
 
     if (userWithMobileNumberOrEmail) {
-      logger.info("User with this mobile number or email already exists 😒");
+      //logger.info("User with this mobile number or email already exists 😒");
       return next({
         message: "User with this mobile number or email already exists 😒",
         statusCode: 401,
@@ -171,7 +171,7 @@ const registerationVerify = async (req, res, next) => {
     return res.status(201).json({ user: newUser, message: "Registration Successful 😊" });
 
   } catch (err) {
-    logger.error("Internal Service Error", err);
+    //logger.error("Internal Service Error", err);
     return next({
       message: "Internal Service Error",
       statusCode: 500,
@@ -183,7 +183,7 @@ const allUsers = async (req, res, next) => {
   try {
     const users = await registeration.findAll(); // `findAll()` is better for Sequelize
     if (users.length === 0) {
-      logger.error("No Users Found");
+      //logger.error("No Users Found");
       return next({
         message: "No users found",
         statusCode: 404,
@@ -191,7 +191,7 @@ const allUsers = async (req, res, next) => {
     }
     return res.status(200).json(users);
   } catch (err) {
-    logger.error("Internal Service Error", err);
+    //logger.error("Internal Service Error", err);
     return next({
       message: "Internal Service Error",
       statusCode: 500,

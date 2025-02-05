@@ -1,4 +1,4 @@
-const logger = require("../../Logger/logger");
+// const //logger = require("../..///logger///logger");
 const ServiceTrackingModel = require("../models/ServiceTrackingModel.model");
 
 exports.saveServiceTrackingModels = async (req, res) => {
@@ -24,7 +24,7 @@ exports.saveServiceTrackingModels = async (req, res) => {
 exports.getAllServiceTrackingModels = async (req, res) => {
   try {
     const serviceTrackingModels = await ServiceTrackingModel.find();
-    logger.info("serviceTrackingModels===>", serviceTrackingModels);
+    //logger.info("serviceTrackingModels===>", serviceTrackingModels);
     res.status(200).json({
       success: true,
       data: serviceTrackingModels,

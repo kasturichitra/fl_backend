@@ -1,5 +1,5 @@
 const { default: axios } = require("axios")
-const logger = require("../../Logger/Logger")
+const //logger = require("../..///logger///logger")
 
 const plural_client_Id = process.env.PLURAL_CLIENT_ID
 const plural_secret_key = process.env.PLURAL_SECRET_KEY
@@ -172,10 +172,10 @@ exports.getTransactionStatus=async(req,res,next)=>{
     }
 }
 exports.getCallbackUrlOfPluralApi = async (req, res, next) => {
-    logger.info("calling getCallbackUrlOfPluralApi")
+    //logger.info("calling getCallbackUrlOfPluralApi")
     try {
         const response = req.body
-        logger.info("response of getCallbackUrlOfPluralApi", JSON.stringify(response))
+        //logger.info("response of getCallbackUrlOfPluralApi", JSON.stringify(response))
     } catch (error) {
         console.log("error while calling getCallbackUrlOfPluralApi")
     }

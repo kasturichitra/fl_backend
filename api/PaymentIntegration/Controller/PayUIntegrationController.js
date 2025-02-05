@@ -12,7 +12,7 @@ const crypto = require('crypto');
 const BBPSTrasanctionsModel = require('../../BBPSIntegration/models/BBPSTrasanctionsModel');
 const { saveRentalVendorTransactions, saveBBpsSettlementTransactions } = require('../../SettlementBalance/Controller/SettlementTransactionsController');
 const { createWalletMaintenance } = require('../../DigitalWallet/Controller/WalletMaintenanceController');
-const logger = require('../../Logger/Logger');
+const //logger = require('../..///logger///logger');
 
 // const   environment= "PROD"
 const environment = process.env.PATY_ENVIRONMENT
@@ -151,10 +151,10 @@ exports.getPayuTransactionDetailsById = async (req, res) => {
           console.log("calling callRentalAndVendorPayments")
           const trasnactionResponse = await callRentalAndVendorPayments(detailsToSend, transactionStatus, transactionId, token, res)
         }
-        logger.info(`Befor calling topUp in getPayuTransactionDetailsById  ${transactionId}`)
-        logger.info(`Befor calling topUp subService in getPayuTransactionDetailsById ${subService}`)
+        //logger.info(`Befor calling topUp in getPayuTransactionDetailsById  ${transactionId}`)
+        //logger.info(`Befor calling topUp subService in getPayuTransactionDetailsById ${subService}`)
         if (subService === "TOP_UP" || subService === "PRO[T+1]") {
-          logger.info(`After calling topUp in razor pay ${transactionId}`)
+          //logger.info(`After calling topUp in razor pay ${transactionId}`)
           detailsToSend.transactionId = transactionId;
           detailsToSend.referenceId = payUId;
           detailsToSend.payInStatus = transactionStatus === "SUCCESS" ? "SUCCESS" : "FAILED";
@@ -164,7 +164,7 @@ exports.getPayuTransactionDetailsById = async (req, res) => {
               authorization: `Bearer ${token}`,
             },
           };
-          logger.info(`After createWalletMaintenance  in getPayuTransactionDetailsById ${transactionId}`)
+          //logger.info(`After createWalletMaintenance  in getPayuTransactionDetailsById ${transactionId}`)
           await createWalletMaintenance(reqToWallet, res);
         }
       

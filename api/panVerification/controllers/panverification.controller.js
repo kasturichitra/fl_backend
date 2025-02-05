@@ -4,7 +4,7 @@ const panHolderDetails = require("../models/panHolderName.model");
 const axios = require("axios");
 require("dotenv").config();
 const ServiceTrackingModel = require("../../ServiceTrackingModel/models/ServiceTrackingModel.model");
-const logger = require("../../Logger/logger");
+// const //logger = require("../..///logger///logger");
 
 function compareNames(fName, sName) {
   const distance = levenshteinDistance(fName, sName);
@@ -621,7 +621,7 @@ async function invinciblePanVerification(panNumber, token, MerchantId) {
       return { message: "NoDataFound" };
     } else if (response.data.code === 402) {
       console.log("NoBalance");
-      logger.info("NoBalance");
+      //logger.info("NoBalance");
       return { message: "NoBalance" };
     }
     const obj = response.data;
