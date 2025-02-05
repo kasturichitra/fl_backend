@@ -372,3 +372,4 @@
 2025-02-05T10:33:01.859Z [error]: Internal Service Error E11000 duplicate key error collection: ApiService.registeredusers index: mobileNumber_1 dup key: { mobileNumber: 8688571181.0 }
 2025-02-05T10:33:46.851Z [info]: existing otp user==>>>
 2025-02-05T10:36:51.865Z [info]: existing otp user==>>>
+2025-02-05T12:48:38.096Z [info]: client_id, otp in aadhaar otp verification===>
