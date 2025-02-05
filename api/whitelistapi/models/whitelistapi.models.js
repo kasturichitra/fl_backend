@@ -9,7 +9,7 @@ const WhitelistSchema = new mongoose.Schema({
     merchantId: {
         type: String
     }
-});
+},{timestamps:true});
 
 const Whitelistapi = mongoose.model('Whitelistapis', WhitelistSchema);
 

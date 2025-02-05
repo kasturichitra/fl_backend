@@ -1,42 +1,47 @@
-const { response } = require('express');
-const Whitelistapi = require('../models/whitelistapi.models')
-const loginAndSms = require('../../loginAndSms/model/loginAndSmsModel')
+const Whitelistapi = require('../models/whitelistapi.models');
 
-
-//add whitelist api to whitelistMerchant
+// Helper function to validate IP address format
+const isValidIP = (ip) => {
+    const ipRegex = /^(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])(\.(25[0-5]|2[0-4][0-9]|1[0-9][0-9]|[1-9]?[0-9])){3}$/;
+    return typeof ip === "string" && ipRegex.test(ip.trim());
+};
+// Add whitelist API to whitelistMerchant
 const addWhitelistApi = async (req, res, next) => {
     try {
         const { whitelist } = req.body;
-
-        console.log("Response form the Whitelistapi controllers ---> ", whitelist);
         const merchantId = req.merchantId;
-        console.log('MerchantID is --->', merchantId);
+        console.log('Response from addWhitelistApi:', whitelist,merchantId);
 
         // Validate input
         if (!whitelist) {
             return res.status(400).json({ message: "Whitelist IP is required", success: false });
         }
-
-        // Check if the merchant exists
-        const merchantWhitelist = await Whitelistapi.findOne({ merchantId:merchantId });
-        console.log(
-            "MerchantWhitelist is --->", merchantWhitelist
-        )
-        if (!merchantWhitelist) {
-            return res.status(404).json({ message: "Merchant ID not found", success: false });
+        if (!isValidIP(whitelist)) {
+            return res.status(400).json({ message: "Invalid IP address format", success: false });
         }
 
-        // Ensure IP is an array
-        if (!Array.isArray(merchantWhitelist.IP)) {
-            merchantWhitelist.IP = [];
+        const updateIP = { ipAddress: whitelist, date: new Date() };
+
+        // Use findOneAndUpdate to insert or update in one query
+        const updatedWhitelist = await Whitelistapi.findOneAndUpdate(
+            { merchantId },
+            {
+                $setOnInsert: { merchantId },
+                $push: { IP: updateIP },
+            },
+            { new: true, upsert: true }
+        );
+
+        // Check if the IP was already present
+        const existingIP = updatedWhitelist.IP.find((ip) => ip.ipAddress === whitelist);
+        if (existingIP) {
+            return res.status(400).json({ message: "IP address already whitelisted", success: false });
         }
-        // Check it  the maximum limit
-        if(merchantWhitelist.IP  && merchantWhitelist.IP.length >= 10){
+
+        // Check max IP limit
+        if (updatedWhitelist.IP.length > 10) {
             return res.status(400).json({ message: "Maximum number of whitelisted IPs reached", success: false });
         }
-        // Add new IP and save
-        merchantWhitelist.IP.push(whitelist);
-        await merchantWhitelist.save();
 
         return res.json({ message: "Whitelist API added successfully", success: true });
 
