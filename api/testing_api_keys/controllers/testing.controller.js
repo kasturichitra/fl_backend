@@ -26,7 +26,7 @@ function generationApiSalt(name) {
   const secondWord = timestamp.toString();
   const lastWord = name.substring(0, 2);
 
-  const apiSaltKey = `${firstWord}${secondWord}${hashcode}${lastWord}`;
+  const apiSaltKey = `${hashcode}${firstWord}${secondWord}${lastWord}`;
 
   console.log(apiSaltKey, "======>>>>apiSaltKey");
 

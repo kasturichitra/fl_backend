@@ -2,6 +2,7 @@ const express = require("express")
 const mongoose = require("mongoose")
 const dotenv = require("dotenv")
 const cors = require("cors")
+// routers
 const loginRouter = require("./api/loginAndSms/routes/loginRoutes")
 const registerationRouter = require("./api/registeration/routes/registerationRoutes")
 const panRouter = require("./api/panVerification/routes/panverification.route")
@@ -15,16 +16,17 @@ const faceRouter = require("./api/facematch/routes/facematch.route")
 const nameRouter = require("./api/compareNames/routes/compareNames.route")
 const verifyNameRouter = require("./api/verifyPanHolderName/routes/verifyName.route")
 const binRouter = require("./api/BinApi/routes/BinRoutes")
-const jwtauth = require("./middleware/jwt.middleware")
-const validateMerchant = require("./middleware/validation.middleware")
 const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController")
 const helmet = require("helmet")
 const bodyParser = require("body-parser")
 const UPIrouter = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
 const Emailroutes = require("./api/email/routes/email.route")
 const testingApiRouter = require("./api/testing_api_keys/routes/testing.route")
-const checkWhitelist = require('./middleware/IPAddresswhitelist.middleware')
 const ipRouter = require("./api/whitelistapi/routes/whitelistApi.routes")
+// middlewares
+const validateMerchant = require("./middleware/validation.middleware")
+const jwtauth = require("./middleware/jwt.middleware")
+const checkWhitelist = require('./middleware/IPAddresswhitelist.middleware')
 const checkKeys = require("./middleware/keyValidation.middleware")
 
 const app = express()
@@ -32,13 +34,6 @@ const app = express()
 app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
-// const corsOptions = {
-//   origin: ['http://127.0.0.1:3000'], // List allowed IPs or domains
-//   methods: ['GET', 'POST'],
-//   allowedHeaders: ['Content-Type', 'Authorization'],
-// };
-
-// app.use(cors(corsOptions));
 app.use(cors());
 dotenv.config()
 const port = process.env.PORT
