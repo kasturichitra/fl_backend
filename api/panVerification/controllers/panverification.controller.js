@@ -228,8 +228,12 @@ exports.verifyPanHolderName = async (req, res, next) => {
         console.log("end of iffff===>>", result);
       }
     } else if (existingPanNumber && existingPanHolderName) {
-      console.log("having in both tables")
-      console.log("====>>both records are existing" , name , existingPanHolderName?.verificationName);
+      console.log("having in both tables");
+      console.log(
+        "====>>both records are existing",
+        name,
+        existingPanHolderName?.verificationName
+      );
       if (name == existingPanHolderName?.verificationName) {
         const resultedData = existingPanHolderName?.result;
         return res.status(200).json({
@@ -238,9 +242,13 @@ exports.verifyPanHolderName = async (req, res, next) => {
           response: resultedData,
         });
       } else if (name != existingPanHolderName?.verificationName) {
-        console.log("=====>>>>Not matching of verification name and name")
+        console.log("=====>>>>Not matching of verification name and name");
         if (panUsername == name) {
-          console.log("names in pan and name given are same" , panUsername , name);
+          console.log(
+            "names in pan and name given are same",
+            panUsername,
+            name
+          );
           const newData = await panHolderDetails.create({
             panNumber: panNumber,
             verificationName: name,
@@ -263,7 +271,7 @@ exports.verifyPanHolderName = async (req, res, next) => {
           const result = compareNames(panUsername, name);
 
           if (result > 90) {
-            console.log("if====>>>", "both having result " , result);
+            console.log("if====>>>", "both having result ", result);
             const comparedData = await panHolderDetails.create({
               panNumber: panNumber,
               verificationName: name,
@@ -319,7 +327,7 @@ exports.verifyPanHolderName = async (req, res, next) => {
               response?.result?.result?.FIRST_NAME +
               response?.result?.result?.MIDDLE_NAME +
               response?.result?.result?.LAST_NAME;
-            console.log("=====>>>>>pan name from invincible" , panNameStored)  
+            console.log("=====>>>>>pan name from invincible", panNameStored);
             if (panNameStored == name) {
               const newData = await panHolderDetails.create({
                 panNumber: panNumber,
@@ -340,7 +348,7 @@ exports.verifyPanHolderName = async (req, res, next) => {
                 response: newData?.result,
               });
             } else if (panNameStored !== name) {
-          const result = compareNames(panNameStored, name);
+              const result = compareNames(panNameStored, name);
 
               if (result > 90) {
                 console.log("if====>>>");
@@ -398,9 +406,8 @@ exports.verifyPanHolderName = async (req, res, next) => {
           const username = response?.username;
           console.log(response);
           if (response.message == "Valid") {
-            const panNameStored =
-              response?.result?.result?.user_full_name 
-              console.log("====>>>panNameStored in zoop", panNameStored);
+            const panNameStored = response?.result?.result?.user_full_name;
+            console.log("====>>>panNameStored in zoop", panNameStored);
             if (panNameStored == name) {
               const newData = await panHolderDetails.create({
                 panNumber: panNumber,
@@ -421,7 +428,7 @@ exports.verifyPanHolderName = async (req, res, next) => {
                 response: newData?.result,
               });
             } else if (panNameStored != name) {
-          const result = compareNames(panNameStored, name);
+              const result = compareNames(panNameStored, name);
 
               if (result > 90) {
                 console.log("if====>>>");
@@ -532,85 +539,41 @@ exports.dobverify = async (req, res, next) => {
       });
       res
         .status(200)
-        .json({ message: "valid", success: true, response: newRecord });
+        .json({ message: "valid", success: true, response: newRecord?.result });
     } else if (existingPanNumber && dobExisting) {
       const resp = dobExisting?.result;
       res
         .status(200)
         .json({ message: { message: "valid", success: true, result: resp } });
     } else {
-      const activeService = await ServiceTrackingModel.findOne({
-        serviceFor: "Pan",
-        serviceStatus: "Active",
-      });
-      console.log("activeService====>", activeService);
-      if (activeService) {
-        if (activeService?.serviceName === "Invincible") {
-          const response = await invinciblePanVerification(
-            panNumber,
-            check,
-            MerchantId
-          );
-          console.log(response);
-          if (response.message == "Valid") {
-            const newRecord = await panDobModel.create({
-              panNumber: panNumber,
-              responseData: response?.result?.result,
-              token: check,
-              MerchantId: MerchantId,
-              result: `Your Date of Birth in Pan is ${response?.result?.result?.DOB}`,
-              createdDate: new Date().toLocaleDateString(),
-              createdTime: new Date().toLocaleTimeString(),
-            });
-            res.json({ response: newRecord });
-          }
-          if (response.message == "NoDataFound") {
-            let errorMessage = {
-              message: `No Data Found for this panNumber ${panNumber}`,
-              statusCode: 404,
-            };
-            return next(errorMessage);
-          }
-          if (response.message == "NoBalance") {
-            let errorMessage = {
-              message: `No Balance for this verification`,
-              statusCode: 404,
-            };
-            return next(errorMessage);
-          }
-        } else if (activeService?.serviceName === "Zoop") {
-          const response = await zoopPanVerification(
-            panNumber,
-            check,
-            MerchantId
-          );
-          console.log("response from zoop............", response);
-          const username = response?.username;
-          console.log(response);
-          if (response.message == "Valid") {
-            const newRecord = await panDobModel.create({
-              panNumber: panNumber,
-              responseData: response?.result?.result,
-              token: check,
-              MerchantId: MerchantId,
-              result: `Your Date of Birth in Pan is ${response?.result?.result?.DOB}`,
-              createdDate: new Date().toLocaleDateString(),
-              createdTime: new Date().toLocaleTimeString(),
-            });
-            res.json({ response: newRecord });
-          }
-          if (response.message == "NoDataFound") {
-            let errorMessage = {
-              message: `No Data Found for this panNumber ${panNumber}`,
-              statusCode: 404,
-            };
-            return next(errorMessage);
-          }
-        }
-      } else {
-        console.log("No active service available");
+      const response = await invinciblePanVerification(
+        panNumber,
+        check,
+        MerchantId
+      );
+      console.log(response);
+      if (response.message == "Valid") {
+        const newRecord = await panDobModel.create({
+          panNumber: panNumber,
+          responseData: response?.result?.result,
+          token: check,
+          MerchantId: MerchantId,
+          result: `Your Date of Birth in Pan is ${response?.result?.result?.DOB}`,
+          createdDate: new Date().toLocaleDateString(),
+          createdTime: new Date().toLocaleTimeString(),
+        });
+        res.json({ response: newRecord?.result });
+      }
+      if (response.message == "NoDataFound") {
         let errorMessage = {
-          message: "No Active Service Available",
+          message: `No Data Found for this panNumber ${panNumber}`,
+          statusCode: 404,
+        };
+        return next(errorMessage);
+      }
+      if (response.message == "NoBalance") {
+        let errorMessage = {
+          message: `No Balance for this verification`,
           statusCode: 404,
         };
         return next(errorMessage);
