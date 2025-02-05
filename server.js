@@ -49,22 +49,22 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 database = {
-    host: process.env.MONGODB_HOST,
-    port: process.env.MONGODB_PORT,
-    db: process.env.MONGODB_DB,
-    user: process.env.MONGODB_USERNAME,
-    pass: process.env.MONGODB_PASSWORD
-  }
-  let mongoURI;
-  if (process.env.NODE_ENV == "production") {
-    mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
-  } else {
-    mongoURI = process.env.MONGODBURL ;
-  
-  }
+  host: process.env.MONGODB_HOST,
+  port: process.env.MONGODB_PORT,
+  db: process.env.MONGODB_DB,
+  user: process.env.MONGODB_USERNAME,
+  pass: process.env.MONGODB_PASSWORD
+}
+let mongoURI;
+if (process.env.NODE_ENV == "production") {
+  mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
+} else {
+  mongoURI = process.env.MONGODBURL;
+
+}
 
 mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).catch((err) => {
-    console.log("DB Connection Failed", err)
+  console.log("DB Connection Failed", err)
 })
 
 app.use("/registeration", registerationRouter)
@@ -89,8 +89,8 @@ app.use("/IP", checkWhitelist, jwtauth, validateMerchant, ipRouter)
 app.use(exeptionHandling.GlobalExceptionHandling);
 
 app.listen(port, (err) => {
-    if (err) {
-        console.log("Server connection Failed")
-    }
-    console.log(`Server is running on the port ${port}`)
+  if (err) {
+    console.log("Server connection Failed")
+  }
+  console.log(`Server is running on the port ${port}`)
 })
