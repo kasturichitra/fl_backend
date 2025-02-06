@@ -148,6 +148,7 @@ const verifyOtp = async (req, res, next) => {
       };
       return next(errorMessage);
     }
+    
     console.log("Submitted OTP:", submittedOtp);
     console.log("Stored OTP:", storedOTP);
 
