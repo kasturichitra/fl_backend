@@ -371,3 +371,6 @@
 2025-02-05T03:53:59.021Z [info]: existing otp user==>>>
 2025-02-05T08:50:56.076Z [info]: existing otp user==>>>
 2025-02-05T11:40:04.275Z [info]: existing otp user==>>>
+2025-02-06T04:18:45.362Z [info]: existing otp user==>>>
+2025-02-06T06:55:19.883Z [error]: Internal Service Error registeration.findAll is not a function
+2025-02-06T11:27:01.723Z [info]: existing otp user==>>>

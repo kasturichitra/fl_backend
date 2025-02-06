@@ -46,7 +46,8 @@ function levenshteinDistance(a, b) {
 }
 exports.verifyholdername = async (req, res, next) => {
   try {
-    const { account_no, ifsc, panHolderName } = req.body;
+    const { account_no, ifsc, name } = req.body;
+    const panHolderName = name
 
     if (!account_no || !ifsc || !panHolderName) {
       let errorMessage = {

@@ -181,7 +181,7 @@ const registerationVerify = async (req, res, next) => {
 
 const allUsers = async (req, res, next) => {
   try {
-    const users = await registeration.findAll(); // `findAll()` is better for Sequelize
+    const users = await registeration.find({}); 
     if (users.length === 0) {
       logger.error("No Users Found");
       return next({
