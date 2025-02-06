@@ -1,7 +1,6 @@
 const express = require('express');
 
-const {addWhitelistApi} = require('../controllers/whitelistapi.controllers')
+const {addWhitelistApi,GetWhitelistApi} = require('../controllers/whitelistapi.controllers')
 const ipRouter = express.Router();
-
-ipRouter.post('/Addipwhitelist',addWhitelistApi)
+ipRouter.route('/Addipwhitelist').get(GetWhitelistApi).post(addWhitelistApi)
 module.exports = ipRouter;

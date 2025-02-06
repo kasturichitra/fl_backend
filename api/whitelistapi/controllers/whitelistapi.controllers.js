@@ -63,15 +63,32 @@ const addWhitelistApi = async (req, res, next) => {
 };
 
 const GetWhitelistApi = async (req, res, next) => {
-    try{
+    try {
         const merchantId = req.merchantId;
+        if (!merchantId) {
+            return res.status(400).json({ message: "Merchant ID is required", success: false });
+        }
+
         const whitelistIP = await Whitelistapi.findOne({ merchantId });
 
+        if (!whitelistIP) {
+            return res.status(404).json({ message: "Merchant Not Found", success: false });
+        }
 
-    }catch(error){
-        console.error("Get request Error Call",error)
-        return res.send(500).json({message:'Server Error !', success:false})
+        return res.status(200).json({ 
+            message: "Success", 
+            success: true, 
+            whitelistIP: whitelistIP.IP 
+        });
+    } catch (error) {
+        console.error("Error in GetWhitelistApi:", error);
+        return res.status(500).json({ 
+            message: "Internal Server Error", 
+            success: false,
+            error: error.message 
+        });
     }
-}
+};
 
-module.exports = { addWhitelistApi };
+
+module.exports = { addWhitelistApi, GetWhitelistApi };
