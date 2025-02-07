@@ -1,4 +1,5 @@
 const testingKeysModel = require("../api/testing_api_keys/models/testing.model")
+const liveModal = require("../api/live_api_keys/models/liveKeys.model")
 
 const checkKeys = async(req,res,next)=>{
     const client = req.headers["client_id"];
@@ -19,8 +20,9 @@ const checkKeys = async(req,res,next)=>{
     
     try{
       const existingKeys = await testingKeysModel.find({client_id : client, secret_key : secret, MerchantId: MerchantId});
+      const existingLiveKeys = await liveModal.find({client_id : client, secret_key : secret, MerchantId: MerchantId});
 
-      if(existingKeys?.length == 1){
+      if(existingKeys?.length == 1 || existingLiveKeys?.length == 1){
         console.log(existingKeys?.length)
         next()
       }else{

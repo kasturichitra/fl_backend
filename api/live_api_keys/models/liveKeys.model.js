@@ -1,6 +1,6 @@
 const mongoose = require("mongoose")
 
-const testingApiKeys = new mongoose.Schema({
+const LiveKeys = new mongoose.Schema({
     MerchantId:{
         type:String
     },
@@ -13,9 +13,6 @@ const testingApiKeys = new mongoose.Schema({
     secret_key:{
         type:String
     },
-    limit:{
-        type:Number
-    },
     createdTime:{
         type:String
     },
@@ -24,6 +21,6 @@ const testingApiKeys = new mongoose.Schema({
     }
 },{timestamps:true})
 
-const testingKeys = mongoose.model("testing_api_keys" , testingApiKeys)
+const liveKeys = mongoose.model("live_api_keys" , LiveKeys)
 
-module.exports = testingKeys
+module.exports = liveKeys

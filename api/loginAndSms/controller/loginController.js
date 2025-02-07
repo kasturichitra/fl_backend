@@ -191,15 +191,17 @@ const loginDetails = async (req, res, next) => {
 
     const user = await registeration.findOne({ mobileNumber: mobileNumber, email: email })
 
+    // if(mobileNumber == "7894561230" && email == "john@gmail.com" && password == "123456"){ 
+    //   return res.status(200).send("Login Successfull")
+    // }
+
     if (!user) {
       let errorMessage = {
         message: "User Not Found",
         statusCode: 404,
       };
       return next(errorMessage);
-    }
-
-    if (user) {
+    }else{
       const passwordVerify = await bcrypt.compareSync(password, user.password)
 
       if (!passwordVerify) {
@@ -208,12 +210,9 @@ const loginDetails = async (req, res, next) => {
           statusCode: 400,
         };
         return next(errorMessage);
-      }
-
-      if (passwordVerify) {
+      }else{
         await handleOTPSend(user, res)
       }
-
     }
   } catch (err) {
     let errorMessage = {
@@ -246,7 +245,6 @@ const getUser = async (req, res, next) => {
     }
 
     const merchantId = storedUser?.merchantId
-
     const foundUser = await registeration.findOne({ merchantId: merchantId })
 
     if (!foundUser) {

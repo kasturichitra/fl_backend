@@ -23,11 +23,13 @@ const UPIrouter = require("./api/PaymentIntegration/Routes/RazorpayRoutes")
 const Emailroutes = require("./api/email/routes/email.route")
 const testingApiRouter = require("./api/testing_api_keys/routes/testing.route")
 const ipRouter = require("./api/whitelistapi/routes/whitelistApi.routes")
+const LiveApiKeysRouter = require("./api/live_api_keys/routes/liveKeys.route")
 // middlewares
 const validateMerchant = require("./middleware/validation.middleware")
 const jwtauth = require("./middleware/jwt.middleware")
 const checkWhitelist = require('./middleware/IPAddresswhitelist.middleware')
 const checkKeys = require("./middleware/keyValidation.middleware")
+const NominalRouter = require("./api/NominalCharges/Routes/NominalChargesRoutes")
 
 const app = express()
 
@@ -65,6 +67,7 @@ mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).
 app.use("/registeration", registerationRouter)
 app.use("/login", loginRouter)
 app.use("/service", serviceRouter);
+app.use("/charge", NominalRouter);
 app.use("/upi", UPIrouter)
 app.use("/pan", jwtauth, validateMerchant, checkWhitelist,checkKeys, panRouter);
 app.use("/aadhaar", jwtauth, validateMerchant, checkWhitelist, checkKeys, aadhaarRouter);
@@ -78,7 +81,9 @@ app.use("/verify", jwtauth, validateMerchant, checkWhitelist,checkKeys, verifyNa
 app.use("/bin", jwtauth, validateMerchant, checkWhitelist,checkKeys, binRouter)
 app.use("/email", jwtauth, validateMerchant, checkWhitelist,checkKeys, Emailroutes)
 app.use("/key", jwtauth, validateMerchant, checkWhitelist, testingApiRouter)
+app.use("/key", jwtauth, validateMerchant, checkWhitelist, LiveApiKeysRouter)
 app.use("/IP", jwtauth, validateMerchant,  ipRouter)
+
 
 
 app.use(exeptionHandling.GlobalExceptionHandling);

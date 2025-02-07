@@ -82,6 +82,12 @@ exports.updateServiceTracking = async (req, res, next) => {
     serviceStatus,
     serviceType,
   } = req.body;
+  console.log(   serviceName,
+    serviceFor,
+    serviceClientId,
+    serviceSecretKey,
+    serviceStatus,
+    serviceType,)
   if (!serviceName || !serviceFor) {
     let errorMessage = {
       message: "serviceName and serviceFor are required",
@@ -92,11 +98,12 @@ exports.updateServiceTracking = async (req, res, next) => {
 
   try {
     const service = await ServiceTrackingModel.findOneAndUpdate(
-      { serviceName, serviceFor },
+      { serviceFor },
       {
         serviceClientId,
         serviceSecretKey,
         serviceStatus,
+        serviceName,
         serviceType,
         updatedAt: new Date(),
       },

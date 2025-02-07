@@ -24,6 +24,9 @@ const registerSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    gender:{
+      type:String
+    },
     ipAddress: {
       type: [],
       default: null,

@@ -1,17 +1,16 @@
-const testingModel = require("../models/testing.model");
+const liveModel = require("../models/liveKeys.model");
 const registerationModel = require("../../registeration/model/registerationModel");
-const {Readable} = require("stream");
 const XLSX = require("xlsx");
 
 function generatingApiKey(name) {
-  const hashcode = Math.floor(100000000 + Math.random() * 900000000).toString();
+  const hashcode = Math.floor(10000 + Math.random() * 90000).toString();
   const currentDateTime = new Date();
   const timestamp = currentDateTime.getTime();
   const firstWord = timestamp.toString().split("").reverse().join("");
   const secondWord = timestamp.toString();
   const lastWord = name.substring(0, 2);
 
-  const apiKey = `${firstWord}${secondWord}${hashcode}${lastWord}`;
+  const apiKey = `NTAR${firstWord}${secondWord}${hashcode}${lastWord}`;
 
   console.log("=====>>>>apiKey", apiKey);
 
@@ -19,14 +18,14 @@ function generatingApiKey(name) {
 }
 
 function generationApiSalt(name) {
-  const hashcode = Math.floor(100000000 + Math.random() * 900000000).toString();
+  const hashcode = Math.floor(10000 + Math.random() * 90000).toString();
   const currentDateTime = new Date();
   const timestamp = currentDateTime.getTime();
   const firstWord = timestamp.toString().split("").reverse().join("");
   const secondWord = timestamp.toString();
   const lastWord = name.substring(0, 2);
 
-  const apiSaltKey = `${hashcode}${firstWord}${secondWord}${lastWord}`;
+  const apiSaltKey = `NTAR${hashcode}${firstWord}${secondWord}${lastWord}`;
 
   console.log(apiSaltKey, "======>>>>apiSaltKey");
 
@@ -53,7 +52,7 @@ const generateApiKeys = async (req, res, next) => {
       testing_Api_salt
     );
 
-    const existingKeysForService = await testingModel.find({
+    const existingKeysForService = await liveModel.find({
       MerchantId: MerchantId,
     });
 
@@ -70,7 +69,7 @@ const generateApiKeys = async (req, res, next) => {
       };
       return next(errorMessage);
     } else {
-      const testDetails = await testingModel.create({
+      const testDetails = await liveModel.create({
         MerchantId,
         token: check,
         client_id: testing_Api_key,
@@ -105,7 +104,7 @@ const getAllApiKeys = async(req,res,next)=>{
     console.log(MerchantId , "========>>>MerchantId")
 
     try{
-      const existingKeys = await testingModel.find({MerchantId})
+      const existingKeys = await liveModel.find({MerchantId})
       console.log(existingKeys?.length , "========>>>existingKeys")
       if(existingKeys?.length > 0){
         res.status(200).json({message:"Valid",success:true,response:existingKeys})
@@ -130,7 +129,7 @@ const removeOneApi = async (req, res, next) => {
   const {id} = req.params;
   console.log(id, "========>>>id")
   try {
-    const existingKey = await testingModel.findByIdAndDelete(id)
+    const existingKey = await liveModel.findByIdAndDelete(id)
     console.log(existingKey, "========>>>existingKey")
     if (existingKey) {
       res.status(200).json({ message: "Valid", success: true, response: "Deleted Successfully" });
@@ -164,10 +163,10 @@ const excelDownload = async (req, res, next) => {
   }
 
   try {
-    const allTestingApiKeys = await testingModel.find({ _id: id });
-    console.log("allTestingApiKeys====>>>>", allTestingApiKeys);
+    const allLiveApiKeys = await liveModel.find({ _id: id });
+    console.log("allTestingApiKeys====>>>>", allLiveApiKeys);
 
-    const wantedFields = allTestingApiKeys.map((each, index) => ({
+    const wantedFields = allLiveApiKeys.map((each, index) => ({
       "S.NO": index + 1,
       "client_id": each?.client_id,
       "secret_key": each?.secret_key,
