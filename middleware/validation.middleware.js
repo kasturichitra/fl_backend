@@ -16,7 +16,8 @@ const validateMerchant = async (req, res, next) => {
           return next(errorMessage);
     }
 
-    const merchantId = merchant.merchantId;
+    const merchantId = merchant?.merchantId;
+ 
 
     if (!merchantId) {
         let errorMessage = {

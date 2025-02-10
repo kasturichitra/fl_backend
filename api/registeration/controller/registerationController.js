@@ -10,7 +10,7 @@ const generateMerchantId = () => {
 }
 
 const registerationVerify = async (req, res, next) => {
-  const { name, email, mobileNumber, password, companyName, ipAddress } = req.body
+  const { name, email, mobileNumber, password, companyName } = req.body
   console.log(req.body)
 
   if (!email || !mobileNumber || !password) {
@@ -48,7 +48,6 @@ const registerationVerify = async (req, res, next) => {
         email,
         mobileNumber,
         password: hashedPassword,
-        ipAddress,
         companyName,
         merchantId,
         createdDate:new Date().toLocaleDateString(),
