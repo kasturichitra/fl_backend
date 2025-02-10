@@ -162,16 +162,11 @@ const registerationVerify = async (req, res, next) => {
       createdTime: new Date().toISOString().split("T")[1].split(".")[0] // HH:MM:SS
     });
 
-    // Check if a whitelist record exists for this merchant
-    const existingWhitelist = await Whitelistapi.findOne({ where: { merchantId } });
-    if (!existingWhitelist) {
-      await Whitelistapi.create({ merchantId });
-    }
-
     return res.status(201).json({ user: newUser, message: "Registration Successful 😊" });
 
   } catch (err) {
     //logger.error("Internal Service Error", err);
+    console.log(err)
     return next({
       message: "Internal Service Error",
       statusCode: 500,

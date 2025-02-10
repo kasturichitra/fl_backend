@@ -25,7 +25,6 @@ const validateMerchant = async (req, res, next) => {
           };
           return next(errorMessage);
     }
-
     req.merchantId = merchantId;
     next(); 
   } catch (err) {
