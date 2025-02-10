@@ -24,15 +24,19 @@ const registerSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    role:{
+      type:String,
+      default:"user"
+    },
     gender:{
       type:String
     },
-    ipAddress: {
-      type: [],
-      default: null,
-    },
     companyName: {
       type: String,
+    },
+    kycCompleted:{
+      type:Boolean,
+      default:false
     },
     createdTime: {
       type: String,

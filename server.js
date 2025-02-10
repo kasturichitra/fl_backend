@@ -2,6 +2,7 @@ const express = require("express")
 const mongoose = require("mongoose")
 const dotenv = require("dotenv")
 const cors = require("cors")
+
 // routers
 const loginRouter = require("./api/loginAndSms/routes/loginRoutes")
 const registerationRouter = require("./api/registeration/routes/registerationRoutes")
@@ -24,12 +25,15 @@ const Emailroutes = require("./api/email/routes/email.route")
 const testingApiRouter = require("./api/testing_api_keys/routes/testing.route")
 const ipRouter = require("./api/whitelistapi/routes/whitelistApi.routes")
 const LiveApiKeysRouter = require("./api/live_api_keys/routes/liveKeys.route")
+const NominalRouter = require("./api/NominalCharges/Routes/NominalChargesRoutes")
+const PaymentRouter = require("./api/PaymentLinks/routes/paymentlink.route")
+ 
 // middlewares
 const validateMerchant = require("./middleware/validation.middleware")
 const jwtauth = require("./middleware/jwt.middleware")
 const checkWhitelist = require('./middleware/IPAddresswhitelist.middleware')
 const checkKeys = require("./middleware/keyValidation.middleware")
-const NominalRouter = require("./api/NominalCharges/Routes/NominalChargesRoutes")
+const kycCheck = require("./middleware/kyc.middleware")
 
 const app = express()
 
@@ -57,7 +61,6 @@ if (process.env.NODE_ENV == "production") {
   mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
 } else {
   mongoURI = process.env.MONGODBURL;
-
 }
 
 mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).catch((err) => {
@@ -69,20 +72,21 @@ app.use("/login", loginRouter)
 app.use("/service", serviceRouter);
 app.use("/charge", NominalRouter);
 app.use("/upi", UPIrouter)
-app.use("/pan", jwtauth, validateMerchant, checkWhitelist,checkKeys, panRouter);
-app.use("/aadhaar", jwtauth, validateMerchant, checkWhitelist, checkKeys, aadhaarRouter);
-app.use("/otp", jwtauth, validateMerchant,  checkWhitelist,checkKeys, otpRouter);
-app.use("/shop", jwtauth, validateMerchant, checkWhitelist,checkKeys, shopRouter);
-app.use("/gst", jwtauth, validateMerchant, checkWhitelist,checkKeys, gstRouter);
-app.use("/face", jwtauth, validateMerchant, checkWhitelist , checkKeys, faceRouter)
-app.use('/account', jwtauth, validateMerchant, checkWhitelist,checkKeys, Accountrouter)
-app.use("/name", jwtauth, validateMerchant, checkWhitelist,checkKeys, nameRouter)
-app.use("/verify", jwtauth, validateMerchant, checkWhitelist,checkKeys, verifyNameRouter)
-app.use("/bin", jwtauth, validateMerchant, checkWhitelist,checkKeys, binRouter)
-app.use("/email", jwtauth, validateMerchant, checkWhitelist,checkKeys, Emailroutes)
-app.use("/key", jwtauth, validateMerchant, checkWhitelist, testingApiRouter)
-app.use("/key", jwtauth, validateMerchant, checkWhitelist, LiveApiKeysRouter)
-app.use("/IP", jwtauth, validateMerchant,  ipRouter)
+app.use("/pan", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, panRouter);
+app.use("/aadhaar", jwtauth, validateMerchant,kycCheck, checkWhitelist, checkKeys, aadhaarRouter);
+app.use("/otp", jwtauth, validateMerchant,kycCheck,  checkWhitelist,checkKeys, otpRouter);
+app.use("/shop", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, shopRouter);
+app.use("/gst", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, gstRouter);
+app.use("/face", jwtauth, validateMerchant,kycCheck, checkWhitelist , checkKeys, faceRouter)
+app.use('/account', jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, Accountrouter)
+app.use("/name", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, nameRouter)
+app.use("/verify", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, verifyNameRouter)
+app.use("/bin", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, binRouter)
+app.use("/email", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, Emailroutes)
+app.use("/key", jwtauth, validateMerchant,kycCheck, checkWhitelist, testingApiRouter)
+app.use("/key", jwtauth, validateMerchant,kycCheck, checkWhitelist, LiveApiKeysRouter)
+app.use("/pay", PaymentRouter)
+app.use("/IP", jwtauth, validateMerchant,kycCheck,  ipRouter)
 
 
 
