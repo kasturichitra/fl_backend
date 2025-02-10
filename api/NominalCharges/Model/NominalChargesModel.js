@@ -17,4 +17,5 @@ const NominalChargesSchema = mongoose.Schema({
     }
 
 }, { timestamps: true })
+
 module.exports = mongoose.model('NominalCharges', NominalChargesSchema);
