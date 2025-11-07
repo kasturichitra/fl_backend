@@ -8,29 +8,16 @@ const panDetails = new mongoose.Schema({
     type: Object,
     required: true
   },
-<<<<<<< HEAD
-  token: {
-    type: String,
-    required: false
-=======
   serviceResponse:{
     type: Object,
   },
   serviceName:{
     type: String
->>>>>>> new-origin/main
   },
   userName: {
     type: String,
     required: false
   },
-<<<<<<< HEAD
-  MerchantId: {
-    type: Object,
-  
-  },
-=======
->>>>>>> new-origin/main
   createdTime: {
     type: String,
     default: Date.now,

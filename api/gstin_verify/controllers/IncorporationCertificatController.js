@@ -1,20 +1,18 @@
 
 const IncorporationCertificateModel = require("../models/IncorporationCertificateModel")
-const { default: axios } = require("axios");
-const checkingDetails = require("../../../utlis/authorization");
-const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 const { verifyCinTruthScreen } = require("../../service/provider.truthscreen");
+const { verifyCinInvincible } = require("../../service/provider.invincible");
+const { selectService } = require("../../service/serviceSelector");
+const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const logger = require("../../Logger/logger");
 
 exports.handleCINVerification = async (req, res , next) => {
   const { CIN } = req.body;
   const data = req.body;
 
   if (!CIN) {
-    let errorMessage = {
-      message: "CIN is required", 
-      statusCode: 400,
-    };
-    return next(errorMessage);
+    logger.info("cin number is not defined ===>>")
+    return res.status(404).json(ERROR_CODES?.BAD_REQUEST);
   }
 
   const cinDetails = await IncorporationCertificateModel.findOne({ cinNumber : CIN })
@@ -44,17 +42,11 @@ exports.handleCINVerification = async (req, res , next) => {
       default:
         throw new Error("Unsupported PAN service");
     }
-    // const response = await axios.post('https://api.invincibleocean.com/invincible/get/companyDetailsV1', requestData, {
-    //   headers: {
-    //     'accept': 'application/json',
-    //     'clientId': process.env.INVINCIBLE_CLIENT_ID,
-    //     'secretKey': process.env.INVINCIBLE_SECRET_KEY
-    //   }
-    // });
 
-    console.log("API Response:", response.data);
+    console.log("API Response:", response);
 
-    const companyDetails = response.data?.result;
+    if(response?.message?.toUpperCase() == "VALID"){
+       const companyDetails = response;
     console.log("companyDetails===>", companyDetails)
     if (!companyDetails) {
       let errorMessage = {
@@ -73,14 +65,16 @@ exports.handleCINVerification = async (req, res , next) => {
     const newCinVerification = await IncorporationCertificateModel.create({
       response: companyDetails,
       cinNumber: CIN,
-      token: check,
-      MerchantId: MerchantId,
       createdDate:new Date().toLocaleDateString(),
       createdTime:new Date().toLocaleTimeString()
     });
 
-    console.log("Data saved to MongoDB:", newCinVerification);
-    res.status(200).json( { message : newCinVerification?.response?.data } );
+      console.log("Data saved to MongoDB:", newCinVerification);
+      res.status(200).json({message: "Valid", response: response, success: true});
+    }else{
+
+    }
+   
 
   } catch (error) {
     console.error('Error performing company verification:', error.message);

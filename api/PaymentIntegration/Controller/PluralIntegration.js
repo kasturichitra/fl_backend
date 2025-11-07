@@ -172,10 +172,10 @@ exports.getTransactionStatus=async(req,res,next)=>{
     }
 }
 exports.getCallbackUrlOfPluralApi = async (req, res, next) => {
-    //logger.info("calling getCallbackUrlOfPluralApi")
+    logger.info("calling getCallbackUrlOfPluralApi")
     try {
         const response = req.body
-        //logger.info("response of getCallbackUrlOfPluralApi", JSON.stringify(response))
+        logger.info("response of getCallbackUrlOfPluralApi", JSON.stringify(response))
     } catch (error) {
         console.log("error while calling getCallbackUrlOfPluralApi")
     }

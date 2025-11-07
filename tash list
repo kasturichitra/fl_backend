@@ -1,0 +1,101 @@
+*   [33m097787f[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32msai[m[33m, [m[1;31morigin/sai[m[33m)[m Merged new-origin/main into sai and resolved all conflicts
+[31m|[m[32m\[m  
+[31m|[m * [33m89f7afe[m[33m ([m[1;31mnew-origin/main[m[33m)[m first push
+[31m|[m * [33mf85eea6[m first commit
+[31m|[m *   [33md57bff2[m[33m ([m[1;35mrefs/stash[m[33m)[m On sai: include untracked files
+[31m|[m[31m/[m[34m|[m[35m\[m  
+[31m|[m [34m|[m * [33mf3476fd[m untracked files on sai: 6b5cc7e fix merge issue in server page
+[31m|[m * [33m1f02ded[m index on sai: 6b5cc7e fix merge issue in server page
+[31m|[m[31m/[m  
+*   [33m6b5cc7e[m[33m ([m[1;31morigin/main[m[33m)[m fix merge issue in server page
+[36m|[m[1;31m\[m  
+[36m|[m * [33m03e6b04[m feat: udate the servicecharge middleware
+* [1;31m|[m   [33mb95311b[m[33m ([m[1;32mmain[m[33m)[m Merge branch 'sai'
+[1;31m|[m[1;33m\[m [1;31m\[m  
+[1;31m|[m [1;33m|[m[1;31m/[m  
+[1;31m|[m[1;31m/[m[1;33m|[m   
+[1;31m|[m * [33m4a57721[m feat : added apis for payment links
+* [1;33m|[m   [33m5276baa[m fix merge issues is registerion controllers
+[1;33m|[m[1;35m\[m [1;33m\[m  
+[1;33m|[m [1;35m|[m[1;33m/[m  
+[1;33m|[m[1;33m/[m[1;35m|[m   
+[1;33m|[m * [33m1774171[m feat: update the refisteratn Controllers and whitelistapi controllers
+* [1;35m|[m [33mda54bd7[m feat : Added an api for updated a user
+[1;35m|[m[1;35m/[m  
+*   [33m0b15e13[m fix :merge issues in whitelistapi
+[1;36m|[m[31m\[m  
+[1;36m|[m * [33m4233c8b[m feat:Added Documentataions for all
+* [31m|[m [33m8e39e0c[m featupdate the panverification controllers and whtelist api controllers and whitelist api
+* [31m|[m [33m7712940[m feata commented the logger
+* [31m|[m [33mfbbd22c[m logger is updated
+[32m|[m[31m\[m[31m|[m 
+[32m|[m * [33m9704d0b[m feat : added some functionality in key generation
+* [33m|[m [33md503b8e[m logger updated
+* [33m|[m [33m63427e8[m feat: update the whitelistapi controllers and middleware
+[33m|[m[33m/[m  
+* [33ma41bd91[m feat: updated whitelist middleware
+*   [33md88cc73[m fix merge issue
+[34m|[m[35m\[m  
+[34m|[m * [33ma696cd7[m small update in panverification
+* [35m|[m [33m2524a6e[m feat: Added middleware to check keys
+[35m|[m[35m/[m  
+*   [33md70bbeb[m fix merge issue is loger pages
+[36m|[m[1;31m\[m  
+[36m|[m * [33m45ea26b[m feat: small update in aadhar verification
+[36m|[m * [33m01b335a[m feat:aadhar verification is updated
+* [1;31m|[m   [33m19591f4[m fix : merge issued in logs and package.json
+[1;31m|[m[1;33m\[m [1;31m\[m  
+[1;31m|[m [1;33m|[m[1;31m/[m  
+[1;31m|[m[1;31m/[m[1;33m|[m   
+[1;31m|[m * [33mf37b233[m feat : Added excel download api and key validation
+* [1;33m|[m   [33mbc69c79[m fix merged issues
+[1;33m|[m[1;35m\[m [1;33m\[m  
+[1;33m|[m [1;35m|[m[1;33m/[m  
+[1;33m|[m[1;33m/[m[1;35m|[m   
+[1;33m|[m * [33m165d0ad[m feat:update teh whitelist Ip
+* [1;35m|[m [33m777f7f2[m feat: added testing keys api
+[1;35m|[m[1;35m/[m  
+*   [33mee5d991[m fix merge issue
+[1;36m|[m[31m\[m  
+[1;36m|[m *   [33m0cf52bc[m fix:merge issues in server.js and logs
+[1;36m|[m [32m|[m[33m\[m  
+[1;36m|[m [32m|[m * [33mcbb696f[m modified api into correct format
+* [32m|[m [33m|[m [33m4812faa[m feat: updated the shopestablishmentroute
+* [32m|[m [33m|[m [33m0f53e36[m loger updates
+[32m|[m[32m/[m [33m/[m  
+* [33m|[m   [33mfaa6012[m fix: merge issues in server.js page and logger page
+[33m|[m[35m\[m [33m\[m  
+[33m|[m [35m|[m[33m/[m  
+[33m|[m[33m/[m[35m|[m   
+[33m|[m * [33m6dcf2d6[m logger is add .
+[33m|[m * [33m5c91714[m feat: email and PaymentIntegrato(UPI validation) is started
+* [35m|[m [33ma80afbf[m feat : added middlerwares and changed code according to it
+[35m|[m[35m/[m  
+*   [33m60fc5f1[m Merge branch 'sai'
+[36m|[m[1;31m\[m  
+[36m|[m * [33m3d4d1ce[m added model for dob using pan
+* [1;31m|[m [33m8f25668[m feat: startd UPI validation apis
+* [1;31m|[m   [33mb45f88e[m fix: confilcts
+[1;31m|[m[1;33m\[m [1;31m\[m  
+[1;31m|[m [1;33m|[m[1;31m/[m  
+[1;31m|[m[1;31m/[m[1;33m|[m   
+[1;31m|[m * [33me4792d0[m logger is updated
+* [1;33m|[m [33m3ce3b64[m fix: fixed logger
+* [1;33m|[m   [33m46152e6[m fix: fixed logger
+[1;33m|[m[1;35m\[m [1;33m\[m  
+[1;33m|[m [1;35m|[m[1;33m/[m  
+[1;33m|[m[1;33m/[m[1;35m|[m   
+[1;33m|[m * [33m4df3235[m feat : added two api's
+* [1;35m|[m   [33m0623083[m fix: conflicts in loginotp and logger
+[1;35m|[m[31m\[m [1;35m\[m  
+[1;35m|[m [31m|[m[1;35m/[m  
+[1;35m|[m[1;35m/[m[31m|[m   
+[1;35m|[m * [33m7b094fa[m feat: small update in login and otp is updated
+* [31m|[m [33m512e880[m feat:updated account related apis and added one more api
+[31m|[m[31m/[m  
+*   [33m8b1b13d[m fixed conflict on combined.log file
+[32m|[m[33m\[m  
+[32m|[m * [33m15c239b[m feat:update the model or login and sms
+* [33m|[m [33m2b8e619[m feat: Added two more api
+[33m|[m[33m/[m  
+* [33ma84ecbd[m first commit

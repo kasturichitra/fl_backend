@@ -151,10 +151,10 @@ exports.getPayuTransactionDetailsById = async (req, res) => {
           console.log("calling callRentalAndVendorPayments")
           const trasnactionResponse = await callRentalAndVendorPayments(detailsToSend, transactionStatus, transactionId, token, res)
         }
-        //logger.info(`Befor calling topUp in getPayuTransactionDetailsById  ${transactionId}`)
-        //logger.info(`Befor calling topUp subService in getPayuTransactionDetailsById ${subService}`)
+        logger.info(`Befor calling topUp in getPayuTransactionDetailsById  ${transactionId}`)
+        logger.info(`Befor calling topUp subService in getPayuTransactionDetailsById ${subService}`)
         if (subService === "TOP_UP" || subService === "PRO[T+1]") {
-          //logger.info(`After calling topUp in razor pay ${transactionId}`)
+          logger.info(`After calling topUp in razor pay ${transactionId}`)
           detailsToSend.transactionId = transactionId;
           detailsToSend.referenceId = payUId;
           detailsToSend.payInStatus = transactionStatus === "SUCCESS" ? "SUCCESS" : "FAILED";

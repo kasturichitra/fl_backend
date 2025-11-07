@@ -62,7 +62,10 @@ const verifyFullCardNumber = async (req, res, next) => {
     }
   } catch (error) {
     console.log("error in while fetching Credit Card Response ===>>", error)
-    
+
+    if(error?.response?.status == 502){
+      res.status(500).json(ERROR_CODES?.SERVER_ERROR)
+    }
   }
 };
 

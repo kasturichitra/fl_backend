@@ -13,14 +13,14 @@ const checkWhitelist = async (req, res, next) => {
         if (!merchantId) {
             return res.status(400).json({ message: "Merchant ID is missing." });
         }
-        const merchant = await Whitelistapi.findOne({
-            merchantId,
-            IP: { $elemMatch: { ipAddress: ip } }
-        });
+        // const merchant = await Whitelistapi.findOne({
+        //     merchantId,
+        //     IP: { $elemMatch: { ipAddress: ip } }
+        // });
 
-        if (!merchant) {
-            return res.status(403).json({ message: "Access denied. Your IP is not whitelisted." });
-        }
+        // if (!merchant) {
+        //     return res.status(403).json({ message: "Access denied. Your IP is not whitelisted." });
+        // }
         next();
     } catch (error) {
         console.error("Error in checkWhitelist middleware:", error);

@@ -616,9 +616,8 @@ exports.verifyPanNumber = async (req, res) => {
   } catch (error) {
     console.log("error in verifyPanNumber ===>>>", error)
     await updateFailure(service);
-    res
-      .status(500)
-      .json({ message: "Service failed, fallback will apply next call" });
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
   }
 };
 exports.verifyPanToAadhaar = async (req, res) => {
@@ -642,39 +641,77 @@ exports.verifyPanToAadhaar = async (req, res) => {
     panNumber: encryptedPan,
   });
   console.log("existingPanNumber===>", existingPanNumber);
-  if (existingPanNumber) {
-    const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-    const decryptedResponse = {
-      ...existingPanNumber?.response,
-      PAN: decryptedPanNumber,
-    };
+  if (existingPanNumber?.response?.code == 200) {
     return res.json({
       message: "Valid",
-      response: decryptedResponse,
       success: true,
+      response: existingPanNumber?.response,
+    });
+  }
+
+   if (existingPanNumber?.response?.code == 404) {
+    return res.json({
+      message: "InValid",
+      success: false,
+      response: existingPanNumber?.response,
     });
   }
 
   try {
      const clientId = process.env.INVINCIBLE_CLIENT_ID;
     const secretKey = process.env.INVINCIBLE_SECRET_KEY;
-    const url = "https://api.invincibleocean.com/invincible/aadhaarToMaskPanLite";
+    const url = "https://api.invincibleocean.com/invincible/panToMaskAadhaarLite";
     const headers = {
       clientId: clientId,
       secretKey: secretKey,
       "Content-Type": "application/json",
     };
     const panToAadhaarResponse = await axios.post(url, data, { headers });
-    console.log("panToAadhaarResponse ===>>>", panToAadhaarResponse)
-    // console.log(
-    //   `response from service for pan to aadhaar ${JSON.stringify(panToAadhaarResponse)}`
-    // );
-    // logger.info(`response from service for pan to aadhaar ${JSON.stringify(panToAadhaarResponse)}`)
+    console.log("panToAadhaarResponse ===>>>", panToAadhaarResponse?.data)
+    console.log(
+      `response from service for pan to aadhaar ${JSON.stringify(panToAadhaarResponse?.data)}`
+    );
+    logger.info(`response from service for pan to aadhaar ${JSON.stringify(panToAadhaarResponse?.data)}`)
+
+     if(panToAadhaarResponse?.data?.code == 404){
+         const objectToStore = {
+        panNumber: encryptedPan,
+        aadhaarNumber: panToAadhaarResponse?.data?.result?.aadhaar,
+        response: panToAadhaarResponse?.data,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      }
+
+      await panToAadhaarModel.create(objectToStore);
+      return res.status(404).json({
+        message: "InValid",
+        success: false,
+        response: panToAadhaarResponse?.data
+      })
+    }
+
+    if(panToAadhaarResponse?.data?.code == 200){
+      const objectToStore = {
+        panNumber: encryptedPan,
+        aadhaarNumber: panToAadhaarResponse?.data?.result?.aadhaar,
+        response: panToAadhaarResponse?.data,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      }
+
+      await panToAadhaarModel.create(objectToStore);
+
+      return res.status(200).json({
+        message: "Valid",
+        success: true,
+        response: panToAadhaarResponse?.data
+      })
+    }
 
   } catch (error) {
     console.log("error in verifyPanNumber ===>>>", error)
     res
       .status(500)
-      .json({ message: "Service failed, fallback will apply next call" });
+      .json(ERROR_CODES?.SERVER_ERROR);
   }
 };
