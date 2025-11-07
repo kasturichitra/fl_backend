@@ -38,6 +38,7 @@ const checkKeys = require("./middleware/keyValidation.middleware")
 const kycCheck = require("./middleware/kyc.middleware")
 const HandileCharges = require('./middleware/ServicesCharges.middleware')
 const fullCardRouter = require("./api/cardValidation/routes/cardValidationRoutes")
+const RechargeRoute = require("./api/Recharge/routes/reachargeRoutes")
 
 const app = express()
 
