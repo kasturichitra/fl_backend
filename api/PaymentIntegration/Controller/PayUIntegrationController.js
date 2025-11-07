@@ -12,7 +12,7 @@ const crypto = require('crypto');
 const BBPSTrasanctionsModel = require('../../BBPSIntegration/models/BBPSTrasanctionsModel');
 const { saveRentalVendorTransactions, saveBBpsSettlementTransactions } = require('../../SettlementBalance/Controller/SettlementTransactionsController');
 const { createWalletMaintenance } = require('../../DigitalWallet/Controller/WalletMaintenanceController');
-const //logger = require('../..///logger///logger');
+const logger = require('../../Logger/logger');
 
 // const   environment= "PROD"
 const environment = process.env.PATY_ENVIRONMENT
@@ -164,7 +164,7 @@ exports.getPayuTransactionDetailsById = async (req, res) => {
               authorization: `Bearer ${token}`,
             },
           };
-          //logger.info(`After createWalletMaintenance  in getPayuTransactionDetailsById ${transactionId}`)
+          logger.info(`After createWalletMaintenance  in getPayuTransactionDetailsById ${transactionId}`)
           await createWalletMaintenance(reqToWallet, res);
         }
       

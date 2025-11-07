@@ -2,12 +2,6 @@ const mongoose = require("mongoose");
 
 const verify_accountdata = new mongoose.Schema(
   {
-    token: {
-      type: String,
-    },
-    MerchantId: {
-      type: String,
-    },
     accountHolderName: {
       type: String,
     },
@@ -15,6 +9,9 @@ const verify_accountdata = new mongoose.Schema(
       type: String,
     },
     accountIFSCCode: {
+      type: String,
+    },
+    serviceResponse: {
       type: String,
     },
     responseData: {
@@ -34,5 +31,4 @@ const verify_accountdata = new mongoose.Schema(
   }
 );
 
-// Export the model
 module.exports = mongoose.model("verify_accountdata", verify_accountdata);

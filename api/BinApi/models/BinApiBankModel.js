@@ -1,20 +1,22 @@
 const mongoose = require("mongoose");
 
-const RapidApiBankModel = mongoose.Schema({
+const RapidApiIfscModel = mongoose.Schema({
     Ifsc : {
         type:String
     },
     response :{
         type :Object
     },
-    token:{
-        type: String
+      createdTime: {
+      type: String,
+      default: Date.now,
     },
-    MerchantId:{
-        type:String
-    }
+    createdDate: {
+      type: String,
+      default: Date.now,
+    },
 
 },{timestamps : true})
 
 
-module.exports = mongoose.model("RapidApiBankModel",RapidApiBankModel);
+module.exports = mongoose.model("ifscVerification",RapidApiIfscModel);

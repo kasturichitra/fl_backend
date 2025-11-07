@@ -1,5 +1,5 @@
 const { default: axios } = require("axios")
-const //logger = require("../..///logger///logger")
+const logger = require("../../Logger/logger")
 
 const plural_client_Id = process.env.PLURAL_CLIENT_ID
 const plural_secret_key = process.env.PLURAL_SECRET_KEY

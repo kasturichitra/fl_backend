@@ -1,0 +1,183 @@
+2025-11-05 18:10:24 [[32MINFO[39M]:  Aadhaar DigiLocker initiation triggered
+2025-11-05 18:10:24 [[32MINFO[39M]: Payload for DigiLocker: {"trans_id":"TS-1762346424680","doc_type":"472","action":"LINK","callback_url":"https://uat.merchant.ntar.biz/truthscreen/aadhaar-callback","redirect_url":"https://uat.merchant.ntar.biz/thankyou"}
+2025-11-05 18:10:24 [[32MINFO[39M]: Calling TruthScreen DigiLocker API => https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/
+2025-11-05 18:10:24 [[31MERROR[39M]:  Error in initiateAadhaarDigilocker => callTruthScreenAPI is not defined
+2025-11-05 18:10:24 [[31MERROR[39M]: [undefined] Unexpected error occurred
+2025-11-05 18:12:05 [[32MINFO[39M]:  Aadhaar DigiLocker initiation triggered
+2025-11-05 18:12:05 [[32MINFO[39M]: Payload for DigiLocker: {"trans_id":"TS-1762346525847","doc_type":"472","action":"LINK","callback_url":"https://uat.merchant.ntar.biz/truthscreen/aadhaar-callback","redirect_url":"https://uat.merchant.ntar.biz/thankyou"}
+2025-11-05 18:12:05 [[32MINFO[39M]: Calling TruthScreen DigiLocker API => https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/
+2025-11-05 18:12:06 [[32MINFO[39M]: Response received from TruthScreen => {"status":1,"msg":"DigiLocker link generate successfully.","ts_trans_id":"92-FDI-524319","data":{"url":"https://www.truthscreen.com/eaadhaarDigilocker/dgl_auth_validate/MzI2ODc1NA=="}}
+2025-11-05 18:12:06 [[32MINFO[39M]: DigiLocker initiation data stored successfully in MongoDB
+2025-11-05 18:12:06 [[32MINFO[39M]: [undefined] DigiLocker link generated successfully ✅ | Duration: 0.573s
+2025-11-05 18:30:15 [[32MINFO[39M]:  Entered checkAadhaarDigilockerStatus controller
+2025-11-05 18:30:15 [[32MINFO[39M]: Calling TruthScreen Aadhaar DigiLocker STATUS API => https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/
+2025-11-05 18:30:15 [[32MINFO[39M]: Payload: {"ts_trans_id":"92-FDI-524319","doc_type":"472","action":"STATUS"}
+2025-11-05 18:30:16 [[32MINFO[39M]: Response received from TruthScreen => {"status":1,"msg":"Digilocker status API","data":{"92-FDI-524319":{"final_status":"Denied"}}}
+2025-11-05 18:30:16 [[32MINFO[39M]: Extracted Aadhaar Details: {"name":"","fatherName":"","dob":"","aadhar_number":"","gender":"","address":"","co":"","photo":""}
+2025-11-05 18:30:16 [[32MINFO[39M]: Aadhaar KYC updated successfully for tsTransId: 92-FDI-524319
+2025-11-05 18:30:16 [[32MINFO[39M]: [undefined] Aadhaar retrieved successfully | Duration: 0.443s
+2025-11-05 18:51:00 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-05 18:51:00 [[31MERROR[39M]: Error in Aadhaar Masked Verification => encryptData is not defined
+2025-11-05 18:51:00 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-05 18:52:06 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-05 18:52:06 [[32MINFO[39M]:  Aadhaar encrypted => b36e715285...
+2025-11-05 18:52:06 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-05 18:52:06 [[31MERROR[39M]: Error in Aadhaar Masked Verification => verifyAadhaarMasked is not defined
+2025-11-05 18:52:06 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-05 18:52:12 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-05 18:52:12 [[32MINFO[39M]:  Aadhaar encrypted => b36e715285...
+2025-11-05 18:52:12 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-05 18:52:12 [[31MERROR[39M]: Error in Aadhaar Masked Verification => verifyAadhaarMasked is not defined
+2025-11-05 18:52:12 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-05 18:54:11 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-05 18:54:11 [[32MINFO[39M]:  Aadhaar encrypted => b36e715285...
+2025-11-05 18:54:11 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-05 18:54:11 [[31MERROR[39M]: Error in Aadhaar Masked Verification => verifyAadhaarMasked is not defined
+2025-11-05 18:54:11 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-05 18:55:09 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-05 18:55:09 [[32MINFO[39M]:  Aadhaar encrypted => b36e715285...
+2025-11-05 18:55:09 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-05 18:55:10 [[32MINFO[39M]: Response from Zoop API => {"code":200,"message":"Data Found Successfully.","result":{"pan":"BPXXXXXX8K"}}
+2025-11-05 18:55:10 [[32MINFO[39M]: Aadhaar masked verification data stored successfully in MongoDB
+2025-11-05 18:55:10 [[32MINFO[39M]: [undefined] Aadhaar verification successful | Duration: 1.354s
+2025-11-06 15:44:32 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-06 15:44:32 [[32MINFO[39M]:  Aadhaar encrypted => 34003d0055...
+2025-11-06 15:44:32 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 15:44:32 [[32MINFO[39M]: Response from Zoop API => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 15:44:32 [[32MINFO[39M]: Aadhaar masked verification data stored successfully in MongoDB
+2025-11-06 15:44:32 [[32MINFO[39M]: [undefined] Aadhaar verification successful | Duration: 0.259s
+2025-11-06 15:45:00 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-06 15:45:00 [[33MWARN[39M]: [undefined] Aadhaar number missing in request
+2025-11-06 15:45:51 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-06 15:45:51 [[32MINFO[39M]:  Aadhaar encrypted => 34003d0055...
+2025-11-06 15:45:51 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 15:45:51 [[32MINFO[39M]: Response from Zoop API => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 15:45:51 [[32MINFO[39M]: Aadhaar masked verification data stored successfully in MongoDB
+2025-11-06 15:45:51 [[32MINFO[39M]: [undefined] Aadhaar verification successful | Duration: 0.136s
+2025-11-06 15:47:32 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-06 15:47:32 [[32MINFO[39M]:  Aadhaar encrypted => b36e715285...
+2025-11-06 15:47:32 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 15:47:34 [[32MINFO[39M]: Response from Zoop API => {"code":200,"message":"Data Found Successfully.","result":{"pan":"BPXXXXXX8K"}}
+2025-11-06 15:47:34 [[32MINFO[39M]: Aadhaar masked verification data stored successfully in MongoDB
+2025-11-06 15:47:34 [[32MINFO[39M]: [undefined] Aadhaar verification successful | Duration: 1.628s
+2025-11-06 15:48:08 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-06 15:48:08 [[32MINFO[39M]:  Aadhaar encrypted => 60920a3fdf...
+2025-11-06 15:48:08 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 15:48:08 [[32MINFO[39M]: Response from Zoop API => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 15:48:08 [[32MINFO[39M]: Aadhaar masked verification data stored successfully in MongoDB
+2025-11-06 15:48:08 [[32MINFO[39M]: [undefined] Aadhaar verification successful | Duration: 0.11s
+2025-11-06 15:49:33 [[32MINFO[39M]:  Aadhaar Masked Verification triggered
+2025-11-06 15:49:33 [[33MWARN[39M]: [undefined] Aadhaar number missing in request
+2025-11-06 15:59:44 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 15:59:44 [[33MWARN[39M]: [undefined] Aadhaar number missing in request
+2025-11-06 15:59:51 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 15:59:51 [[32MINFO[39M]: Aadhaar encrypted => 7d8ab3f728...
+2025-11-06 15:59:51 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 15:59:51 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 15:59:51 [[32MINFO[39M]: Aadhaar verification data stored successfully in MongoDB
+2025-11-06 15:59:51 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:00:50 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:00:50 [[32MINFO[39M]: Aadhaar encrypted => 7d8ab3f728...
+2025-11-06 16:00:50 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:00:50 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:00:50 [[32MINFO[39M]: Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:00:50 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:01:58 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:01:58 [[32MINFO[39M]: Aadhaar encrypted => 7d8ab3f728...
+2025-11-06 16:01:58 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:01:59 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:01:59 [[32MINFO[39M]: Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:01:59 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:02:15 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:02:15 [[32MINFO[39M]: Aadhaar encrypted => b36e715285...
+2025-11-06 16:02:15 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:02:16 [[32MINFO[39M]: Zoop API Response => {"code":200,"message":"Data Found Successfully.","result":{"pan":"BPXXXXXX8K"}}
+2025-11-06 16:02:16 [[32MINFO[39M]: Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:02:16 [[32MINFO[39M]: [undefined] Aadhaar verified successfully | Duration: 1.222s
+2025-11-06 16:03:39 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:03:39 [[32MINFO[39M]: Aadhaar encrypted => 0ba143bae6...
+2025-11-06 16:03:39 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:03:39 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:03:39 [[32MINFO[39M]: Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:03:39 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:07:44 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:07:44 [[32MINFO[39M]: Aadhaar encrypted => 0ba143bae6...
+2025-11-06 16:07:44 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:07:44 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:07:44 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:08:01 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:08:01 [[32MINFO[39M]: Aadhaar encrypted => b36e715285...
+2025-11-06 16:08:01 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:08:02 [[32MINFO[39M]: Zoop API Response => {"code":200,"message":"Data Found Successfully.","result":{"pan":"BPXXXXXX8K"}}
+2025-11-06 16:08:02 [[32MINFO[39M]: ✅ Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:08:02 [[32MINFO[39M]: [undefined] Aadhaar verified successfully | Duration: 0.867s
+2025-11-06 16:08:10 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:08:10 [[33MWARN[39M]: [undefined] Aadhaar number missing
+2025-11-06 16:08:32 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:08:32 [[33MWARN[39M]: [undefined] Aadhaar number missing
+2025-11-06 16:08:50 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:08:50 [[33MWARN[39M]: [undefined] Aadhaar number missing
+2025-11-06 16:10:10 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:10:10 [[33MWARN[39M]: [undefined] Aadhaar number missing in request
+2025-11-06 16:10:33 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:10:33 [[32MINFO[39M]: Aadhaar encrypted => f9983e8ab2...
+2025-11-06 16:10:33 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:10:34 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:10:34 [[32MINFO[39M]: Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:10:34 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:17:43 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:17:43 [[32MINFO[39M]: Aadhaar encrypted => f9983e8ab2...
+2025-11-06 16:17:43 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:17:43 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:17:43 [[31MERROR[39M]: ❌ Database error => Adhaardetailswithout_otp validation failed: message: `aadharNumber length must be at least 12 characters long` is not a valid enum value for path `message`.
+2025-11-06 16:18:06 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:18:06 [[32MINFO[39M]: Aadhaar encrypted => f9983e8ab2...
+2025-11-06 16:18:06 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:18:06 [[32MINFO[39M]: Zoop API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:18:06 [[32MINFO[39M]: ✅ Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:18:06 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:20:00 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:20:00 [[32MINFO[39M]: Aadhaar encrypted => b36e715285...
+2025-11-06 16:20:00 [[32MINFO[39M]: Calling Zoop Aadhaar Masked Verification API...
+2025-11-06 16:20:02 [[32MINFO[39M]: Zoop API Response => {"code":200,"message":"Data Found Successfully.","result":{"pan":"BPXXXXXX8K"}}
+2025-11-06 16:20:02 [[32MINFO[39M]: ✅ Aadhaar verification data stored successfully in MongoDB
+2025-11-06 16:20:02 [[32MINFO[39M]: [200] Aadhaar verified successfully | Duration: 1.683s
+2025-11-06 16:31:58 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:31:58 [[32MINFO[39M]: Aadhaar encrypted => b36e715285...
+2025-11-06 16:31:59 [[32MINFO[39M]: invincible API Response => {"code":200,"message":"Data Found Successfully.","result":{"pan":"BPXXXXXX8K"}}
+2025-11-06 16:31:59 [[32MINFO[39M]: Aadhaar verified successfully
+2025-11-06 16:32:20 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:32:20 [[32MINFO[39M]: Aadhaar encrypted => c64d9060ad...
+2025-11-06 16:32:20 [[32MINFO[39M]: invincible API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:32:20 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 16:41:50 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:41:50 [[32MINFO[39M]: Aadhaar encrypted => c64d9060ad...
+2025-11-06 16:41:51 [[32MINFO[39M]: invincible API Response => {"code":400,"message":"aadharNumber length must be at least 12 characters long"}
+2025-11-06 16:41:51 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 16:42:33 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:42:33 [[33MWARN[39M]: Aadhaar number missing in request
+2025-11-06 16:43:02 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:43:02 [[32MINFO[39M]: Aadhaar encrypted => a7fbd9b1a6...
+2025-11-06 16:43:02 [[32MINFO[39M]: invincible API Response => {"code":400,"message":"ERROR: Bad Request !"}
+2025-11-06 16:43:02 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 16:43:58 [[32MINFO[39M]: 🔹 Aadhaar Masked Verification triggered
+2025-11-06 16:43:58 [[32MINFO[39M]: Aadhaar encrypted => a7fbd9b1a6...
+2025-11-06 16:43:58 [[32MINFO[39M]: invincible API Response => {"code":401,"message":"SecretKey not provided in header"}
+2025-11-06 16:43:58 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 16:55:36 [[32MINFO[39M]: Aadhaar DigiLocker initiation triggered
+2025-11-06 16:55:36 [[32MINFO[39M]: Payload for DigiLocker: {"trans_id":"TS-1762428336270","doc_type":"472","action":"LINK","callback_url":"https://uat.merchant.ntar.biz/truthscreen/aadhaar-callback","redirect_url":"https://uat.merchant.ntar.biz/thankyou"}
+2025-11-06 16:55:36 [[32MINFO[39M]: Calling TruthScreen DigiLocker API => https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/
+2025-11-06 16:55:36 [[32MINFO[39M]: Response received from TruthScreen => {"status":1,"msg":"DigiLocker link generate successfully.","ts_trans_id":"40-XDW-432245","data":{"url":"https://www.truthscreen.com/eaadhaarDigilocker/dgl_auth_validate/MzI3NDQxNQ=="}}
+2025-11-06 16:55:36 [[32MINFO[39M]: DigiLocker initiation data stored successfully in MongoDB
+2025-11-06 16:55:36 [[32MINFO[39M]: [200] DigiLocker link generated successfully ✅ | Duration: 0.589s
+2025-11-06 17:53:33 [[32MINFO[39M]: Entered checkAadhaarDigilockerStatus controller
+2025-11-06 17:53:33 [[32MINFO[39M]: Calling TruthScreen Aadhaar DigiLocker STATUS API => https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/
+2025-11-06 17:53:33 [[32MINFO[39M]: Payload: {"ts_trans_id":"1762428336270","doc_type":"472","action":"STATUS"}
+2025-11-06 17:53:33 [[31MERROR[39M]: Error in checkAadhaarDigilockerStatus => TruthScreen request failed: Request failed with status code 400
+2025-11-06 17:54:05 [[32MINFO[39M]: Entered checkAadhaarDigilockerStatus controller
+2025-11-06 17:54:05 [[32MINFO[39M]: Calling TruthScreen Aadhaar DigiLocker STATUS API => https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/
+2025-11-06 17:54:05 [[32MINFO[39M]: Payload: {"ts_trans_id":"40-XDW-432245","doc_type":"472","action":"STATUS"}
+2025-11-06 17:54:05 [[32MINFO[39M]: Response received from TruthScreen => {"status":1,"msg":"Digilocker status API","data":{"40-XDW-432245":{"final_status":"TBI"}}}
+2025-11-06 17:54:05 [[32MINFO[39M]: Extracted Aadhaar Details: {"name":"","fatherName":"","dob":"","aadhar_number":"","gender":"","address":"","co":"","photo":""}
+2025-11-06 17:54:05 [[32MINFO[39M]: Aadhaar KYC updated successfully for tsTransId: 40-XDW-432245
+2025-11-06 17:54:05 [[32MINFO[39M]: [200] Aadhaar retrieved successfully | Duration: 0.414s

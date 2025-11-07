@@ -1,5 +1,5 @@
-// const //logger = require("../..///logger///logger");
-const ServiceTrackingModel = require("../models/ServiceTrackingModel.model");
+const logger = require("../../Logger/logger");
+const ServiceTrackingModel = require("../models/newServiceTrackingModel");
 
 exports.saveServiceTrackingModels = async (req, res) => {
   try {

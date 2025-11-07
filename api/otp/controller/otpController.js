@@ -1,7 +1,7 @@
 const dotenv = require("dotenv");
 const mobileModel = require("../model/otpModel");
 const axios = require("axios");
-// const //logger = require("../..///logger///logger");
+const logger = require("../../Logger/logger");
 
 dotenv.config();
 
@@ -70,7 +70,7 @@ const handleOTPSend = async (merchantId, mobileNumber, token, res, next) => {
       { new: true, upsert: true } // Creates a new document if none exists
     );
 
-    //logger.info("existing otp user==>>>", existingUser);
+    logger.info("existing otp user==>>>", existingUser);
 
     res.status(201).json({
       message: `OTP sent to ${mobileNumber}`,

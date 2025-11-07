@@ -1,7 +1,7 @@
 const CryptoJS = require("crypto-js");
 const RazorPayPayInModel = require("../Model/Razorpay.model");
 const Razorpay = require("razorpay");
-// const //logger = require("../..///logger///logger");
+const logger = require("../../Logger/logger");
 const checkingDetails = require("../../../utlis/authorization");
 // const BBPSTrasanctionsModel = require("../../BBPSIntegration/models/BBPSTrasanctionsModel");
 // const TrasnactionModel = require("../../Transactions/Model/TrasnactionModel");
@@ -21,7 +21,7 @@ const razorpayOptimzer = new Razorpay({
 console.log("Raorpay key ==--->", process.env.RAZORPAY_KEY_ID);
 const secret_key = process.env.RAZORPAY_SECRET_PAYIN;
 
-console.log("RAZORPAY SECRET KEY => ", secret_key);
+// console.log("RAZORPAY SECRET KEY => ", secret_key);
 
 exports.getApiKey = async (req, res) => {
   const detailsToSend = req.body
@@ -44,11 +44,11 @@ exports.createOrder = async (req, res, next) => {
   const detailsToSave = req.body;
   const validToken = await checkingDetails(authHeader, next)
 
-  //logger.info(`Incoming request to create order with details: ${JSON.stringify(detailsToSave)}`);
+  logger.info(`Incoming request to create order with details: ${JSON.stringify(detailsToSave)}`);
 
   // const validToken = await validateTokenGlobally(req, res, next)
   if (validToken) {
-    //logger.info("Token validation successful createOrder.");
+    logger.info("Token validation successful createOrder.");
     console.log("validToken in create order===>", validToken)
     let amountInPaise = 1;
     if (subService === "Top_Up" || subService === "PRO[T+1]") {
@@ -57,7 +57,7 @@ exports.createOrder = async (req, res, next) => {
       amountInPaise = Math.round(finalPayableAmount * 100);
     }
     if (!Number.isInteger(amountInPaise) || amountInPaise <= 0) {
-      //logger.error(`Invalid amount: ${amountInPaise} for Order ID: ${userid}`);
+      logger.error(`Invalid amount: ${amountInPaise} for Order ID: ${userid}`);
       return next({
         statusCode: 400,
         message: "Invalid Input: Amount must be a positive integer.",
@@ -66,7 +66,7 @@ exports.createOrder = async (req, res, next) => {
 
     try {
       let receipt = `order_rcptid_${Date.now()}`;
-      //logger.info(`Generated receipt number in createOrder: ${receipt}`);
+      logger.info(`Generated receipt number in createOrder: ${receipt}`);
       console.log(`Generated receipt number in createOrder: ${receipt}`);
 
       const options = {
@@ -75,7 +75,7 @@ exports.createOrder = async (req, res, next) => {
         receipt,
       };
 
-      //logger.info("Creating order with Razorpay API...");
+      logger.info("Creating order with Razorpay API...");
       let order;
       console.log(options ,'<=== this is order')
       if (detailsToSave?.subService.toUpperCase() === "PRO[T+1]") {
@@ -87,7 +87,7 @@ exports.createOrder = async (req, res, next) => {
       }
 
       if (order) {
-        //logger.info(`Order created successfully in createOrder: ${JSON.stringify(order)}`);
+        logger.info(`Order created successfully in createOrder: ${JSON.stringify(order)}`);
 
         const ordersave = new RazorPayPayInModel({
           order_id: order.id,
@@ -110,27 +110,27 @@ exports.createOrder = async (req, res, next) => {
           transactionTime: new Date().toLocaleTimeString('en-US'),
         });
 
-        //logger.info(`Order data to save in database in createOrder: ${JSON.stringify(ordersave)}`);
+        logger.info(`Order data to save in database in createOrder: ${JSON.stringify(ordersave)}`);
         console.log(`Order data to save in database in createOrder: ${JSON.stringify(ordersave)}`);
 
         await ordersave.save();
-        //logger.info("Successfully inserted order details into the database in createOrder.");
+        logger.info("Successfully inserted order details into the database in createOrder.");
         console.log("Successfully inserted order details into the database in createOrder.");
       }
 
       return res.status(200).json({ success: true, order });
 
     } catch (error) {
-      //logger.error(`Error occurred while creating order: ${JSON.stringify(error)}`);
+      logger.error(`Error occurred while creating order: ${JSON.stringify(error)}`);
       console.log(`Error occurred while creating order: ${JSON.stringify(error)}`);
 
       if (error?.response?.data) {
-        //logger.error(`Razorpay error response in createOrder: ${JSON.stringify(error?.response?.data)}`);
+        logger.error(`Razorpay error response in createOrder: ${JSON.stringify(error?.response?.data)}`);
         console.log(`Razorpay error response in createOrder: ${JSON.stringify(error?.response?.data)}`);
       }
 
       if (error?.error?.reason === "input_validation_failed") {
-        //logger.error("Input validation failed: Invalid amount or other input errors.");
+        logger.error("Input validation failed: Invalid amount or other input errors.");
         console.log("Input validation failed: Invalid amount or other input errors.");
         return next({
           statusCode: 400,
@@ -138,7 +138,7 @@ exports.createOrder = async (req, res, next) => {
         });
       }
 
-      //logger.error("An unexpected error occurred during order creation.");
+      logger.error("An unexpected error occurred during order creation.");
       console.log("An unexpected error occurred during order creation.");
       return next({
         statusCode: 500,
@@ -152,7 +152,7 @@ exports.verifyPayment = async (req, res, next) => {
   console.log(req.body);
   const date = new Date();
   const formattedDate = date.toLocaleDateString('en-GB');
-  //logger.info("calling verifyPayment")
+  logger.info("calling verifyPayment")
   const authHeader = req.headers.authorization;
   const token = authHeader?.split(" ")[1];
   console.log("token in verify payment===>", token)
@@ -166,8 +166,8 @@ exports.verifyPayment = async (req, res, next) => {
       console.log("Details - razorpay_signature:", razorpay_signature);
       console.log("request body is ==> ", req.body);
       console.log("detailsToSave in verify payment===>", detailsToSave)
-      //logger.info(`detailsToSave in  in razor pay in verifyPayment${JSON.stringify(detailsToSave)}`)
-      //logger.info(`order id in verify payment in razor pay in verifyPayment ${order_id}  === ${razorpay_order_id}`)
+      logger.info(`detailsToSave in  in razor pay in verifyPayment${JSON.stringify(detailsToSave)}`)
+      logger.info(`order id in verify payment in razor pay in verifyPayment ${order_id}  === ${razorpay_order_id}`)
       if (!razorpay_payment_id || !razorpay_signature || !razorpay_order_id) {
         return res.status(400).send({
           success: false,
@@ -178,16 +178,16 @@ exports.verifyPayment = async (req, res, next) => {
       const generateSignature = CryptoJS.HmacSHA256(order_id + "|" + razorpay_payment_id, SECRET_KEY).toString();
       console.log('generateSignature==>', generateSignature);
       console.log('razorpaysignature==>', razorpay_signature);
-      //logger.info(`generateSignature in verifyPayment ${JSON.stringify(generateSignature)}`)
-      //logger.info(`razorpaysignature in verifyPayment ${JSON.stringify(razorpay_signature)}`)
+      logger.info(`generateSignature in verifyPayment ${JSON.stringify(generateSignature)}`)
+      logger.info(`razorpaysignature in verifyPayment ${JSON.stringify(razorpay_signature)}`)
       if (generateSignature === razorpay_signature) {
-        //logger.info(`signatures are matching in verifypayment ${order_id}`)
+        logger.info(`signatures are matching in verifypayment ${order_id}`)
         let orderExist = await RazorPayPayInModel.findOne({ order_id });
         if (!orderExist) {
           console.log('Order ID not found in Database');
           return res.status(404).json({ message: "OrderID does not exist in Database" });
         }
-        //logger.info("order exist in verify payment")
+        logger.info("order exist in verify payment")
         let updatedOrder = await RazorPayPayInModel.findOneAndUpdate(
           { order_id },
           {
@@ -212,8 +212,8 @@ exports.verifyPayment = async (req, res, next) => {
 
         console.log("payment fetched =----<?>", payment);
         console.log("orderDetails fetched =----<?>", orderDetails);
-        //logger.info(`pay ment status in vberify payment==>${JSON.stringify(payment)}`)
-        //logger.info(`orderDetails ment status in vberify payment==>${JSON.stringify(orderDetails)}`)
+        logger.info(`pay ment status in vberify payment==>${JSON.stringify(payment)}`)
+        logger.info(`orderDetails ment status in vberify payment==>${JSON.stringify(orderDetails)}`)
         const newData = {
           ...detailsToSave,
           referenceId: razorpay_payment_id,
@@ -230,14 +230,14 @@ exports.verifyPayment = async (req, res, next) => {
           }
         );
         if (!payment || payment.status !== 'captured') {
-          //logger.info("This payment is not captured yet or Invalid Payment")
+          logger.info("This payment is not captured yet or Invalid Payment")
           return res.status(400).json({ message: "This payment is not captured yet or Invalid Payment" });
         }
         if (payment?.status === "captured") {
           const req = {
             body: newData,
           };
-          //logger.info(`calling fetchPaymentsForOrder ${order_id}`)
+          logger.info(`calling fetchPaymentsForOrder ${order_id}`)
           await fetchPaymentsForOrder(req, res, next)
 
           const scheduler = await SchedulerModel.findOne({
@@ -265,7 +265,7 @@ exports.verifyPayment = async (req, res, next) => {
         if (
           ["Rental", "Settlements", "Vendors", "Educational", "PayOut_Settlements"].includes(detailsToSave?.serviceName)
         ) {
-          //logger.info(`Calling callBBPSencryptCall for Order ID: ${detailsToSave?.transactionId}`);
+          logger.info(`Calling callBBPSencryptCall for Order ID: ${detailsToSave?.transactionId}`);
           console.log(`Calling callBBPSencryptCall for Order ID: ${detailsToSave?.transactionId}`);
           transactionsResponse = await TrasnactionModel.create(detailsToSave)
           console.log("transactionsResponse-===>", transactionsResponse)
@@ -283,8 +283,8 @@ exports.verifyPayment = async (req, res, next) => {
       console.error("Error during payment verification:", error);
       console.log("Error in verify payment response ", error?.response)
       console.log("Error in verify payment response data", error?.response?.data)
-      //logger.error(`error in verifyPayment razor pay ${error}`);
-      //logger.error(`error in verifyPayment razor pay ${error?.response?.data}`);
+      logger.error(`error in verifyPayment razor pay ${error}`);
+      logger.error(`error in verifyPayment razor pay ${error?.response?.data}`);
       return next({
         message: "InternalServerError",
         statusCode: 500

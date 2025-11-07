@@ -7,13 +7,11 @@ function generatingApiKey(name) {
   const currentDateTime = new Date();
   const timestamp = currentDateTime.getTime();
   const firstWord = timestamp.toString().split("").reverse().join("");
-  const secondWord = timestamp.toString();
+  const secondWord = "live";
   const lastWord = name.substring(0, 2);
 
-  const apiKey = `NTAR${firstWord}${secondWord}${hashcode}${lastWord}`;
-
+  const apiKey = `NTAR_${secondWord}_${firstWord}${hashcode}${lastWord}`;
   console.log("=====>>>>apiKey", apiKey);
-
   return apiKey;
 }
 
@@ -25,10 +23,8 @@ function generationApiSalt(name) {
   const secondWord = timestamp.toString();
   const lastWord = name.substring(0, 2);
 
-  const apiSaltKey = `NTAR${hashcode}${firstWord}${secondWord}${lastWord}`;
-
+  const apiSaltKey = `NTAR${hashcode}${secondWord}${firstWord}${lastWord}`;
   console.log(apiSaltKey, "======>>>>apiSaltKey");
-
   return apiSaltKey;
 }
 

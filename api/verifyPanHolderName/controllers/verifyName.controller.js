@@ -1,5 +1,5 @@
 const axios = require("axios");
-const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/ServiceTrackingModel.model");
+const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/newServiceTrackingModel");
 require("dotenv").config();
 const checkingDetails = require("../../../utlis/authorization");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");

@@ -5,7 +5,7 @@ const CryptoJS = require("crypto-js")
 const registeration = require("../../registeration/model/registerationModel")
 const loginAndSms = require("../model/loginAndSmsModel")
 const axios = require("axios")
-// const //logger = require("../..///logger///logger")
+const logger = require("../../Logger/logger")
 const checkingDetails = require("../../../utlis/authorization")
 const Whitelistapi = require('../../whitelistapi/models/whitelistapi.models')
 
@@ -115,7 +115,7 @@ const handleOTPSend = async (user, res, next) => {
       { new: true, upsert: true } // Creates a new document if none exists
     );
 
-    //logger.info("existing otp user==>>>", existingUser)
+    logger.info("existing otp user==>>>", existingUser)
 
     res.status(201).json({
       message: `OTP sent to ${mobileNumber}`,
@@ -262,6 +262,7 @@ const getUser = async (req, res, next) => {
       companyName : foundUser?.companyName,
       createdDate : foundUser?.createdDate,
       MerchantId : foundUser?.merchantId,
+      role : foundUser?.role
     }
 
     res.status(200).json({ message: "valid", success: true, response: foundUserResponse })

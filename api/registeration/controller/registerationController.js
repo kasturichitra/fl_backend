@@ -1,6 +1,6 @@
 const registeration = require("../model/registerationModel")
 const bcrypt = require("bcrypt")
-//const logger = require("../..///logger///logger")
+//const logger = require("../../logger/logger")
 
 
 const generateMerchantId = () => {
@@ -14,7 +14,7 @@ const registerationVerify = async (req, res, next) => {
   console.log(req.body)
 
   if (!email || !mobileNumber || !password) {
-    //logger.info(`All Fields Should Be Filled`)
+    logger.info(`All Fields Should Be Filled`)
     let errorMessage = {
       message: "Email , MobileNumber and Password Fields are mandatory 😁",
       statusCode: 400,
@@ -30,7 +30,7 @@ const registerationVerify = async (req, res, next) => {
     // const userWithEmail = await registeration.findOne({ email });
 
     if (userWithMobileNumberOrEmail) {
-      //logger.info(`User with this mobile number or email already exists 😒`)
+      logger.info(`User with this mobile number or email already exists 😒`)
       let errorMessage = {
         message: "User with this mobile number or email already exists 😒",
         statusCode: 401,
@@ -58,7 +58,7 @@ const registerationVerify = async (req, res, next) => {
     }
 
   } catch (err) {
-    //logger.error("InternalServiceError")
+    logger.error("InternalServiceError")
     let errorMessage = {
       message: "InternalServiceError",
       statusCode: 500,
@@ -75,7 +75,7 @@ const allUsers = async (req, res, next) => {
     if (allUsers.length > 0) {
       res.status(200).send(allUsers)
     }else{
-      //logger.error("No Users")
+      logger.error("No Users")
       let errorMessage = {
         message: "No users",
         statusCode: 404,
@@ -84,7 +84,7 @@ const allUsers = async (req, res, next) => {
     }
 
   } catch (err) {
-    //logger.error("InternalServiceError")
+    logger.error("InternalServiceError")
     let errorMessage = {
       message: "InternalServiceError",
       statusCode: 500,

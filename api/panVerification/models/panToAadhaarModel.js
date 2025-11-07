@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const panDetails = new mongoose.Schema({
+const panAadhaarDetails = new mongoose.Schema({
   panNumber: {
     type: String,
   },
@@ -8,29 +8,20 @@ const panDetails = new mongoose.Schema({
     type: Object,
     required: true
   },
-<<<<<<< HEAD
-  token: {
-    type: String,
-    required: false
-=======
+  aadhaarNumber:{
+    type: Object,
+    required: true
+  },
   serviceResponse:{
     type: Object,
   },
   serviceName:{
     type: String
->>>>>>> new-origin/main
   },
   userName: {
     type: String,
     required: false
   },
-<<<<<<< HEAD
-  MerchantId: {
-    type: Object,
-  
-  },
-=======
->>>>>>> new-origin/main
   createdTime: {
     type: String,
     default: Date.now,
@@ -45,4 +36,4 @@ const panDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panDetails", panDetails);
+module.exports = mongoose.model("pan_To_Aadhaar", panAadhaarDetails);

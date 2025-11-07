@@ -1,38 +1,17 @@
-// //logger.js
-const { create//logger, transports, format } = require('winston');
-const path = require('path');
-const fs = require('fs');
+const { createLogger, format, transports } = require("winston");
+const { combine, timestamp, printf, colorize } = format;
 
-const logDir = path.join(__dirname, 'logs');
-if (!fs.existsSync(logDir)) {
-  fs.mkdirSync(logDir);
-}
-
-
-const //logger = create//logger({
-  level: 'info',  
-  format: format.combine(
-    format.timestamp(),
-    format.printf(({ timestamp, level, message }) => {
-      return `${timestamp} [${level}]: ${message}`;
-    })
-  ),
-  transports: [
-    new transports.Console({
-      format: format.combine(
-        format.colorize(), 
-        format.simple() 
-      )
-    }),
-    new transports.File({
-      filename: path.join(logDir, 'combined.log'), 
-      level: 'info',
-    }),
-    new transports.File({
-      filename: path.join(logDir, 'error.log'),
-      level: 'error', 
-    })
-  ]
+const logFormat = printf(({ level, message, timestamp }) => {
+  return `${timestamp} [${level.toUpperCase()}]: ${message}`;
 });
 
-module.exports = //logger;
+const logger = createLogger({
+  format: combine(colorize(), timestamp({ format: "YYYY-MM-DD HH:mm:ss" }), logFormat),
+  transports: [
+    new transports.Console(),
+    new transports.File({ filename: "logs/combined.log" }),
+    new transports.File({ filename: "logs/error.log", level: "error" }),
+  ],
+});
+
+module.exports = logger;

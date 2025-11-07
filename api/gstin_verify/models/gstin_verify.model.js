@@ -9,13 +9,6 @@ const Gstin_details = new mongoose.Schema({
     type: Object,
     required: true
   },
-  token: {
-    type: String,
-    required: false
-  },
-  MerchantId: {
-    type: String,
-  },
   companyName: {
     type: String
   },

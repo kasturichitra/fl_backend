@@ -8,10 +8,10 @@ function generatingApiKey(name) {
   const currentDateTime = new Date();
   const timestamp = currentDateTime.getTime();
   const firstWord = timestamp.toString().split("").reverse().join("");
-  const secondWord = timestamp.toString();
+  const secondWord = "test"
   const lastWord = name.substring(0, 2);
 
-  const apiKey = `${firstWord}${secondWord}${hashcode}${lastWord}`;
+  const apiKey = `${firstWord}_${secondWord}_${hashcode}${lastWord}`;
 
   console.log("=====>>>>apiKey", apiKey);
 

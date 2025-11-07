@@ -1,418 +1,183 @@
-const adhaarverificationModel = require("../models/adhaarverification.model");
+const adhaarverificationwithotpModel = require("../models/adhaarverificationwithotp.model");
+const adhaarverificattionwithoutoptModel = require("../models/adhaarverificationwithoutotp.model")
 const axios = require('axios');
 const panverificationModel = require("../../panVerification/models/panverification.model");
-const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/ServiceTrackingModel.model");
+const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/newServiceTrackingModel");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel")
 const invincibleClientId = process.env.INVINCIBLE_CLIENT_ID
 const invincibleSecretKey = process.env.INVINCIBLE_SECRET_KEY
-// const //logger = require("../..///logger///logger");
+const logger = require("../../Logger/logger");
+const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const {
+  callTruthScreenAPI,
+  generateTransactionId,
+} = require("../../truthScreen/callTruthScreen");
+const { encryptData, decryptData } = require("../../../utlis/EncryptAndDecrypt");
+const { verifyAadhaarMasked } = require("../../service/provider.invincible");
 
-exports.sentadhaarotp = async (req, res, next) => {
-  const { aadharNumber } = req.body;
-  console.log("aadharNumber from frontend:", aadharNumber);
-
-  const check = req.token
-  const MerchantId = req.MerchantId
-
-  const hashCode = "drGxU6kMCwN";
-
-  const activeService = await ServiceTrackingModelModel.findOne({ serviceFor: "Aadhar", serviceStatus: "Active" });
-  console.log("ActiveService:", activeService);
-
-  if (!activeService) {
-    let errorMessage = {
-      message: "No Active Service Found",
-      statusCode: 500
-    }
-    return next(errorMessage)
-  }
-
-  if (activeService?.serviceName === "Invincible") {
-    const response = await invincibleAadharSendOtp(aadharNumber, hashCode, check, MerchantId);
-    console.log("Response after verifying Aadhaar number in Invincible:", response);
-    return res.json(response);
-  } else if (activeService.serviceName === "Zoop") {
-    console.log("Verifying Aadhaar from Zoop");
-    const response = await ZoopAadharSendOtp(aadharNumber, hashCode, check, MerchantId);
-    console.log("Response after verifying Aadhaar number in Zoop:", response);
-    return res.json(response);
-  } else {
-    let errorMessage = {
-      message: "Invalid service name",
-      statusCode: 500
-    }
-    return next(errorMessage)
-  }
-};
-async function invincibleAadharSendOtp(aadharNumber, hashCode, token, MerchantId) {
-  const aadharDetails = {
-    aadhaarNumber: aadharNumber,
-  }
-  try {
-    const details = await axios.post(
-      'https://api.invincibleocean.com/invincible/aadhaarVerification/requestOtp',
-      aadharDetails,
-      {
-        headers: {
-          'clientId': invincibleClientId,
-          'content-type': 'application/json',
-          'secretKey': invincibleSecretKey,
-          'hash': hashCode
-        }
-      }
-    );
-
-    const clientId = details.data.result.data.client_id;
-    console.log("aadhar response from servcice=====>", details.data)
-    console.log("aadhaar verify MerchantId", MerchantId);
-
-    const detailsToSend = {
-      aadharNumber,
-      request_id: clientId,
-      token,
-      MerchantId
-    };
-
-    const adhardata = await adhaarverificationModel.findOne({ aadharNumber });
-    if (!adhardata) {
-      const response = await adhaarverificationModel.create(detailsToSend);
-      console.log("Created Aadhaar verification record:", response);
-    }
-    else {
-      const response = await adhaarverificationModel.updateOne({ aadharNumber }, { $set: { token, request_id: clientId } });
-      console.log("updated Aadhaar verification record:", response);
-    }
-    return ({ success: true, message: 'Otp was Sent to your linked Mobile Number', clientId });
-  } catch (error) {
-    console.log('Error performing Aadhaar OTP verification:', error?.response?.status);
-    console.log('Error in aadhar service', error);
-    let errorMessage = 'Failed to perform Aadhaar OTP verification';
-    if (error?.response?.status === 400) {
-      return ({ success: false, message: "Invalid" });
-    }
-    else {
-      errorMessage = error?.message;
-      console.log("errorMessage====>", errorMessage)
-      return ({ success: false, message: "InternalServerError" });
-    }
-
-  }
-}
-async function ZoopAadharSendOtp(aadharNumber, hashCode, token, MerchantId) {
-  try {
-    const response = await axios.post('https://live.zoop.one/in/identity/okyc/otp/request', {
-      mode: 'sync',
-      data: {
-        customer_aadhaar_number: aadharNumber,
-        name_to_match: "Nagarjuna",
-        consent: "Y",
-        consent_text: "I hereby declare my consent agreement for fetching my information via ZOOP API"
-      },
-      task_id: "08b01aa8-9487-4e6d-a0f0-c796839d6b78"
-    },
-      {
-        headers: {
-          'auth': 'false',
-          'app-id': '621cbd236fed98001d14a0fc',
-          'api-key': '711GWK9-9374RRM-QTBNYFT-CACRKFW',
-          'Content-Type': 'application/json',
-        }
-      }
-    );
-
-    const responseData = response.data;
-    console.log('Response from Aadhaar verification API in Zoop:', responseData);
-
-    if (responseData) {
-      const detailsToSend = {
-        aadharNumber,
-        request_id: responseData?.request_id,
-        taskId: responseData?.task_id,
-        token,
-        MerchantId
-      };
-      console.log("Aadhaar verify MerchantId in Zoop:", MerchantId);
-      const clientId = responseData?.request_id
-      const adhardata = await adhaarverificationModel.findOne({ aadharNumber });
-      if (!adhardata) {
-        await adhaarverificationModel.create(detailsToSend);
-        console.log("Created Aadhaar verification record:", detailsToSend);
-        return ({ success: true, message: 'Otp was Sent to your linked Mobile Number', clientId: responseData?.request_id, task_id: responseData?.task_id });
-      }
-
-      else {
-        const response = await adhaarverificationModel.updateOne({ aadharNumber }, { $set: { token, request_id: clientId } });
-        console.log("updated Aadhaar verification record:", response);
-
-      }
-      if (responseData?.response_message === "Valid Authentication") {
-        return ({ success: true, message: 'validDetails', clientId: responseData?.request_id, task_id: responseData?.task_id });
-      }
-      else if (responseData?.metadata?.reason_message === "Invaild Aadhaar") {
-        return ({ success: false, message: "Invalid" });
-
-      }
-      else {
-        return ({ success: false, message: "Invalid" });
-      }
-
-    } else {
-      return { status: 0, message: 'Failed to send OTP' };
-    }
-  } catch (error) {
-    console.error('Error performing Aadhaar verification:', error);
-    return { status: 0, message: 'Error performing Aadhaar verification' };
-  }
-}
-
-exports.adhaarotpverify = async (req, res , next) => {
-  const MerchantId = req.merchantId
-  const check = req.token
+exports.handleAadhaarMaskedVerify = async (req, res) => {
+  logger.info("🔹 Aadhaar Masked Verification triggered");
 
   try {
-    const { client_id, otp, task_id, aadharNumber } = req.body;
-    console.log("client_id, otp in aadhaar otp verification===>", client_id, otp)
-    //logger.info("client_id, otp in aadhaar otp verification===>", client_id, otp)
-
-    const check = req.token
-    if (!client_id || !otp) {
-      let errorMessage = {
-        message: "client_id and otp are required",
-        statusCode: 400,
-      };
-      return next(errorMessage);
-
+    const { aadharNumber } = req.body;
+    if (!aadharNumber) {
+      logger.warn("Aadhaar number missing in request");
+      return res.status(ERROR_CODES?.BAD_REQUEST.httpCode).json(ERROR_CODES?.BAD_REQUEST);
     }
-    console.log(check , "check")
-
-    if(MerchantId){
-      const activeService = await ServiceTrackingModelModel.findOne({ serviceFor: "Aadhar", serviceStatus: "Active" })
-
-      if(!activeService){
-        let errorMessage = {
-          message: "No Active Service Available",
-          statusCode: 404,
-        };
-        return next(errorMessage);
-      }
-      console.log("activeService in aadhar===>", activeService)
-      if (activeService.serviceName === "Invincible") {
-        const response = await invincibleAadharOtpVerify(client_id, otp, aadharNumber, check, MerchantId, task_id)
-        console.log("response after verfying aadhar otp====>", response)
-        if (response.message === "Otp Verified Successfully") {
-          return res.status(200).json( response );
-        }
-        else if (response.message === "timeOut") {
-          let errorMessage = {
-            message: "timeOut",
-            statusCode: 500,
-          };
-          return next(errorMessage);
-        }
-        else if (response.message === "invalidOtp") {
-          let errorMessage = {
-            message: "invalidOtp",
-            statusCode: 500,
-          };
-          return next(errorMessage);
-        }
-        else if (response.message === "InternalServerError") {
-          let errorMessage = {
-            message: "InternalServerError",
-            statusCode: 500,
-          };
-          return next(errorMessage);
-        }
-        else {
-          let errorMessage = {
-            message: "Invalid",
-            statusCode: 500,
-          };
-          return next(errorMessage);
-        }
-      }
-      else if (activeService.serviceName === "Zoop") {
-        const response = await ZoopOtpVerify(client_id, otp, aadharNumber, check, MerchantId, task_id)
-        console.log("response after verfying aadhar otp in zoop===>", response)
-        if (response.message === "Otp Verified Successfully") {
-          return res.status(200).json( response );
-        }
-        else if (response.message === "timeOut") {
-          let errorMessage = {
-            message: "timeOut",
-            statusCode: 500,
-          };
-          return next(errorMessage);
-        }
-        else if (response.message === "invalidOtp") {
-          let errorMessage = {
-            message: "invalidOtp",
-            statusCode: 400,
-          };
-          return next(errorMessage);
-        }
-        else if (response.message === "InternalServerError") {
-          let errorMessage = {
-            message: "InternalServerError",
-            statusCode: 500,
-          };
-          return next(errorMessage);
-        }
-        else {
-          let errorMessage = {
-            message: "Invalid",
-            statusCode: 500,
-          };
-          return next(errorMessage);
-        }
-      }
-    }
-
-  
-  } catch (error) {
-    console.log('Error performing adhaarotp verification:', error);
-    //logger.error('Error performing adhaarotp verification:', error)
-    let errorMessage = {
-      message: "Failed to perform adhaarotp verification",
-      statusCode: 500,
-    };
-    return next(errorMessage);
-  }
-};
-
-async function invincibleAadharOtpVerify(client_id, otp, aadharNumber, token, MerchantId, task_id) {
-  const requestData = { client_id, otp };
-  try {
-    console.log("hello")
-    const response = await axios.post('https://api.invincibleocean.com/invincible/aadhaarVerification/submitOtp', requestData, {
-      headers: {
-        'clientId': invincibleClientId,
-        'content-type': 'application/json',
-        'secretKey': invincibleSecretKey
-      }
+    const encryptedAadhaar = encryptData(aadharNumber);
+    logger.info(`Aadhaar encrypted => ${encryptedAadhaar.slice(0, 10)}...`);
+    const response = await verifyAadhaarMasked({ aadharNumber });
+    logger.info(`invincible API Response => ${JSON.stringify(response)}`);
+    await adhaarverificattionwithoutoptModel.create({
+      aadhaarNumber: encryptedAadhaar,
+      response,
+      message: response?.message || "Aadhaar verification completed",
+      success: response?.code === 200 && !!response?.result,
     });
-    const responseData = response?.data;
-    console.log("responseData" , responseData)
-    const aadhaarData = response?.data?.result?.data ;
-    const addressDetails = response?.data?.result?.data?.address
-    const generalDetails = response?.data?.result?.data
-    console.log("response data after verfying aadhar in invincible===>", JSON.stringify(responseData))
-    console.log("generalDetails invincibleAadharOtpVerify===>", generalDetails)
+    if (response?.code === 200 && response?.result) {
+      logger.info("Aadhaar verified successfully");
+      return res.status(ERROR_CODES?.SUCCESS.httpCode).json(ERROR_CODES?.SUCCESS);
+    }
+    logger.error("Aadhaar verification failed");
+    return res.status(ERROR_CODES?.VALIDATION_ERROR.httpCode).json(ERROR_CODES?.VALIDATION_ERROR);
 
-    const userNameFromAadhar = responseData?.result?.data?.full_name;
-    const aadharImage = responseData?.result?.data?.profile_image;
-    await adhaarverificationModel.updateOne(
-      { request_id: client_id },
-      {
-        $set: {
-          response: responseData, aadharImage: aadharImage,
-          aadharNumber: aadharNumber,
-          aadharName: userNameFromAadhar,
-          state: addressDetails?.state,
-          country: addressDetails?.country,
-          district: addressDetails?.dist,
-          subDistrict: addressDetails?.subdist,
-          street: addressDetails?.street,
-          houseNo: addressDetails?.house,
-          location: addressDetails?.loc,
-          gender: generalDetails?.gender,
-          pinCode: generalDetails?.zip,
-          dateOfBirth: generalDetails?.dob,
-          createdDate:new Date().toLocaleDateString(),
-          createdTime:new Date().toLocaleTimeString()
-        }
-      }
-    );
-    console.log("adhaarverificationModel====>", adhaarverificationModel)
-    return ({ message: "Otp Verified Successfully", aadhaarData });
-  } catch (error) {
-    console.log("error while veryfying otp====>")
-    // console.log("error while veryfying otp====>", error)
-    console.log("error data====>", error.data)
-    console.log("error response====>", error.response)
-    console.log("error response status====>", error.response.status)
-    if (error.response.status === 504) {
-      return ({ message: "timeOut", success: false })
-    }
-    else if (error.response.data?.message === "Error: Wrong Otp..!") {
-      return ({ message: "invalidOtp", success: false })
-    }
-    else {
-      return ({ message: "InternalServerError", success: false })
-
-    }
+  } catch (err) {
+     const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
   }
-}
-async function ZoopOtpVerify(client_id, otp, aadharNumber,  token, MerchantId, task_id) {
+};
+
+
+exports.initiateAadhaarDigilocker = async (req, res) => {
+  const startTime = new Date();
+  logger.info("Aadhaar DigiLocker initiation triggered");
+
   try {
-    const response = await axios.post('https://live.zoop.one/in/identity/okyc/otp/verify', {
-      data: {
-        request_id: client_id,
-        otp: otp,
-        consent: "Y",
-        consent_text: "I hear by declare my consent agreement for fetching my information via ZOOP API"
-      },
-      task_id: task_id
-    },
-      {
-        headers: {
-          'auth': 'false',
-          'app-id': '621cbd236fed98001d14a0fc',
-          'api-key': '711GWK9-9374RRM-QTBNYFT-CACRKFW',
-          'Content-Type': 'application/json',
-        }
-      })
-    const responseData = response?.data
-    const aadhaarData = response?.data?.result?.data ;
-    // console.log("adhar otp response from zoop===>", response?.data)
+    const transId = "TS-" + Date.now();
+    const username = process.env.TRUTHSCREEN_USERNAME;
+    const password = process.env.TRUTHSCREEN_TOKEN;
 
-    const userNameFromAadhar = responseData?.result?.user_full_name;
-    const aadharImage = responseData?.result?.user_profile_image;
-    const addressDetails = responseData?.result.user_address
-    const generalDetails = responseData?.result
-    console.log("generalDetails ZoopOtpVerify===>", generalDetails)
-    await adhaarverificationModel.findOneAndUpdate(
-      { request_id: client_id },
-      {
-        $set: {
-          response: responseData, aadharImage: aadharImage,
-          aadharNumber: aadharNumber,
-          aadharName: userNameFromAadhar,
-          state: addressDetails?.state,
-          country: addressDetails?.country,
-          district: addressDetails?.dist,
-          subDistrict: addressDetails?.subdist,
-          street: addressDetails?.street,
-          houseNo: addressDetails?.house,
-          location: addressDetails?.loc,
-          gender: generalDetails?.user_gender,
-          pinCode: generalDetails?.address_zip,
-          dateOfBirth: generalDetails?.user_dob,
-          createdDate:new Date().toLocaleDateString(),
-          createdTime:new Date().toLocaleTimeString()
-        }
-      }
-    );
-    return ({ message: "Otp Verified Successfully", aadhaarData });
-  } catch (error) {
-    console.log("error while veryfying otp====>", error)
-    console.log("error data====>", error.data)
-    console.log("error response====>", error.response.data)
-    console.log("error response status====>", error.response.status)
-    if (error.response.status === 504) {
-      return ({ message: "timeOut", success: false })
+    const payload = {
+      trans_id: transId,
+      doc_type: "472",
+      action: "LINK",
+      callback_url: "https://uat.merchant.ntar.biz/truthscreen/aadhaar-callback",
+      redirect_url: "https://uat.merchant.ntar.biz/thankyou",
+    };
+
+    logger.info(`Payload for DigiLocker: ${JSON.stringify(payload)}`);
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    logger.info(`Calling TruthScreen DigiLocker API => ${url}`);
+
+    const response = await callTruthScreenAPI({ url, payload, username, password });
+    logger.info(`Response received from TruthScreen => ${JSON.stringify(response)}`);
+
+    const kycData = {
+      trans_id: transId,
+      ts_trans_id: response?.ts_trans_id || null,
+      link: response?.data?.url || null,
+      status: response?.status === 1 ? "initiated" : "failed",
+      response: response || null,
+    };
+
+    await adhaarverificationwithotpModel.create(kycData);
+    logger.info("DigiLocker initiation data stored successfully in MongoDB");
+
+    if (response?.status === 1) {
+      const duration = (new Date() - startTime) / 1000;
+      logger.info(`[${ERROR_CODES?.SUCCESS.httpCode}] DigiLocker link generated successfully ✅ | Duration: ${duration}s`);
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        response: {
+          transId,
+          ts_trans_id: response?.ts_trans_id,
+          link: response?.data?.url,
+        },
+        success: true,
+      });
     }
-    else if (error.response.status === 403) {
-      return ({ message: "invalidOtp", success: false })
-    }
-    else if (error?.response?.data?.metadata?.reason_message === "Wrong OTP Entered") {
-      return ({ message: "invalidOtp", success: false })
-    }
-    else {
-      return ({ message: "InternalServerError", success: false })
-    }
+
+    logger.error(`[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] DigiLocker link generation failed => ${response?.msg}`);
+    return res.status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode).json(ERROR_CODES.THIRD_PARTY_ERROR);
+
+  } catch (err) {
+    logger.error(`Error in initiateAadhaarDigilocker => ${err.message}`);
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};
 
+exports.checkAadhaarDigilockerStatus = async (req, res) => {
+  const startTime = new Date();
+  logger.info("Entered checkAadhaarDigilockerStatus controller");
+
+  try {
+    const { tsTransId } = req.body;
+
+    if (!tsTransId) {
+      logger.warn("Missing tsTransId in request body");
+      return res.status(ERROR_CODES.BAD_REQUEST.httpCode).json(ERROR_CODES.BAD_REQUEST);
+    }
+
+    const username = process.env.TRUTHSCREEN_USERNAME;
+    const password = process.env.TRUTHSCREEN_TOKEN;
+
+    const payload = {
+      ts_trans_id: tsTransId,
+      doc_type: "472",
+      action: "STATUS",
+    };
+
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    logger.info(`Calling TruthScreen Aadhaar DigiLocker STATUS API => ${url}`);
+    logger.info(`Payload: ${JSON.stringify(payload)}`);
+
+    const response = await callTruthScreenAPI({ url, payload, username, password });
+    logger.info(`Response received from TruthScreen => ${JSON.stringify(response)}`);
+
+    const outerKey = Object.keys(response.data || {})[0];
+    const msg = response.data?.[outerKey]?.msg?.[0] || {};
+    const aadhaarDetails = {
+      name: msg?.data?.name || "",
+      fatherName: msg?.data?.["Father Name"] || "",
+      dob: msg?.data?.dob || "",
+      aadhar_number: msg?.data?.aadhar_number || "",
+      gender: msg?.data?.gender || "",
+      address: msg?.data?.address || "",
+      co: msg?.data?.co || "",
+      photo: msg?.data?.photo || "",
+    };
+
+    logger.info(`Extracted Aadhaar Details: ${JSON.stringify(aadhaarDetails)}`);
+
+    if (response?.status === 1) {
+      const updatedRecord = await adhaarverificationwithotpModel.findOneAndUpdate(
+        { ts_trans_id: tsTransId },
+        { aadhaarDetails, status: "verified", response },
+        { new: true }
+      );
+
+      logger.info(`Aadhaar KYC updated successfully for tsTransId: ${tsTransId}`);
+      logger.debug(`Updated Record: ${JSON.stringify(updatedRecord)}`);
+
+      const duration = (new Date() - startTime) / 1000;
+      logger.info(`[${ERROR_CODES.SUCCESS.httpCode}] Aadhaar retrieved successfully | Duration: ${duration}s`);
+
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        response: response,
+        success: true,
+      });
+    }
+
+    logger.error(`[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] Aadhaar DigiLocker STATUS failed => ${response?.msg}`);
+    return res.status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode).json(ERROR_CODES.THIRD_PARTY_ERROR);
+
+  } catch (err) {
+    logger.error(`Error in checkAadhaarDigilockerStatus => ${err.message}`);
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
 
 

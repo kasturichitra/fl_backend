@@ -27,7 +27,6 @@ const ipRouter = require("./api/whitelistapi/routes/whitelistApi.routes")
 const LiveApiKeysRouter = require("./api/live_api_keys/routes/liveKeys.route")
 const NominalRouter = require("./api/NominalCharges/Routes/NominalChargesRoutes")
 const PaymentRouter = require("./api/PaymentLinks/routes/paymentlink.route")
- 
 const WalletRoutes = require("./api/Wallets/routes/Wallets.routes");
 
 
@@ -39,6 +38,7 @@ const checkKeys = require("./middleware/keyValidation.middleware")
 const kycCheck = require("./middleware/kyc.middleware")
 const NominalRouter = require("./api/NominalCharges/Routes/NominalChargesRoutes")
 const HandileCharges = require('./middleware/ServicesCharges.middleware')
+const fullCardRouter = require("./api/cardValidation/routes/cardValidationRoutes")
 
 const app = express()
 
@@ -68,7 +68,7 @@ if (process.env.NODE_ENV == "production") {
   mongoURI = process.env.MONGODBURL;
 }
 
-mongoose.connect(mongoURI).then(() => console.log("DB Connected Successfully")).catch((err) => {
+mongoose.connect(mongoURI).then(() => console.log("**************************DB Connected Successfully***************************")).catch((err) => {
   console.log("DB Connection Failed", err)
 })
 
@@ -78,23 +78,25 @@ app.use("/service", serviceRouter);
 app.use("/charge", NominalRouter);
 app.use("/upi", UPIrouter)
 app.use("/pay", PaymentRouter)
-app.use('/wallet',jwtauth, validateMerchant, checkWhitelist,WalletRoutes)
-app.use("/pan", jwtauth, validateMerchant, checkWhitelist,checkKeys, HandileCharges, panRouter);
-app.use("/aadhaar", jwtauth, validateMerchant, checkWhitelist, checkKeys, HandileCharges, aadhaarRouter);
-app.use("/otp", jwtauth, validateMerchant,  checkWhitelist,checkKeys, HandileCharges, otpRouter);
-app.use("/shop", jwtauth, validateMerchant, checkWhitelist,checkKeys,HandileCharges, shopRouter);
-app.use("/gst", jwtauth, validateMerchant, checkWhitelist,checkKeys, HandileCharges, gstRouter);
-app.use("/face", jwtauth, validateMerchant, checkWhitelist , checkKeys, HandileCharges, faceRouter)
-app.use('/account', jwtauth, validateMerchant, checkWhitelist,checkKeys,HandileCharges , Accountrouter)
-app.use("/name", jwtauth, validateMerchant, checkWhitelist,checkKeys,HandileCharges , nameRouter)
-app.use("/verify", jwtauth, validateMerchant, checkWhitelist,checkKeys,HandileCharges , verifyNameRouter)
-app.use("/bin", jwtauth, validateMerchant, checkWhitelist,checkKeys,HandileCharges , binRouter)
-app.use("/email", jwtauth, validateMerchant, checkWhitelist,checkKeys,HandileCharges , Emailroutes)
-app.use("/key", jwtauth, validateMerchant, checkWhitelist, testingApiRouter)
-app.use("/key", jwtauth, validateMerchant, checkWhitelist, LiveApiKeysRouter)
+app.use('/wallet',jwtauth, validateMerchant,kycCheck, checkWhitelist,WalletRoutes)
+// app.use("/pan", jwtauth, validateMerchant,kycCheck, checkWhitelist,checkKeys, HandileCharges, panRouter);
+app.use("/pan", jwtauth, validateMerchant,kycCheck, panRouter);
+// app.use("/aadhaar", jwtauth, validateMerchant,kycCheck, checkWhitelist, checkKeys, HandileCharges, aadhaarRouter);
+app.use("/aadhaar",  aadhaarRouter);
+app.use("/otp", jwtauth, validateMerchant,  kycCheck, checkWhitelist,checkKeys, HandileCharges, otpRouter);
+app.use("/shop", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,HandileCharges, shopRouter);
+app.use("/gst", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys, HandileCharges, gstRouter);
+app.use("/face", jwtauth, validateMerchant, kycCheck, checkWhitelist , checkKeys, HandileCharges, faceRouter)
+app.use('/account', jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,HandileCharges , Accountrouter)
+app.use("/name", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,HandileCharges , nameRouter)
+app.use("/verify", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,HandileCharges , verifyNameRouter)
+// app.use("/bin", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,HandileCharges , binRouter)
+app.use("/bin", jwtauth, validateMerchant, kycCheck, binRouter)
+app.use("/card", jwtauth, validateMerchant, kycCheck, fullCardRouter)
+app.use("/email", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,HandileCharges , Emailroutes)
+app.use("/key", jwtauth, validateMerchant, kycCheck, checkWhitelist, testingApiRouter)
+app.use("/key", jwtauth, validateMerchant, kycCheck, checkWhitelist, LiveApiKeysRouter)
 app.use("/IP", jwtauth, validateMerchant,  ipRouter)
-
-
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 
