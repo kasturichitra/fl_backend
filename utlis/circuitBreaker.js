@@ -2,24 +2,47 @@ const ServiceTrackingModel = require("../api/ServiceTrackingModel/models/newServ
 
 async function recordFailure(service) {
     const today = new Date().toISOString().split("T")[0];
-    const errorData = service.serviceErrorCount || { date: today, errorCount: 0 };
+    const todayLog = service.serviceErrorCount.find(entry => entry.date === today);
 
-    if (errorData.date !== today) {
-        errorData.date = today;
-        errorData.errorCount = 0;
+    if (todayLog) {
+        // updating erro count 
+        const newCount = todayLog.errorCount + 1;
+        const update = {
+            $set: { "serviceErrorCount.$.errorCount": newCount }
+        };
+
+        if (newCount >= service.thresholdValue) {
+            update.$set["serviceErrorCount.$.frozenUntil"] = new Date(Date.now() + 5 * 60 * 1000);
+            console.log(`🚨 ${service.serviceFor}-${service.serviceName} frozen for 5 mins`);
+        }
+
+        await ServiceTrackingModel.updateOne(
+            { _id: service._id, "serviceErrorCount.date": today },
+            update
+        );
+
+    } else {
+        // updated new date
+        const errorData = {
+            date: today,
+            errorCount: 1,
+            frozenUntil: null
+        };
+
+        await ServiceTrackingModel.updateOne(
+            { _id: service._id },
+            {
+                $push: {
+                    serviceErrorCount: {
+                        $each: [errorData],
+                        $slice: -7 
+                    }
+                }
+            }
+        );
+
+        console.log(`New day error count started for ${service.serviceFor}-${service.serviceName}`);
     }
-
-    errorData.errorCount += 1;
-
-    if (errorData.errorCount >= service.thresholdValue) {
-        errorData.frozenUntil = new Date(Date.now() + 5 * 60 * 1000); // freeze 5 mins
-        console.log(`🚨 ${service.serviceFor}-${service.serviceName} frozen`);
-    }
-
-    await ServiceTrackingModel.updateOne(
-        { _id: service._id },
-        { serviceErrorCount: errorData }
-    );
 }
 
 async function resetSuccess(service) {

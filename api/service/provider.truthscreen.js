@@ -3,18 +3,84 @@ const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/ca
 const username = process.env.TRUTHSCREEN_USERNAME;
 const password = process.env.TRUTHSCREEN_TOKEN;
 
+// Vishnu
+// function generateKey(password) {
+//     console.log('---2. GenerateKey is Called---', password)
+//     const hash = crypto.createHash("sha512");
+//     hash.update(password, "utf-8");
+//     return hash.digest("hex").substring(0, 16);
+// }
+// function encrypt(plainText, password) {
+//     console.log('---1. Encrypt is called ---')
+//     const key = generateKey(password);
+//     const iv = crypto.randomBytes(16);
+//     const cipher = crypto.createCipheriv("aes-128-cbc", Buffer.from(key), iv);
+
+//     let encrypted = cipher.update(plainText, "utf-8", "base64");
+//     encrypted += cipher.final("base64");
+
+//     return `${encrypted}:${iv.toString("base64")}`;
+// }
+// function decrypt(encryptedText, password) {
+//     const key = generateKey(password);
+
+//     //   console.log("encryptedText ===>", encryptedText, typeof encryptedText);
+
+//     if (typeof encryptedText !== "string") {
+//         throw new Error("Invalid encryptedText: must be a string");
+//     }
+
+//     const [encryptedData, ivBase64] = encryptedText.split(":");
+//     const iv = Buffer.from(ivBase64, "base64");
+
+//     const decipher = crypto.createDecipheriv("aes-128-cbc", Buffer.from(key), iv);
+//     let decrypted = decipher.update(encryptedData, "base64", "utf8");
+//     decrypted += decipher.final("utf8");
+
+//     return decrypted;
+// }
+// async function apiCall(url, body, headers) {
+//     console.log('Api call triggred', url, body, headers)
+//     const password = process.env.TRUTHSCREEN_TOKEN
+//     try {
+//         console.log('------In api Call try Block ---------')
+//         const encryptedData = encrypt(JSON.stringify(body), password);
+//         console.log('encrypted Data is ===>', encryptedData)
+//         const res = await axios.post(url, { requestData: encryptedData }, {
+//             headers,
+//         });
+//         console.log("response in truth screen", res?.data);
+
+//         const encryptedResponseData = res?.data?.responseData || res?.data;
+//         if (!encryptedResponseData || typeof encryptedResponseData !== "string") {
+//             throw new Error("Invalid or missing encrypted responseData from TruthScreen");
+//         }
+//         const decrypted = decrypt(encryptedResponseData, password);
+
+//         return decrypted;
+
+//     } catch (err) {
+//         console.log('Error while api call in TruthScreen', err)
+//         const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
+//         if (!isNetworkErr) {
+//             throw err;
+//         }
+//         console.log(`Invincible Retry Attempt error ${err}`);
+//     }
+// }
+
 async function apiCall(url, body) {
   console.log("Api call triggred in truth screen", url, body);
   try {
     const truthScreenResponse = await callTruthScreenAPI({
       url,
-      payload:body,
+      payload: body,
       username,
       password,
     });
     console.log("Api Call response in truthScreen===>", truthScreenResponse);
-    if(truthScreenResponse?.status == 1){
-        return truthScreenResponse;
+    if (truthScreenResponse?.status == 1) {
+      return truthScreenResponse;
     }
   } catch (err) {
     const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
@@ -25,9 +91,10 @@ async function apiCall(url, body) {
   }
 }
 
+// Poonam
 async function verifyPanTruthScreen(data) {
-    const {panNumber} = data
-    console.log("panNumber in truthScreen ===>>", panNumber)
+  const { panNumber } = data
+  console.log("panNumber in truthScreen ===>>", panNumber)
   const url = "https://www.truthscreen.com/api/v2.2/idsearch";
 
   const transID = generateTransactionId(14);
@@ -45,26 +112,26 @@ async function verifyPanTruthScreen(data) {
 
     console.log("parsedResponse ====>>", parsedResponse)
 
-     const returnedObj = {
-        PAN: parsedResponse.msg?.PanNumber || null,
-        Name: parsedResponse.msg?.Name || null,
-        PAN_Status:
-          parsedResponse.msg?.STATUS || parsedResponse.msg?.pan_status || null,
-        PAN_Holder_Type:
-          parsedResponse.msg?.panHolderStatusType ||
-          parsedResponse.msg?.pan_type ||
-          null,
-      };
+    const returnedObj = {
+      PAN: parsedResponse.msg?.PanNumber || null,
+      Name: parsedResponse.msg?.Name || null,
+      PAN_Status:
+        parsedResponse.msg?.STATUS || parsedResponse.msg?.pan_status || null,
+      PAN_Holder_Type:
+        parsedResponse.msg?.panHolderStatusType ||
+        parsedResponse.msg?.pan_type ||
+        null,
+    };
 
-      return {
-        result: returnedObj,
-        message: "Valid",
-        responseOfService: parsedResponse?.msg,
-        service: "TruthScreen",
-      };
+    return {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: parsedResponse?.msg,
+      service: "TruthScreen",
+    };
   } catch (error) {
-    if(error){
-        throw error
+    if (error) {
+      throw error
     }
   }
 }
@@ -124,27 +191,31 @@ async function callTruthScreenFaceVerification(userImage, aadhaarImage) {
   return step2Response.data;
 }
 
-
-// async function faceMatch(data) {
-//   const url = process.env.TRUTHSCREEN_FACE_URL;
-
-//   return await apiCall(url, data, {
-//     "x-api-key": process.env.TRUTHSCREEN_API_KEY,
-//   });
-// }
-
-async function verifyBank(data) {
-  const url = process.env.TRUTHSCREEN_BANK_URL;
-
-  return await apiCall(url, data, {
-    "x-api-key": process.env.TRUTHSCREEN_API_KEY,
-  });
+// Vishnu
+async function shopEstablishment(data) {
+  const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
+  const headers = {
+    "username": process.env.INVINCIBLE_USERNAME,
+    "Content-Type": "application/json"
+  };
+  return await apiCall(url, data, headers)
+}
+async function verifyGstin(data) {
+  const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
+  const headers = {
+    "username": process.env.INVINCIBLE_USERNAME,
+    "Content-Type": "application/json"
+  };
+  const resData = await apiCall(url, data, headers);
+  console.log('VerifyGstIn Response', resData);
+  return resData
 }
 
 module.exports = {
   verifyPanTruthScreen,
   verifyCinTruthScreen,
   verifyAadhaar,
-  verifyBank,
-  callTruthScreenFaceVerification
+  callTruthScreenFaceVerification,
+  shopEstablishment,
+  verifyGstin
 };

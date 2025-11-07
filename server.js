@@ -38,6 +38,7 @@ const checkKeys = require("./middleware/keyValidation.middleware")
 const kycCheck = require("./middleware/kyc.middleware")
 const HandileCharges = require('./middleware/ServicesCharges.middleware')
 const fullCardRouter = require("./api/cardValidation/routes/cardValidationRoutes")
+const RechargeRoute = require("./api/Recharge/routes/reachargeRoutes")
 
 const app = express()
 
@@ -98,6 +99,7 @@ app.use("/email", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,
 app.use("/key", jwtauth, validateMerchant, kycCheck, checkWhitelist, testingApiRouter)
 app.use("/key", jwtauth, validateMerchant, kycCheck, checkWhitelist, LiveApiKeysRouter)
 app.use("/IP", jwtauth, validateMerchant,  ipRouter)
+app.use('/Reacharge',jwtauth,RechargeRoute)
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

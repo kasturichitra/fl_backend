@@ -100,9 +100,47 @@ async function verifyBank(data) {
   return await apiCall(url, data, headers);
 }
 
+// Vishnu
+async function verifyGstin(data) {
+    console.log('is triggred verifygstin');
+    const url = 'https://live.zoop.one/api/v1/in/merchant/gstin/lite';
+    const headers = {
+        "app-id": process.env.ZOOP_APP_ID,
+        "api-key": process.env.ZOOP_API_KEY,
+        "content-type": "application/json",
+    }
+
+    return await apiCall(url, data, headers);
+
+    const apiresponse = await apiCall(url, data, headers);
+    const gstnData = JSON.parse(data)
+    const gstinData = {
+        gstinNumber: gstnData?.gstin,
+        serviceRes: 'zoop',
+        response: apiresponse,
+        companyName: apiresponse?.result?.result?.gstnDetailed?.legalNameOfBusiness,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString()
+    };
+    console.log('VerifyGSTin Response data is', JSON.stringify(gstinData));
+    return gstinData;
+}
+async function shopEstablishment(data) {
+    const url = "https://api.invincibleocean.com/invincible/shopEstablishment";
+    const headers = {
+        accept: "application/json",
+        clientId: process.env.INVINCIBLE_CLIENT_ID,
+        "content-type": "application/json",
+        secretKey: process.env.INVINCIBLE_SECRET_KEY,
+    };
+    return await apiCall(url, data, headers);
+}
+
 module.exports = {
   verifyPanZoop,
   verifyAadhaar,
   faceMatch,
   verifyBank,
+  verifyGstin,
+  shopEstablishment
 };
