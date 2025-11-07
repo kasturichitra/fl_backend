@@ -96,6 +96,7 @@ app.use("/email", jwtauth, validateMerchant, kycCheck, checkWhitelist,checkKeys,
 app.use("/key", jwtauth, validateMerchant, kycCheck, checkWhitelist, testingApiRouter)
 app.use("/key", jwtauth, validateMerchant, kycCheck, checkWhitelist, LiveApiKeysRouter)
 app.use("/IP", jwtauth, validateMerchant,  ipRouter)
+app.use('/Reacharge',jwtauth,RechargeRoute)
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

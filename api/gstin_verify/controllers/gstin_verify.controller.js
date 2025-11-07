@@ -1,105 +1,74 @@
 const gstin_verifyModel = require("../models/gstin_verify.model");
-const request = require("request");
-const checkingDetails = require("../../../utlis/authorization");
-const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
+const { selectService } = require("../../service/serviceSelector");
+const zoop = require("../../service/provider.zoop");
+const invincible = require("../../service/provider.invincible");
+const truthscreen = require("../../service/provider.truthscreen");
+const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const { generateTransactionId } = require("../../../utlis/helper");
 
 exports.gstinverify = async (req, res, next) => {
+  console.log("gstin verify is called")
+  const TXNID = generateTransactionId();
+  console.log('GStIn verify txn id', TXNID)
   try {
     const { gstinNumber } = req.body;
-
-      const MerchantId = req.merchantId
-     const check = req.token
-
+    if (!gstinNumber) {
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND)
+    }
     const existingGstin = await gstin_verifyModel.findOne({ gstinNumber });
-    console.log(
-      "legalName === companyName=== in already exist gst>",
-      existingGstin?.companyName
-    );
-
+    console.log("legalName=== companyName=== in already exist gst>", existingGstin);
     if (existingGstin) {
-      return res.status(200).json({
-        message: existingGstin?.response,
-        success: true,
-      });
+      const dataToShow = {
+        gstin: existingGstin?.gstinNumber,
+        companyName: existingGstin?.companyName
+      }
+      return res.status(200).json({ message: 'Success', data: dataToShow, success: true });
     }
 
-    const gstinOption = {
-      method: "POST",
-      url: "https://live.zoop.one/api/v1/in/merchant/gstin/lite",
-      headers: {
-        "app-id": "621cbd236fed98001d14a0fc",
-        "api-key": "711GWK9-9374RRM-QTBNYFT-CACRKFW",
-        "Content-Type": "application/json",
+    const zoopData = {
+      mode: "sync",
+      data: {
+        business_gstin_number: gstinNumber,
+        consent: "Y",
+        consent_text:
+          "I hereby declare my consent agreement for fetching my information via ZOOP API",
       },
-      body: JSON.stringify({
-        mode: "sync",
-        data: {
-          business_gstin_number: gstinNumber,
-          consent: "Y",
-          consent_text:
-            "I hereby declare my consent agreement for fetching my information via ZOOP API",
-        },
-      }),
     };
-
-    request(gstinOption, async (error, response, body) => {
-      if (error) {
-        console.error("Error performing GSTIN verification:", error);
-        let errorMessage = {
-          message: "Failed to perform GSTIN verification Try Again Latter",
-          statusCode: 500,
-        };
-        return next(errorMessage);
-      }
-
-      try {
-        const obj = JSON.parse(body);
-        console.log("==========>>>>>obj" , obj)
-        const legalName = obj?.result?.legal_name;
-        const gstinData = {
-          gstinNumber,
-          response: obj,
-          token: check,
-          MerchantId: MerchantId,
-          companyName: legalName,
-          createdDate:new Date().toLocaleDateString(),
-          createdTime:new Date().toLocaleTimeString()
-        };
-        if(!obj?.success){
-          console.error("Error saving GSTIN verification data:", error);
-          let errorMessage = {
-            message:
-              `No Data Found for this gst_in Number ${gstinNumber}`,
-            statusCode: 404,
-          };
-          return next(errorMessage);
-        }
-        const newGstinVerification = await gstin_verifyModel.create(gstinData);
-        console.log(
-          "legalName === companyName=== in gst>",
-          legalName,
-          newGstinVerification
-        );
-        res.status(200).json({
-          message: newGstinVerification?.response,
-          success: true,
-        });
-      } catch (error) {
-        console.error("Error saving GSTIN verification data:", error);
-        let errorMessage = {
-          message:
-            "Failed to save GSTIN verification data Try again after some time",
-          statusCode: 500,
-        };
-        return next(errorMessage);
-      }
+    const Invincibledata = JSON.stringify({
+      gstin: gstinNumber
     });
+    const truthscreendata = {
+      "transID": TXNID,
+      "docType": 23,
+      "docNumber": gstinNumber
+    };
+    const service = await selectService('GSTIN');
+
+    if (!service || service === undefined) {
+      return res.status(503).json({ error: "No service available" });
+    }
+    console.log('gst inverify activer service', service?.serviceFor);
+    let result;
+    switch (service?.serviceFor) {
+      case 'ZOOP':
+        result = await zoop.verifyGstin(zoopData);
+        break;
+      case 'INVINCIBLE':
+        result = await invincible.verifyGstin(Invincibledata);
+        break;
+      case 'TRUTHSCREEN':
+        result = await truthscreen.verifyGstin(truthscreendata);
+        break;
+    }
+    console.log('gstin verify response', result);
+    const newGstinVerification = await gstin_verifyModel.create(result);
+    const dataToShow = {
+      gstin: result?.gstinNumber,
+      companyName: result?.companyName
+    }
+    return res.status(200).json({ message: 'Success', data: dataToShow, success: true });
   } catch (error) {
     console.error("Error performing GSTIN verification:", error);
-    let errorMessage = {
-      message: "Failed to perform GSTIN verification Try Again Latter",
-      statusCode: 500,
-    };
-    return next(errorMessage);
+    return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };
