@@ -1,0 +1,183 @@
+const adhaarverificationwithotpModel = require("../models/adhaarverificationwithotp.model");
+const adhaarverificattionwithoutoptModel = require("../models/adhaarverificationwithoutotp.model")
+const axios = require('axios');
+const panverificationModel = require("../../panVerification/models/panverification.model");
+const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/newServiceTrackingModel");
+const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel")
+const invincibleClientId = process.env.INVINCIBLE_CLIENT_ID
+const invincibleSecretKey = process.env.INVINCIBLE_SECRET_KEY
+const logger = require("../../Logger/logger");
+const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const {
+  callTruthScreenAPI,
+  generateTransactionId,
+} = require("../../truthScreen/callTruthScreen");
+const { encryptData, decryptData } = require("../../../utlis/EncryptAndDecrypt");
+const { verifyAadhaarMasked } = require("../../service/provider.invincible");
+
+exports.handleAadhaarMaskedVerify = async (req, res) => {
+  logger.info("🔹 Aadhaar Masked Verification triggered");
+
+  try {
+    const { aadharNumber } = req.body;
+    if (!aadharNumber) {
+      logger.warn("Aadhaar number missing in request");
+      return res.status(ERROR_CODES?.BAD_REQUEST.httpCode).json(ERROR_CODES?.BAD_REQUEST);
+    }
+    const encryptedAadhaar = encryptData(aadharNumber);
+    logger.info(`Aadhaar encrypted => ${encryptedAadhaar.slice(0, 10)}...`);
+    const response = await verifyAadhaarMasked({ aadharNumber });
+    logger.info(`invincible API Response => ${JSON.stringify(response)}`);
+    await adhaarverificattionwithoutoptModel.create({
+      aadhaarNumber: encryptedAadhaar,
+      response,
+      message: response?.message || "Aadhaar verification completed",
+      success: response?.code === 200 && !!response?.result,
+    });
+    if (response?.code === 200 && response?.result) {
+      logger.info("Aadhaar verified successfully");
+      return res.status(ERROR_CODES?.SUCCESS.httpCode).json(ERROR_CODES?.SUCCESS);
+    }
+    logger.error("Aadhaar verification failed");
+    return res.status(ERROR_CODES?.VALIDATION_ERROR.httpCode).json(ERROR_CODES?.VALIDATION_ERROR);
+
+  } catch (err) {
+     const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+
+exports.initiateAadhaarDigilocker = async (req, res) => {
+  const startTime = new Date();
+  logger.info("Aadhaar DigiLocker initiation triggered");
+
+  try {
+    const transId = "TS-" + Date.now();
+    const username = process.env.TRUTHSCREEN_USERNAME;
+    const password = process.env.TRUTHSCREEN_TOKEN;
+
+    const payload = {
+      trans_id: transId,
+      doc_type: "472",
+      action: "LINK",
+      callback_url: "https://uat.merchant.ntar.biz/truthscreen/aadhaar-callback",
+      redirect_url: "https://uat.merchant.ntar.biz/thankyou",
+    };
+
+    logger.info(`Payload for DigiLocker: ${JSON.stringify(payload)}`);
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    logger.info(`Calling TruthScreen DigiLocker API => ${url}`);
+
+    const response = await callTruthScreenAPI({ url, payload, username, password });
+    logger.info(`Response received from TruthScreen => ${JSON.stringify(response)}`);
+
+    const kycData = {
+      trans_id: transId,
+      ts_trans_id: response?.ts_trans_id || null,
+      link: response?.data?.url || null,
+      status: response?.status === 1 ? "initiated" : "failed",
+      response: response || null,
+    };
+
+    await adhaarverificationwithotpModel.create(kycData);
+    logger.info("DigiLocker initiation data stored successfully in MongoDB");
+
+    if (response?.status === 1) {
+      const duration = (new Date() - startTime) / 1000;
+      logger.info(`[${ERROR_CODES?.SUCCESS.httpCode}] DigiLocker link generated successfully ✅ | Duration: ${duration}s`);
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        response: {
+          transId,
+          ts_trans_id: response?.ts_trans_id,
+          link: response?.data?.url,
+        },
+        success: true,
+      });
+    }
+
+    logger.error(`[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] DigiLocker link generation failed => ${response?.msg}`);
+    return res.status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode).json(ERROR_CODES.THIRD_PARTY_ERROR);
+
+  } catch (err) {
+    logger.error(`Error in initiateAadhaarDigilocker => ${err.message}`);
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.checkAadhaarDigilockerStatus = async (req, res) => {
+  const startTime = new Date();
+  logger.info("Entered checkAadhaarDigilockerStatus controller");
+
+  try {
+    const { tsTransId } = req.body;
+
+    if (!tsTransId) {
+      logger.warn("Missing tsTransId in request body");
+      return res.status(ERROR_CODES.BAD_REQUEST.httpCode).json(ERROR_CODES.BAD_REQUEST);
+    }
+
+    const username = process.env.TRUTHSCREEN_USERNAME;
+    const password = process.env.TRUTHSCREEN_TOKEN;
+
+    const payload = {
+      ts_trans_id: tsTransId,
+      doc_type: "472",
+      action: "STATUS",
+    };
+
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    logger.info(`Calling TruthScreen Aadhaar DigiLocker STATUS API => ${url}`);
+    logger.info(`Payload: ${JSON.stringify(payload)}`);
+
+    const response = await callTruthScreenAPI({ url, payload, username, password });
+    logger.info(`Response received from TruthScreen => ${JSON.stringify(response)}`);
+
+    const outerKey = Object.keys(response.data || {})[0];
+    const msg = response.data?.[outerKey]?.msg?.[0] || {};
+    const aadhaarDetails = {
+      name: msg?.data?.name || "",
+      fatherName: msg?.data?.["Father Name"] || "",
+      dob: msg?.data?.dob || "",
+      aadhar_number: msg?.data?.aadhar_number || "",
+      gender: msg?.data?.gender || "",
+      address: msg?.data?.address || "",
+      co: msg?.data?.co || "",
+      photo: msg?.data?.photo || "",
+    };
+
+    logger.info(`Extracted Aadhaar Details: ${JSON.stringify(aadhaarDetails)}`);
+
+    if (response?.status === 1) {
+      const updatedRecord = await adhaarverificationwithotpModel.findOneAndUpdate(
+        { ts_trans_id: tsTransId },
+        { aadhaarDetails, status: "verified", response },
+        { new: true }
+      );
+
+      logger.info(`Aadhaar KYC updated successfully for tsTransId: ${tsTransId}`);
+      logger.debug(`Updated Record: ${JSON.stringify(updatedRecord)}`);
+
+      const duration = (new Date() - startTime) / 1000;
+      logger.info(`[${ERROR_CODES.SUCCESS.httpCode}] Aadhaar retrieved successfully | Duration: ${duration}s`);
+
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        response: response,
+        success: true,
+      });
+    }
+
+    logger.error(`[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] Aadhaar DigiLocker STATUS failed => ${response?.msg}`);
+    return res.status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode).json(ERROR_CODES.THIRD_PARTY_ERROR);
+
+  } catch (err) {
+    logger.error(`Error in checkAadhaarDigilockerStatus => ${err.message}`);
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+

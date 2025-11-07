@@ -1,0 +1,23 @@
+2025-11-05 18:10:24 [[31MERROR[39M]:  Error in initiateAadhaarDigilocker => callTruthScreenAPI is not defined
+2025-11-05 18:10:24 [[31MERROR[39M]: [undefined] Unexpected error occurred
+2025-11-05 18:51:00 [[31MERROR[39M]: Error in Aadhaar Masked Verification => encryptData is not defined
+2025-11-05 18:51:00 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-05 18:52:06 [[31MERROR[39M]: Error in Aadhaar Masked Verification => verifyAadhaarMasked is not defined
+2025-11-05 18:52:06 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-05 18:52:12 [[31MERROR[39M]: Error in Aadhaar Masked Verification => verifyAadhaarMasked is not defined
+2025-11-05 18:52:12 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-05 18:54:11 [[31MERROR[39M]: Error in Aadhaar Masked Verification => verifyAadhaarMasked is not defined
+2025-11-05 18:54:11 [[31MERROR[39M]: [undefined] Unexpected server error
+2025-11-06 15:59:51 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:00:50 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:01:59 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:03:39 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:07:44 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:10:34 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:17:43 [[31MERROR[39M]: ❌ Database error => Adhaardetailswithout_otp validation failed: message: `aadharNumber length must be at least 12 characters long` is not a valid enum value for path `message`.
+2025-11-06 16:18:06 [[31MERROR[39M]: [400] Aadhaar verification failed
+2025-11-06 16:32:20 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 16:41:51 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 16:43:02 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 16:43:58 [[31MERROR[39M]: Aadhaar verification failed
+2025-11-06 17:53:33 [[31MERROR[39M]: Error in checkAadhaarDigilockerStatus => TruthScreen request failed: Request failed with status code 400

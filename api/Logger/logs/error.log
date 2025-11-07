@@ -1,0 +1,19 @@
+2024-12-24T10:27:47.247Z [error]: All Fields Should Be Filled
+2024-12-24T10:28:28.338Z [error]: All Fields Should Be Filled
+2024-12-26T05:01:47.069Z [error]: InternalServiceError
+2024-12-30T12:41:40.791Z [error]: InternalServiceError
+2024-12-30T12:42:24.425Z [error]: InternalServiceError
+2025-01-13T13:01:38.455Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-13T13:01:38.455Z [error]: An unexpected error occurred during order creation.
+2025-01-13T13:08:01.403Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-13T13:08:01.404Z [error]: An unexpected error occurred during order creation.
+2025-01-13T13:08:24.611Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+2025-01-13T13:08:24.612Z [error]: An unexpected error occurred during order creation.
+2025-01-15T04:22:36.918Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"description":"Authentication failed","code":"BAD_REQUEST_ERROR"}}
+2025-01-15T04:22:36.919Z [error]: An unexpected error occurred during order creation.
+2025-01-15T04:43:11.383Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+2025-01-15T04:43:11.385Z [error]: An unexpected error occurred during order creation.
+2025-01-15T05:19:13.799Z [error]: Error occurred while creating order: {"statusCode":401,"error":{"code":"BAD_REQUEST_ERROR","description":"Authentication failed"}}
+2025-01-15T05:19:13.801Z [error]: An unexpected error occurred during order creation.
+2025-02-05T10:33:01.859Z [error]: Internal Service Error E11000 duplicate key error collection: ApiService.registeredusers index: mobileNumber_1 dup key: { mobileNumber: 8688571181.0 }
+2025-02-06T06:55:19.883Z [error]: Internal Service Error registeration.findAll is not a function
