@@ -1,9 +1,6 @@
 const axios = require("axios");
 const logger = require("../Logger/logger");
 
-const API_TIMEOUT = 8000;
-const MAX_RETRY = 2;
-
 async function apiCall(url, body, headers) {
     console.log('Api call triggred in invincible', url, body, headers)
     try {
@@ -80,21 +77,154 @@ async function verifyAadhaar(data) {
     };
     return await apiCall(url, data, headers);
 }
-async function faceMatch(data) {
-    const url = process.env.Invincible_FACE_URL;
-    const headers = {
-        "Authorization": `Invincible-Api-Key ${process.env.Invincible_API_KEY}`
-    };
+async function verifyBankAccountInvincible(data) {
+  const { account_no, ifsc } = data;
+  const url =
+    "https://api.invincibleocean.com/invincible/bankAccountValidation/v1";
+  const headers = {
+    accept: "application/json",
+    clientId: process.env.INVINCIBLE_CLIENT_ID,
+    secretKey: process.env.INVINCIBLE_SECRET_KEY,
+  };
 
-    return await apiCall(url, data, headers);
+  const apiData = {
+    bankAccount: account_no,
+    ifsc: ifsc,
+  };
+
+  try {
+    const BankResponseInvincible = await apiCall(url, apiData, headers);
+    console.log("ResponseInvincible ===>>>", BankResponseInvincible);
+
+    if (
+      BankResponseInvincible?.result?.status?.toLowerCase() === "success" &&
+      BankResponseInvincible?.code === 200
+    ) {
+      const result = BankResponseInvincible.result || {};
+      const dataObj = result.data || {};
+
+      const returnedObj = {
+        name: dataObj.nameAtBank || null,
+        status: result.accountStatus || result.status || null,
+        success: BankResponseInvincible.code === 200,
+        message:
+          BankResponseInvincible.message ||
+          result.message ||
+          "Transaction Successful",
+        account_no: account_no || null,
+        ifsc: ifsc || null,
+      };
+
+      return {
+        result: returnedObj,
+        message: "Valid",
+        responseOfService: BankResponseInvincible,
+        service: "Invincible",
+      };
+    } else {
+      return {
+        result: {},
+        message: "Invalid",
+        responseOfService: BankResponseInvincible,
+        service: "Invincible",
+      };
+    }
+  } catch (err) {
+    console.log(
+      `Error while getting response in verifyBankAccountInvincible ===>> ${err}`
+    );
+    throw err;
+  }
 }
-async function verifyBank(data) {
-    const url = process.env.Invincible_BANK_URL;
-    const headers = {
-        "Authorization": `Invincible-Api-Key ${process.env.Invincible_API_KEY}`
-    };
+async function verifyBankInvincible(data) {
+  const { account_no, ifsc } = data;
+  const url =
+    "https://api.invincibleocean.com/invincible/BAVpennyless";
+  const headers = {
+    accept: "application/json",
+    clientId: process.env.INVINCIBLE_CLIENT_ID,
+    secretKey: process.env.INVINCIBLE_SECRET_KEY,
+  };
 
-    return await apiCall(url, data, headers);
+  const apiData = {
+    accountNumber: account_no,
+    ifscCode: ifsc,
+  };
+
+  try {
+    const BankResponseInvincible = await apiCall(url, apiData, headers);
+    console.log("ResponseInvincible ===>>>", BankResponseInvincible);
+
+    if (
+      BankResponseInvincible?.result?.status?.toLowerCase() === "success" &&
+      BankResponseInvincible?.code === 200
+    ) {
+      const result = BankResponseInvincible.result || {};
+      const dataObj = result.data || {};
+
+      const returnedObj = {
+        name: dataObj.nameAtBank || null,
+        status: result.accountStatus || result.status || null,
+        success: BankResponseInvincible.code === 200,
+        message:
+          BankResponseInvincible.message ||
+          result.message ||
+          "Transaction Successful",
+        account_no: account_no || null,
+        ifsc: ifsc || null,
+      };
+
+      return {
+        result: returnedObj,
+        message: "Valid",
+        responseOfService: BankResponseInvincible,
+        service: "Invincible",
+      };
+    } else {
+      return {
+        result: {},
+        message: "Invalid",
+        responseOfService: BankResponseInvincible,
+        service: "Invincible",
+      };
+    }
+  } catch (err) {
+    console.log(
+      `Error while getting response in verifyBankAccountInvincible ===>> ${err}`
+    );
+    throw err;
+  }
+}
+async function verifyCinInvincible(data) {
+  const url = "https://api.invincibleocean.com/invincible/get/companyDetailsV1";
+  const headers = {
+    accept: "application/json",
+    clientId: process.env.INVINCIBLE_CLIENT_ID,
+    secretKey: process.env.INVINCIBLE_SECRET_KEY,
+  };
+
+  try {
+    const cinResponseInvincible = await apiCall(url, data, headers);
+
+    console.log("cinResponseInvincible ===>>>", cinResponseInvincible);
+
+    if (cinResponseInvincible?.result?.message?.toLowerCase() == "valid") {
+      const cinResponseToSend = {
+        message: "Valid",
+        success: true,
+        result: cinResponseInvincible?.result,
+      };
+    } else {
+      const cinResponseToSend = {
+        message: "InValid",
+        success: false,
+      };
+    }
+  } catch (error) {
+    console.log(
+      `Error while getting response in cin invincible ===>> ${error}`
+    );
+  }
 }
 async function verifyAadhaarMasked(data) {
     const url = process.env.Invincible_AADHAAR_URL || "https://api.invincibleocean.com/invincible/aadhaarToMaskPanLite";
@@ -159,9 +289,10 @@ async function shopEstablishment(data) {
 
 module.exports = {
     verifyPanInvincible,
+    verifyBankAccountInvincible,
+    verifyBankInvincible,
+    verifyCinInvincible,
     verifyAadhaar,
-    faceMatch,
-    verifyBank,
     verifyAadhaarMasked,
     verifyFaceComparison,
     verifyGstin,

@@ -135,6 +135,62 @@ async function shopEstablishment(data) {
     };
     return await apiCall(url, data, headers);
 }
+async function verifyBankAccountZoop(data) {
+  const { account_no, ifsc } = data;
+  const tskId = generateTransactionId(12);
+  console.log("account_no, ifsc ===>>", ifsc, account_no);
+  const url = "https://live.zoop.one/api/v1/in/financial/bav/lite";
+  const headers = {
+    "app-id": ZOOPClientId,
+    "api-key": ZOOP_API_KEY,
+    "Content-Type": "application/json",
+  };
+  const dataToSend = {
+    mode: "sync",
+    data: {
+      account_number: account_no,
+      ifsc: ifsc,
+      consent: "Y",
+      consent_text:
+        "I hereby declare my consent agreement for fetching my information via ZOOP API",
+    },
+    task_id: tskId,
+  };
+
+  try {
+    const bankResponseZoop = await apiCall(url, dataToSend, headers);
+    console.log("bankResponseZoop ====>>", bankResponseZoop);
+
+    const zoopObj = bankResponseZoop.data;
+    console.log("zoopObj ====>>", JSON.stringify(zoopObj));
+    logger.info("zoop response from the api ===>>>", JSON.stringify(zoopObj));
+
+    const result = zoopObj.result || {};
+
+    const returnedObj = {
+      name: result.beneficiary_name || null,
+      status: result.verification_status || null,
+      success: zoopObj.success === true && zoopObj.response_code === "100",
+      message:
+        zoopObj.response_message ||
+        result.transaction_remark ||
+        "Transaction Successful",
+      account_no: account_no || null,
+      ifsc: ifsc || null,
+    };
+
+    return {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: zoopObj,
+      service: "Zoop",
+    };
+  } catch (error) {
+    if (error) {
+      throw error;
+    }
+  }
+}
 
 module.exports = {
   verifyPanZoop,
@@ -142,5 +198,6 @@ module.exports = {
   faceMatch,
   verifyBank,
   verifyGstin,
-  shopEstablishment
+  shopEstablishment,
+  verifyBankAccountZoop
 };

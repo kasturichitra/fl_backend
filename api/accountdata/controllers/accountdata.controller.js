@@ -6,6 +6,7 @@ const {
 const logger = require("../../Logger/logger");
 const {
   verifyBankAccountTruthScreen,
+  verifyBankTruthScreen,
 } = require("../../service/provider.truthscreen");
 const { verifyBankAccountZoop } = require("../../service/provider.zoop");
 const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
@@ -15,6 +16,7 @@ const {
 const { selectService } = require("../../service/serviceSelector");
 const {
   verifyBankAccountInvincible,
+  verifyBankInvincible,
 } = require("../../service/provider.invincible");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
 

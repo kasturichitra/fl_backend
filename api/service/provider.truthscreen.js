@@ -1,5 +1,8 @@
 const axios = require("axios");
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const {
+  generateTransactionId,
+  callTruthScreenAPI,
+} = require("../truthScreen/callTruthScreen");
 const username = process.env.TRUTHSCREEN_USERNAME;
 const password = process.env.TRUTHSCREEN_TOKEN;
 
@@ -93,8 +96,8 @@ async function apiCall(url, body) {
 
 // Poonam
 async function verifyPanTruthScreen(data) {
-  const { panNumber } = data
-  console.log("panNumber in truthScreen ===>>", panNumber)
+  const { panNumber } = data;
+  console.log("panNumber in truthScreen ===>>", panNumber);
   const url = "https://www.truthscreen.com/api/v2.2/idsearch";
 
   const transID = generateTransactionId(14);
@@ -105,12 +108,12 @@ async function verifyPanTruthScreen(data) {
     docNumber: panNumber,
   };
 
-  console.log("payload in truthscreen ===>>", payload)
+  console.log("payload in truthscreen ===>>", payload);
 
   try {
     const parsedResponse = await apiCall(url, payload);
 
-    console.log("parsedResponse ====>>", parsedResponse)
+    console.log("parsedResponse ====>>", parsedResponse);
 
     const returnedObj = {
       PAN: parsedResponse.msg?.PanNumber || null,
@@ -131,17 +134,24 @@ async function verifyPanTruthScreen(data) {
     };
   } catch (error) {
     if (error) {
-      throw error
+      throw error;
     }
   }
 }
 
 async function verifyCinTruthScreen(data) {
-  const url = process.env.TRUTHSCREEN_AADHAAR_URL;
+  const { CIN } = data;
+  console.log("cinNumber in truthScreen ===>>", CIN);
 
-  return await apiCall(url, data, {
-    "x-api-key": process.env.TRUTHSCREEN_API_KEY,
-  });
+  const url = "https://www.truthscreen.com//api/v2.2/idsearch";
+  const transID = generateTransactionId(14);
+
+  const payload = { transID: transID, docType: 15, docNumber: CIN };
+
+  try {
+    const CinResponse = await apiCall(url, payload);
+    console.log("CinResponse ===>>>", CinResponse);
+  } catch (error) {}
 }
 
 async function verifyAadhaar(data) {
@@ -150,6 +160,100 @@ async function verifyAadhaar(data) {
   return await apiCall(url, data, {
     "x-api-key": process.env.TRUTHSCREEN_API_KEY,
   });
+}
+
+async function verifyBankAccountTruthScreen(data) {
+  const { account_no, ifsc } = data;
+  const url = "https://www.truthscreen.com/BankAccountVerificationApi";
+
+  const transID = generateTransactionId(14);
+
+  const payload = {
+    transID,
+    docType: "92",
+    beneAccNo: account_no,
+    ifsc: ifsc,
+  };
+
+  try {
+    const bankResponseFromTruthScreen = await apiCall(url, payload);
+    console.log(
+      "bankResponseFromTruthScreen ===>>",
+      bankResponseFromTruthScreen
+    );
+
+    const msg = bankResponseFromTruthScreen?.msg || {};
+
+    const returnedObj = {
+      name: msg.name || null,
+      status: msg.status || null,
+      success:
+        (bankResponseFromTruthScreen.status === 1 &&
+          msg.description?.toLowerCase().includes("success")) ||
+        false,
+      message: msg.description || "Transaction Successful",
+      account_no: account_no || null,
+      ifsc: ifsc || null,
+    };
+
+    return {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: bankResponseFromTruthScreen,
+      service: "TruthScreen",
+    };
+  } catch (error) {
+    logger.error("Error verifying bank account with TruthScreen:", error);
+    throw error;
+  }
+}
+
+async function verifyBankTruthScreen(data) {
+  const { account_no, ifsc } = data;
+  const url = "https://www.truthscreen.com/v1/apicall/bank/bav_pennyless";
+
+  const transID = generateTransactionId(14);
+
+  const payload = {
+    transID,
+    docType: "573",
+    to_account_no: account_no,
+    toIFSC: ifsc,
+    clientRefId: "27Jul2021004",
+    narration: "csc",
+  };
+
+  try {
+    const bankResponseFromTruthScreen = await apiCall(url, payload);
+    console.log(
+      "bankResponseFromTruthScreen ===>>",
+      bankResponseFromTruthScreen
+    );
+
+    const msg = bankResponseFromTruthScreen?.msg || {};
+
+    const returnedObj = {
+      name: msg.name || null,
+      status: msg.status || null,
+      success:
+        (bankResponseFromTruthScreen.status === 1 &&
+          msg.description?.toLowerCase().includes("success")) ||
+        false,
+      message: msg.description || "Transaction Successful",
+      account_no: account_no || null,
+      ifsc: ifsc || null,
+    };
+
+    return {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: bankResponseFromTruthScreen,
+      service: "TruthScreen",
+    };
+  } catch (error) {
+    logger.error("Error verifying bank account with TruthScreen:", error);
+    throw error;
+  }
 }
 
 async function callTruthScreenFaceVerification(userImage, aadhaarImage) {
@@ -166,7 +270,12 @@ async function callTruthScreenFaceVerification(userImage, aadhaarImage) {
   }
 
   const step1Payload = { transID, docType: 201 };
-  const step1Response = await callTruth({ url: "https://www.truthscreen.com/api/v2.2/faceapi/token", payload: step1Payload, username, password });
+  const step1Response = await callTruth({
+    url: "https://www.truthscreen.com/api/v2.2/faceapi/token",
+    payload: step1Payload,
+    username,
+    password,
+  });
 
   if (step1Response?.status !== 1) {
     throw new Error("Failed to generate token from TruthScreen");
@@ -184,7 +293,10 @@ async function callTruthScreenFaceVerification(userImage, aadhaarImage) {
     password,
   });
 
-  if (!step2Response || step2Response.message?.toUpperCase() === "FACE VERIFICATION FAILED") {
+  if (
+    !step2Response ||
+    step2Response.message?.toUpperCase() === "FACE VERIFICATION FAILED"
+  ) {
     throw new Error("Face Verification Failed");
   }
 
@@ -195,20 +307,20 @@ async function callTruthScreenFaceVerification(userImage, aadhaarImage) {
 async function shopEstablishment(data) {
   const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
   const headers = {
-    "username": process.env.INVINCIBLE_USERNAME,
-    "Content-Type": "application/json"
+    username: process.env.INVINCIBLE_USERNAME,
+    "Content-Type": "application/json",
   };
-  return await apiCall(url, data, headers)
+  return await apiCall(url, data, headers);
 }
 async function verifyGstin(data) {
   const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
   const headers = {
-    "username": process.env.INVINCIBLE_USERNAME,
-    "Content-Type": "application/json"
+    username: process.env.INVINCIBLE_USERNAME,
+    "Content-Type": "application/json",
   };
   const resData = await apiCall(url, data, headers);
-  console.log('VerifyGstIn Response', resData);
-  return resData
+  console.log("VerifyGstIn Response", resData);
+  return resData;
 }
 
 module.exports = {
@@ -216,6 +328,8 @@ module.exports = {
   verifyCinTruthScreen,
   verifyAadhaar,
   callTruthScreenFaceVerification,
+  verifyBankAccountTruthScreen,
+  verifyBankTruthScreen,
   shopEstablishment,
-  verifyGstin
+  verifyGstin,
 };

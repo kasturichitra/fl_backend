@@ -6,10 +6,6 @@ require("dotenv").config();
 const ServiceTrackingModel = require("../../ServiceTrackingModel/models/newServiceTrackingModel");
 const logger = require("../../Logger/logger");
 const {
-  callTruthScreenAPI,
-  generateTransactionId,
-} = require("../../truthScreen/callTruthScreen");
-const {
   encryptData,
   decryptData,
 } = require("../../../utlis/EncryptAndDecrypt");
@@ -22,6 +18,7 @@ const { verifyPanInvincible } = require("../../service/provider.invincible");
 const { verifyPanTruthScreen } = require("../../service/provider.truthscreen");
 const { verifyPanZoop } = require("../../service/provider.zoop");
 const panToAadhaarModel = require("../models/panToAadhaarModel");
+const { checkingOfLength } = require("../../../utlis/lengthCheck");
 
 function compareNames(fName, sName) {
   const distance = levenshteinDistance(fName, sName);
@@ -513,16 +510,10 @@ exports.dobverify = async (req, res, next) => {
 exports.verifyPanNumber = async (req, res) => {
   const data = req.body;
   const { panNumber } = data;
-  if (!panNumber?.trim()) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
-  }
-  if (
-    panNumber?.trim()?.length > 10 ||
-    panNumber?.trim()?.length < 10 ||
-    !panNumber?.match(
+  const resOfLenth = checkingOfLength(panNumber, 10)
+  if (resOfLenth || !panNumber?.match(
       /^[A-Za-z]{3}[PCHABGJLFTpchabgjlft][A-Za-z][0-9]{4}[A-Za-z]$/
-    )
-  ) {
+    )) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
   const encryptedPan = encryptData(panNumber);
@@ -623,18 +614,14 @@ exports.verifyPanNumber = async (req, res) => {
 exports.verifyPanToAadhaar = async (req, res) => {
   const data = req.body;
   const { panNumber } = data;
-  if (!panNumber?.trim()) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
-  }
-  if (
-    panNumber?.trim()?.length > 10 ||
-    panNumber?.trim()?.length < 10 ||
-    !panNumber?.match(
+
+  const resOfLenth = checkingOfLength(panNumber, 10)
+  if (resOfLenth || !panNumber?.match(
       /^[A-Za-z]{3}[PCHABGJLFTpchabgjlft][A-Za-z][0-9]{4}[A-Za-z]$/
-    )
-  ) {
+    )) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
+
   const encryptedPan = encryptData(panNumber);
 
   const existingPanNumber = await panToAadhaarModel.findOne({

@@ -26,7 +26,7 @@ const verifyFullCardNumber = async (req, res, next) => {
   const existingCreditCardNumber = await cardValidationModel.findOne({
     cardNumber: encryptedCreditCardNumber,
   });
-  console.log("existingPanNumber===>", existingCreditCardNumber);
+  console.log("existingCreditCardNumber===>", existingCreditCardNumber);
   logger.info(`Existing Credit Card Number Found ${existingCreditCardNumber}`)
   if (existingCreditCardNumber) {
     return res.json({
