@@ -13,12 +13,12 @@ const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const {
   verifyBankAccountEaseBuzz,
 } = require("../../service/provider.easebuzz");
-const { selectService } = require("../../service/serviceSelector");
+const { selectService, updateFailure } = require("../../service/serviceSelector");
 const {
   verifyBankAccountInvincible,
   verifyBankInvincible,
 } = require("../../service/provider.invincible");
-const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const { account_no, ifsc } = req.body;
@@ -207,20 +207,44 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     logger.info(
       `response from active service for account verify ===>> ${response}`
     );
+       if (response?.message?.toLowerCase() == "valid") {
+      const objectToStoreInDb = {
+        accountNo: encryptedAccountNumber,
+        accountIFSCCode: ifsc,
+        accountHolderName: response?.result?.name,
+        serviceResponse: response?.responseOfService,
+        responseData: response?.result,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+      await accountdataModel.create(objectToStoreInDb);
+
+      return res.status(200).json({
+        message: "Valid",
+        success: true,
+        response: response?.result,
+      });
+    } else {
+      const objectToStoreInDb = {
+        accountNo: encryptedAccountNumber,
+        accountIFSCCode: ifsc,
+        accountHolderName: "",
+        serviceResponse: {},
+        responseData: ERROR_CODES?.NOT_FOUND,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+      await accountdataModel.create(objectToStoreInDb);
+      return res.status(200).json({
+        message: "InValid",
+        success: false,
+        response: {},
+      });
+    }
   } catch (error) {
     console.error("Error verifying bank account verifyBankAccount:", error);
-    if (error.response && error.response.data) {
-      let errorMessage = {
-        message: error.response.data,
-        statusCode: 500,
-      };
-      return next(errorMessage);
-    } else {
-      let errorMessage = {
-        message: "Internal Server Error",
-        statusCode: 500,
-      };
-      return next(errorMessage);
-    }
+        await updateFailure(service);
+        const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
   }
 };

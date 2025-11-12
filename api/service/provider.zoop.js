@@ -45,10 +45,15 @@ async function verifyPanZoop(data) {
     console.log("response in pan after service call ===>>", response)
 
     const obj = response.data;
-    console.log(obj);
+    console.log("obj ===>>",obj);
 
     if (obj.response_code === "101") {
-      return { message: "NoDataFound" };
+      return {
+      result: "NoDataFound",
+      message: "InValid",
+      responseOfService: {},
+      service: "Zoop",
+    };
     }
 
     const returnedObj = {

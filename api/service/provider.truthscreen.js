@@ -154,6 +154,98 @@ async function verifyCinTruthScreen(data) {
   } catch (error) {}
 }
 
+async function verifyUdhyamTruthScreen(data) {
+  const { udyamNumber } = data;
+  console.log("udyamNumber in truthScreen ===>>", udyamNumber);
+
+  const url = "https://www.truthscreen.com/UdyamApi/idsearch";
+  const transID = generateTransactionId(14);
+  const payload = {
+    transID,
+    docType: 435,
+    udyamNumber,
+  };
+
+  try {
+    const UdyamResponse = await apiCall(url, payload);
+    console.log("UdyamResponse ===>>>", JSON.stringify(UdyamResponse));
+
+    const udyamData = UdyamResponse?.msg?.udyamdata || {};
+    const status = UdyamResponse?.status;
+
+    if (status === 1 && Object.keys(udyamData).length > 0) {
+      // ✅ Construct common structured object (same as Invincible format)
+      const commonObject = {
+        udyam: udyamNumber,
+        "Date of Commencement of Production/Business":
+          udyamData["Date of Commencement of Production/Business"],
+        "Date of Incorporation": udyamData["Date of Incorporation"],
+        "Date of Udyam Registration": udyamData["Date of Udyam Registration"],
+        "MSME-DFO": udyamData["MSME-DFO"],
+        "Major Activity": udyamData["Major Activity"],
+        "Name of Enterprise": udyamData["Name of Enterprise"],
+        "Organisation Type": udyamData["Organisation Type"],
+        "Social Category": udyamData["Social Category"],
+        "Enterprise Type": udyamData["Enterprise Type"]?.map((item) => ({
+          "Classification Date": item["Classification Date"],
+          "Classification Year": item["Classification Year"],
+          "Enterprise Type": item["Enterprise Type"],
+        })),
+        "National Industry Classification Code(S)": udyamData[
+          "National Industry Classification Code(S)"
+        ]?.map((item) => ({
+          Activity: item["Activity"],
+          Date: item["Date"],
+          "Nic 2 Digit": item["Nic 2 Digit"],
+          "Nic 4 Digit": item["Nic 4 Digit"],
+          "Nic 5 Digit": item["Nic 5 Digit"],
+        })),
+        "Official address of Enterprise": {
+          "Flat/Door/Block No":
+            udyamData["Official address of Enterprise"]?.[
+              "Flat/Door/Block No"
+            ] || null,
+          "Name of Premises/ Building":
+            udyamData["Official address of Enterprise"]?.[
+              "Name of Premises/ Building"
+            ] || null,
+          "Village/Town":
+            udyamData["Official address of Enterprise"]?.["Village/Town"] ||
+            null,
+          Block: udyamData["Official address of Enterprise"]?.["Block"] || null,
+          "Road/Street/Lane":
+            udyamData["Official address of Enterprise"]?.["Road/Street/Lane"] ||
+            null,
+          City: udyamData["Official address of Enterprise"]?.["City"] || null,
+          State: udyamData["Official address of Enterprise"]?.["State"] || null,
+          District:
+            udyamData["Official address of Enterprise"]?.["District"] || null,
+          Mobile:
+            udyamData["Official address of Enterprise"]?.["Mobile"] || null,
+          Email: udyamData["Official address of Enterprise"]?.["Email"] || null,
+        },
+      };
+
+      return {
+        result: commonObject,
+        message: "Valid",
+        responseOfService: UdyamResponse,
+        service: "TruthScreen",
+      };
+    } else {
+      return {
+        result: {},
+        message: "Invalid",
+        responseOfService: UdyamResponse,
+        service: "TruthScreen",
+      };
+    }
+  } catch (error) {
+    console.log("Error in fetching udyam ===>>>", error);
+    throw error;
+  }
+}
+
 async function verifyAadhaar(data) {
   const url = process.env.TRUTHSCREEN_AADHAAR_URL;
 
@@ -332,4 +424,5 @@ module.exports = {
   verifyBankTruthScreen,
   shopEstablishment,
   verifyGstin,
+  verifyUdhyamTruthScreen,
 };
