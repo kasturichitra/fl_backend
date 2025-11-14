@@ -5,9 +5,7 @@ async function apiCall(url, body, headers) {
     console.log('Api call triggred in cashfree', url, body, headers)
     logger.info(`Api call triggred in cashfree, url: ${url} body: ${JSON.stringify(body)} headers: ${headers}`)
     try {
-        const res = await axios.post(url, body, {
-            headers,
-        });
+        const res = await axios.post(url, body, {headers});
         console.log('Api Call response in cashfree ===>', res?.data);
         return res?.data;
 

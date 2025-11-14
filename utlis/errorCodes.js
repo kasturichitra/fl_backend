@@ -35,7 +35,7 @@ function mapError(err) {
     { cond: e => e.name === "ValidationError", code: "INVALID_INPUT_FIELDS" },
     { cond: e => e.code === 11000, code: "DUPLICATE_REQUEST" },
     { cond: e => e.message?.includes("insufficient"), code: "INSUFFICIENT_FUNDS" },
-    { cond: e => ["METHOD_NOT_ALLOWED", "FORBIDDEN", "UNAUTHORIZED", "CONFLICT", "GATEWAY_TIMEOUT", "BAD_GATEWAY", "SERVICE_UNAVAILABLE"].includes(e.code), code: e.code },
+    { cond: e => ["METHOD_NOT_ALLOWED", "FORBIDDEN", "UNAUTHORIZED", "CONFLICT", "GATEWAY_TIMEOUT", "BAD_GATEWAY", "SERVICE_UNAVAILABLE"].includes(e.code) },
   ];
 
   const matched = mapping.find(m => m.cond(err));

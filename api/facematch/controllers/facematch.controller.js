@@ -2,10 +2,16 @@ const axios = require("axios");
 const checkingDetails = require("../../../utlis/authorization");
 const FaceMatchModel = require("../models/facematch.model");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
-const {verifyFaceComparison } = require("../../service/provider.invincible")
 const logger = require("../../Logger/logger");
 const ERROR_CODES = require("../../../utlis/errorCodes");
-const {faceMatch} = require("../../service/provider.zoop")
+const { faceMatch } = require("../../service/provider.zoop")
+const zoop = require("../../service/provider.zoop");
+const invincible = require("../../service/provider.invincible");
+const truthscreen = require("../../service/provider.truthscreen");
+const { selectService, updateFailure } = require("../../service/serviceSelector");
+const { callTruth, performFaceVerificationEncrypted } = require("../../truthScreen/callTruthScreen");
+const { generateTransactionId } = require("../../../utlis/helper");
+
 const convertImageToBase64 = async (url) => {
   try {
     const response = await axios.get(url, {
@@ -21,136 +27,10 @@ const convertImageToBase64 = async (url) => {
     throw error;
   }
 };
-exports.facematchapi = async (req, res) => {
-  const startTime = new Date();
-  logger.info("FaceMatch API triggered");
-
-  try {
-    const { userImage, aadhaarImage } = req.body;
-    logger.info(`Request body received: ${JSON.stringify(req.body)}`);
-
-    if (!userImage || !aadhaarImage) {
-      logger.warn(`[${ERROR_CODES?.BAD_REQUEST.code}] Missing required fields`);
-      return res.status(ERROR_CODES?.BAD_REQUEST.httpCode).json({
-        ...ERROR_CODES?.BAD_REQUEST,
-        message: "Both userImage and aadhaarImage are required",
-      });
-    }
-
-    const payload = {
-      source_image: aadhaarImage,
-      face_image: userImage,
-    };
-    const response = await faceMatch(payload);
-    logger.info(`Zoop API Response: ${JSON.stringify(response.data)}`);
-    await FaceMatchModel.findOneAndUpdate(
-      { userImage, aadhaarImage },
-      { userImage, aadhaarImage, response: response.data },
-      { upsert: true, new: true }
-    );
-
-    const duration = (new Date() - startTime) / 1000;
-    logger.info(`[${ERROR_CODES?.SUCCESS.code}] Face match completed | Duration: ${duration}s`);
-
-    return res.status(200).json({
-      message: "Valid",
-      response: response.data,
-      success: true,
-    });
-  } catch (err) {
-    logger.error(`Error in FaceMatch API => ${err.message || err}`);
-    const errorObj = mapError(err);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
-};
-exports.handleTruthScreenFaceVerification = async (req, res) => {
-  const startTime = new Date();
-  logger.info("TruthScreen Face Verification API triggered");
-
-  try {
-    const { userImage, aadhaarImage } = req.body;
-    logger.info(`Request body: ${JSON.stringify(req.body)}`);
-
-    if (!userImage || !aadhaarImage) {
-      logger.warn(`[${ERROR_CODES.BAD_REQUEST.code}] Missing required fields`);
-      return res.status(ERROR_CODES.BAD_REQUEST.httpCode).json({
-        ...ERROR_CODES.BAD_REQUEST,
-        message: "Both userImage and aadhaarImage are required",
-      });
-    }
-
-    const responseData = await callTruthScreenFaceVerification(userImage, aadhaarImage);
-    logger.info(`TruthScreen API response: ${JSON.stringify(responseData)}`);
-
-    await FaceMatchModel.findOneAndUpdate(
-      { userImage, aadhaarImage },
-      { userImage, aadhaarImage, response: responseData },
-      { upsert: true, new: true }
-    );
-
-    const duration = (new Date() - startTime) / 1000;
-    logger.info(`[${ERROR_CODES.SUCCESS.code}] Face verification completed | Duration: ${duration}s`);
-
-    return res.status(200).json({
-      message: "Valid",
-      response: responseData,
-      success: true,
-    });
-
-  } catch (err) {
-    logger.error(`Error in TruthScreen Face Verification API => ${err.message || err}`);
-    const errorObj = mapError(err);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
-};
-exports.handleFaceComparison = async (req, res) => {
-  const startTime = new Date();
-  logger.info("Face Comparison API triggered");
-
-  try {
-    const { sourceImage, targetImage } = req.body;
-
-    logger.info(`Request body received: ${JSON.stringify(req.body)}`);
-    if (!sourceImage || !targetImage) {
-      logger.warn(`[${ERROR_CODES?.BAD_REQUEST.code}] Missing required fields: sourceImage or targetImage`);
-      return res.status(400).json({
-        ...ERROR_CODES?.BAD_REQUEST,
-        message: "Both sourceImage and targetImage are required",
-      });
-    }
-    const response = await verifyFaceComparison({ sourceImage, targetImage });
-
-    if (!response) {
-      logger.error(`[${ERROR_CODES?.NO_RESPONSE.code}] No response from Face Comparison API`);
-      return res.status(502).json(ERROR_CODES?.NO_RESPONSE);
-    }
-    if (response?.status === "success" || response?.match === true) {
-      const duration = (new Date() - startTime) / 1000;
-      logger.info(`[${ERROR_CODES?.SUCCESS.code}] Face comparison successful ✅ | Duration: ${duration}s`);
-
-      return res.status(200).json({
-        ...ERROR_CODES?.SUCCESS,
-        message: "Face comparison completed successfully",
-        data: response,
-      });
-    } else {
-      logger.error(`[${ERROR_CODES?.FACE_MISMATCH.code}] Face comparison failed or faces do not match`);
-      return res.status(422).json({
-        ...ERROR_CODES?.FACE_MISMATCH,
-        message: "Face comparison failed — faces do not match",
-        data: response,
-      });
-    }
-
-  } catch (err) {
-   const errorObj = mapError(err);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
-};
 // exports.facematchapi = async (req, res, next) => {
 //   try {
 //     const { userimage, aadharImage } = req.body;
-//     console.log(userimage , aadharImage )
+//     console.log(userimage, aadharImage)
 
 //     const faceMatchingResponse = await axios.post(
 //       "https://live.zoop.one/api/v1/in/ml/face/match",
@@ -176,17 +56,17 @@ exports.handleFaceComparison = async (req, res) => {
 //     console.log("FaceMatch Response: ===>", responseObject);
 
 //     if (responseObject.success) {
-//       const exsist = await  faceMatch.findOne({adhaarimage : aadharImage ,userimage :userimage  })
-//       console.log("======>>>>" , exsist)
-//       if(!exsist){
-//       await faceMatch.create({
-//           adhaarimage : aadharImage,
-//           userimage : userimage,
-//           response : responseObject,
-//           MerchantId : MerchantId,
-//           token:check,
-//           createdDate:new Date().toLocaleDateString(),
-//           createdTime:new Date().toLocaleTimeString()
+//       const exsist = await faceMatch.findOne({ adhaarimage: aadharImage, userimage: userimage })
+//       console.log("======>>>>", exsist)
+//       if (!exsist) {
+//         await faceMatch.create({
+//           adhaarimage: aadharImage,
+//           userimage: userimage,
+//           response: responseObject,
+//           MerchantId: MerchantId,
+//           token: check,
+//           createdDate: new Date().toLocaleDateString(),
+//           createdTime: new Date().toLocaleTimeString()
 //         })
 //       }
 //       return res.status(200).json({ message: responseObject?.response_message, success: true, result: responseObject.result });
@@ -210,7 +90,7 @@ exports.handleFaceComparison = async (req, res) => {
 //   userimage,
 //   aadharImageUrl,
 // ) => {
-//   if (!userimage || !aadharImageUrl ) {
+//   if (!userimage || !aadharImageUrl) {
 //     return { error: "All fields are required" };
 //   }
 
@@ -251,32 +131,71 @@ exports.handleFaceComparison = async (req, res) => {
 //     console.log("step2Response ====>>>", step2Response?.data);
 //     console.log("step2Response ====>>>", step2Response?.message);
 
-//     if (step2Response?.message?.toUpperCase() === "FACE VERIFICATION FAILED") {
-//       return { error: "Face Verification Failed" };
-//     } else {
-//       if (step2Response?.data?.status === 1) {
-//         const faceResponse = {
-//           userimage,
-//           adhaarimage: aadharImageUrl,
-//           response: step2Response?.data,
-//           MerchantId,
-//           token,
-//         };
-//         await facematchModel.findOneAndUpdate({ MerchantId }, faceResponse, {
-//           upsert: true,
-//           new: true,
-//         });
-//         return step2Response?.data?.msg;
-//       } else {
-//         return { error: "Face Verification Failed" };
-//       }
-//     }
+//     // if (step2Response?.message?.toUpperCase() === "FACE VERIFICATION FAILED") {
+//     //   return { error: "Face Verification Failed" };
+//     // } else {
+//     //   if (step2Response?.data?.status === 1) {
+//     //     const faceResponse = {
+//     //       userimage,
+//     //       adhaarimage: aadharImageUrl,
+//     //       response: step2Response?.data,
+//     //       MerchantId,
+//     //       token,
+//     //     };
+//     //     // await facematchModel.findOneAndUpdate({ MerchantId }, faceResponse, {
+//     //     //   upsert: true,
+//     //     //   new: true,
+//     //     // });
+//     //     return step2Response?.data?.msg;
+//     //   } else {
+//     //     return { error: "Face Verification Failed" };
+//     //   }
+//     // }
 //   } catch (error) {
-//     console.error("facematch Verification Error:", error.message);
+//     console.error("facematch Verification Error:", error);
 //     return { error: "facematch verification failed" };
 //   }
 // };
 
+exports.faceMatchVerification = async (req, res) => {
+  const { userImage, aadhaarImage } = req.body;
+  const service = await selectService('FACEMATCH');
+  console.log("----active service for FACEMATCH Verify is ----", service);
+  logger.info(`----active service for FACEMATCH Verify is ----, ${service}`);
+  try {
+    if (!userImage || !aadhaarImage) {
+      return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
+    }
+
+    if (!service || service === undefined) {
+      return res.status(503).json({ error: "No service available" });
+    }
+    console.log('FACEMATCH inverify activer service', service?.serviceFor);
+    const dataTosend = {
+      userImage, aadhaarImage
+    }
+    let response;
+    switch (service?.serviceFor) {
+      case 'ZOOP':
+        response = await zoop.faceMatch(dataTosend, service);
+        break;
+      case 'INVINCIBLE':
+        response = await invincible.faceMatch(dataTosend, service);
+        break;
+      case 'TRUTHSCREEN':
+        response = await truthscreen.faceMatch(dataTosend, service);
+        break;
+      default:
+        throw new Error(`Unsupported FACEMATCH service`);
+    }
+    console.log("facematch verify response ===>", JSON.stringify(response));
+    // Update in DB
+    return res.status(200).json({ message: 'Success', data: response?.result, success: true });
+  } catch (error) {
+    console.log('Error While FaceMatchVerification', error);
+    return res.status(500).json(ERROR_CODES?.SERVER_ERROR)
+  }
+}
 
 
 

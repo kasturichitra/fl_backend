@@ -137,8 +137,8 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     }
   } catch (error) {
     console.error("Error verifying bank account verifyBankAccount:", error);
-    await updateFailure(service);
-    const errorObj = mapError(err);
+    // await updateFailure(service);
+    const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };

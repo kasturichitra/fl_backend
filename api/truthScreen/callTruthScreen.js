@@ -7,7 +7,7 @@ function generateKey(password) {
   return hash.digest("hex").substring(0, 16);
 }
 
- function generateTransactionId(length) {
+function generateTransactionId(length) {
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
   let result = "";
   for (let i = 0; i < length; i++) {
@@ -142,8 +142,7 @@ async function callTruthScreen({ url, payload, username, password }) {
 
     console.error("TruthScreen API Error:", error.message);
     throw new Error(
-      `TruthScreen request failed: ${
-        error?.response?.data?.error || error.message
+      `TruthScreen request failed: ${error?.response?.data?.error || error.message
       }`
     );
   }
@@ -215,8 +214,7 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
 
     console.error("TruthScreen API Error:", error.message);
     throw new Error(
-      `TruthScreen request failed: ${
-        error?.response?.data?.error || error.message
+      `TruthScreen request failed: ${error?.response?.data?.error || error.message
       }`
     );
   }
@@ -301,8 +299,7 @@ async function callTruth({ url, payload, username, password }) {
       }
     }
     throw new Error(
-      `TruthScreen request failed: ${
-        error?.response?.data?.msg || error.message
+      `TruthScreen request failed: ${error?.response?.data?.msg || error.message
       }`
     );
   }

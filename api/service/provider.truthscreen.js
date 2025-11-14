@@ -1,8 +1,6 @@
 const axios = require("axios");
-const {
-  generateTransactionId,
-  callTruthScreenAPI,
-} = require("../truthScreen/callTruthScreen");
+const { generateTransactionId, callTruthScreenAPI, performFaceVerificationEncrypted } = require("../truthScreen/callTruthScreen");
+const { updateFailure } = require("./serviceSelector");
 const username = process.env.TRUTHSCREEN_USERNAME;
 const password = process.env.TRUTHSCREEN_TOKEN;
 
@@ -72,7 +70,7 @@ const password = process.env.TRUTHSCREEN_TOKEN;
 //     }
 // }
 
-async function apiCall(url, body) {
+async function apiCall(url, body, service) {
   console.log("Api call triggred in truth screen", url, body);
   try {
     const truthScreenResponse = await callTruthScreenAPI({
@@ -86,6 +84,7 @@ async function apiCall(url, body) {
       return truthScreenResponse;
     }
   } catch (err) {
+    await updateFailure(service);
     const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
     if (!isNetworkErr) {
       throw err;
@@ -398,21 +397,50 @@ async function callTruthScreenFaceVerification(userImage, aadhaarImage) {
 // Vishnu
 async function shopEstablishment(data) {
   const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
-  const headers = {
-    username: process.env.INVINCIBLE_USERNAME,
-    "Content-Type": "application/json",
-  };
-  return await apiCall(url, data, headers);
+  return await apiCall(url, data)
 }
 async function verifyGstin(data) {
   const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
-  const headers = {
-    username: process.env.INVINCIBLE_USERNAME,
-    "Content-Type": "application/json",
+  const resData = await apiCall(url, data);
+  console.log('VerifyGstIn Response', resData);
+  return resData
+}
+async function faceMatch(data) {
+  const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
+  const transID = generateTransactionId(14);
+  const detailsToSend = { transID, docType: 201 }
+  const step1Response = await apiCall(url, detailsToSend);
+  console.log('face match api response', step1Response)
+  if (step1Response?.status !== 1) {
+    return { error: "Failed to generate token from TruthScreen" };
+  }
+
+  const secretToken = step1Response?.msg?.secretToken;
+  const tsTransID = step1Response?.msg?.tsTransID;
+  const username = process.env.TRUTHSCREEN_USERNAME;
+  const password = process.env.TRUTHSCREEN_TOKEN;
+
+  console.log("secretToken ====>>>", secretToken, tsTransID);
+  const step2Response = await performFaceVerificationEncrypted({
+    tsTransID,
+    secretToken,
+    imageBase64: data?.userimage,
+    documentBase64: data?.aadharImageUrl,
+    username,
+    password,
+  });
+  if (step2Response?.message?.toUpperCase() === "FACE VERIFICATION FAILED") {
+    return { error: "Face Verification Failed" };
+  }
+  const faceResponse = {
+    userimage: data?.userimage,
+    adhaarimage: data?.aadharImageUrl,
+    response: step2Response?.data,
+    MerchantId,
+    token,
   };
-  const resData = await apiCall(url, data, headers);
-  console.log("VerifyGstIn Response", resData);
-  return resData;
+  console.log('Face match Api response ===>', faceResponse)
+  return faceResponse;
 }
 
 module.exports = {
@@ -425,4 +453,5 @@ module.exports = {
   shopEstablishment,
   verifyGstin,
   verifyUdhyamTruthScreen,
+  faceMatch
 };

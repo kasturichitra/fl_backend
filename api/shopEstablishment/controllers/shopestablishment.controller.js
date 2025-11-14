@@ -10,57 +10,40 @@ const truthScreen = require("../../service/provider.truthscreen");
 const Invincible = require("../../service/provider.invincible");
 const { ERROR_CODES } = require('../../../utlis/errorCodes');
 const { selectService } = require("../../service/serviceSelector");
+const logger = require("../../Logger/logger");
 
 exports.handleCreateShopEstablishment = async (req, res, next) => {
   const { registrationNumber, state } = req.body;
-  console.log("registrationNumber===>", registrationNumber);
-  const requestData = {
-    registrationNumber,
-    state,
-  };
+  const requestData = { registrationNumber, state };
+  console.log("Shop Establishment Detiails ", registrationNumber, state, req.body);
+  logger.info(`Shop Establishment Detiails ===>> registrationNumber: ${registrationNumber} --- state: ${state}`);
   try {
+    if (!registrationNumber || !state) {
+      return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
+    }
     const existingDetails = await shopestablishmentModel.findOne({
       registrationNumber: registrationNumber,
     });
-
     if (existingDetails) {
-      return res.status(200).json({ message: "Valid", success: true, response: existingDetails?.response });
-    } else {
-      console.log('Handle Create ShopEstablishment in else block')
-      const service = await selectService("SHOP");
-      let result;
-      switch (service.serviceFor) {
-        case "INVINCIBLE":
-          result = await Invincible.shopEstablishment(requestData);
-        case "TRUTHSCREEN":
-          result = await truthScreen.shopEstablishment(requestData);
-      }
-      console.log("responseData in shop verification===>", result);
-      const shopName = result?.result?.result?.nameOfTheShop;
-      const shopAddress = result?.result?.result?.address;
-
-      if (!shopName || !shopAddress) {
-        throw new Error(
-          "Invalid response structure: Missing shopName or shopAddress"
-        );
-      }
-      const shopest = {
-        registrationNumber,
-        state,
-        serviceRes: service.serviceFor, // service Name
-        response: result, // service responce
-        shopName,
-        shopAddress,
-        MerchantId: MerchantId,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString()
-      };
-      const savedData = await shopestablishmentModel.create(shopest);
-      console.log("Data saved to MongoDB:", savedData);
-      return res.status(200).send({ success: true, shopest });
+      return res.status(200).json({ message: "Valid", success: true, response: existingDetails?.result });
     }
+    const service = await selectService("SHOP");
+    console.log("----active service for Shop Verify is ----", service);
+    logger.info(`----active service for Shop Verify is ----, ${service}`);
+    let response;
+    switch (service.serviceFor) {
+      case "INVINCIBLE":
+        response = await Invincible.shopEstablishment(requestData, service);
+      case "TRUTHSCREEN":
+        response = await truthScreen.shopEstablishment(requestData, service);
+    }
+    console.log("Shop verify response ===>", response);
+    logger.info(`Shop verify response ===> ${response}`)
+    const savedData = await shopestablishmentModel.create(response);
+    return res.status(200).json({ message: 'Success', data: response?.result, success: true });
   } catch (error) {
-    console.error("Error performing shopest verification:", error, error?.response?.data);
+    console.error("Error performing Shop verification:", error);
+    logger.error(`Error performing Shop verification:${error}`);
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };
