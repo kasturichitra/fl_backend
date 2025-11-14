@@ -12,7 +12,7 @@ const verify_accountdata = new mongoose.Schema(
       type: String,
     },
     serviceResponse: {
-      type: String,
+      type: Object,
     },
     responseData: {
       type: Object,
