@@ -21,3 +21,30 @@
 2025-11-06 16:43:02 [[31MERROR[39M]: Aadhaar verification failed
 2025-11-06 16:43:58 [[31MERROR[39M]: Aadhaar verification failed
 2025-11-06 17:53:33 [[31MERROR[39M]: Error in checkAadhaarDigilockerStatus => TruthScreen request failed: Request failed with status code 400
+2025-11-07 16:34:56 [[31MERROR[39M]: Error performing GSTIN verification:Error: Unsupported GSTIN service
+2025-11-07 16:53:59 [[31MERROR[39M]: Error performing GSTIN verification:ReferenceError: logger is not defined
+2025-11-07 16:55:29 [[31MERROR[39M]: Error performing GSTIN verification:TypeError: Converting circular structure to JSON
+    --> starting at object with constructor 'ClientRequest'
+    |     property 'res' -> object with constructor 'IncomingMessage'
+    --- property 'req' closes the circle
+2025-11-07 16:57:55 [[31MERROR[39M]: Error performing GSTIN verification:TypeError: Converting circular structure to JSON
+    --> starting at object with constructor 'ClientRequest'
+    |     property 'res' -> object with constructor 'IncomingMessage'
+    --- property 'req' closes the circle
+2025-11-07 16:58:33 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: response: Path `response` is required., gstinNumber: Path `gstinNumber` is required.
+2025-11-07 17:35:19 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: response: Path `response` is required., gstinNumber: Path `gstinNumber` is required.
+2025-11-07 17:37:32 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: response: Path `response` is required., gstinNumber: Path `gstinNumber` is required.
+2025-11-07 17:39:26 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: response: Path `response` is required., gstinNumber: Path `gstinNumber` is required.
+2025-11-07 17:44:04 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-11-07 17:45:00 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-11-07 17:49:34 [[31MERROR[39M]: Error performing GSTIN verification:ReferenceError: gstnData is not defined
+2025-11-07 17:54:38 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-11-07 18:02:54 [[31MERROR[39M]: Error performing GSTIN verification:ReferenceError: cashfreeResponse is not defined
+2025-11-07 18:07:11 [[31MERROR[39M]: Error performing GSTIN verification:ReferenceError: gstnData is not defined
+2025-11-07 18:23:02 [[31MERROR[39M]: Error performing GSTIN verification:ReferenceError: gstnData is not defined
+2025-11-07 18:23:32 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-11-07 18:25:07 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-11-07 18:46:46 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-11-07 18:50:37 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-11-10 18:24:02 [[31MERROR[39M]: Error performing GSTIN verification:TypeError: Cannot read properties of undefined (reading 'serviceErrorCount')
+2025-11-14 15:33:42 [[31MERROR[39M]: Error performing Shop verification:ReferenceError: gstinNumber is not defined

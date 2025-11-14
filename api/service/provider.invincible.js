@@ -1,19 +1,20 @@
 const axios = require("axios");
 const logger = require("../Logger/logger");
+const { updateFailure } = require("./serviceSelector");
 
 const API_TIMEOUT = 8000;
 const MAX_RETRY = 2;
 
-async function apiCall(url, body, headers) {
-    console.log('Api call triggred in invincible', url, body, headers)
+async function apiCall(url, body, headers,service) {
+    console.log('Api call triggred in invincible', url, headers)
+    // logger.info(`Api call triggred in invincible, url: ${url} body: ${JSON.stringify(body)} headers: ${headers}`);
     try {
-        const res = await axios.post(url, body, {
-            headers,
-        });
+        const res = await axios.post(url, body, { headers });
         console.log('Api Call response in invincible ===>', res?.data);
         return res?.data;
 
     } catch (err) {
+        await updateFailure(service);
         const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
         if (!isNetworkErr) {
             throw err;
@@ -80,14 +81,7 @@ async function verifyAadhaar(data) {
     };
     return await apiCall(url, data, headers);
 }
-async function faceMatch(data) {
-    const url = process.env.Invincible_FACE_URL;
-    const headers = {
-        "Authorization": `Invincible-Api-Key ${process.env.Invincible_API_KEY}`
-    };
 
-    return await apiCall(url, data, headers);
-}
 async function verifyBank(data) {
     const url = process.env.Invincible_BANK_URL;
     const headers = {
@@ -108,42 +102,47 @@ async function verifyAadhaarMasked(data) {
 
     return await apiCall(url, data, headers);
 }
-async function verifyFaceComparison(data) {
-    const url = process.env.Invincible_FACE_COMPARE_URL || "https://api.invincibleocean.com/invincible/faceComparison";
-    const headers = {
-        "Content-Type": "application/json",
-        "clientId": process.env.INVINCIBLE_CLIENT_ID,
-        "secretKey": process.env.INVINCIBLE_SECRET_KEY,
-    };
-    console.log("verifyFaceComparison triggered with data:", data);
-    return await apiCall(url, data, headers);
-}
 
-// vishnu
-async function verifyGstin(data) {
-    const url = "https://api.invincibleocean.com/invincible/gstinDetailSearch";
+async function verifyGstin(data, service) {
+    const url = process.env.INVINCIBLE_GSTIN_URL;
     const headers = {
         accept: "application/json",
         clientId: process.env.INVINCIBLE_CLIENT_ID,
         "content-type": "application/json",
         secretKey: process.env.INVINCIBLE_SECRET_KEY,
     };
-    const apiresponse = await apiCall(url, data, headers);
-    const gstnData = data?.business_gstin_number
-    const gstinData = {
-        gstinNumber: gstnData?.gstin,
-        serviceRes: 'INVINCIBLE',
-        response: apiresponse,
-        companyName: apiresponse?.result?.result?.gstnDetailed?.legalNameOfBusiness,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString()
+    const apiresponse = await apiCall(url, data, headers, service);
+    console.log(
+        "Invincible verifyGsting Response ===>>>",
+        apiresponse?.result
+    );
+    logger.info(
+        `Invincible verifyGsting Response: : ${JSON.stringify(apiresponse?.response)}`
+    );
+    const returnedObj = {
+        gstinNumber: apiresponse?.result?.essentials?.gstin || "",
+        business_constitution: apiresponse?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
+        central_jurisdiction: apiresponse?.result?.result?.gstnDetailed?.centreJurisdiction || "",
+        gstin: apiresponse?.result?.result?.gstnDetailed?.gstinStatus || "",
+        companyName: apiresponse?.result?.result?.gstnDetailed?.gstinStatus || "",
+        other_business_address: apiresponse?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
+        register_cancellation_date: apiresponse?.result?.result?.gstnDetailed?.cancellationDate || "",
+        state_jurisdiction: apiresponse?.result?.result?.gstnDetailed?.stateJurisdiction || "",
+        tax_payer_type: apiresponse?.result?.result?.gstnDetailed?.taxPayerType || "",
+        trade_name: apiresponse?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
+        primary_business_address: apiresponse?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
+    }
+    return {
+        gstinNumber: apiresponse?.result?.essentials?.gstin || "",
+        result: returnedObj,
+        message: "Valid",
+        responseOfService: apiresponse,
+        service: "INVINCIBLE",
     };
-    console.log('VerifyGSTin Response data is', JSON.stringify(gstinData));
-    return gstinData;
 
 }
-async function shopEstablishment(data) {
-    const url = `https://api.invincibleocean.com/invincible/shopEstablishment`;
+async function shopEstablishment(data, service) {
+    const url = process.env.INVINCIBLE_SHOP_URL;
     const headers = {
         accept: "application/json",
         clientId: process.env.INVINCIBLE_CLIENT_ID,
@@ -151,11 +150,56 @@ async function shopEstablishment(data) {
         secretKey: process.env.INVINCIBLE_SECRET_KEY,
     };
     console.log('in ShopEstabishment provider called', url, data, headers)
-    const apiResponse = await apiCall(url, data, headers);
-    return apiResponse;
+    const apiResponse = await apiCall(url, data, headers, service);
+    console.log("Invincible ShopEstablishment Response ===>", apiResponse);
+    logger.info(`Invincible ShopEstablishment Response: ${JSON.stringify(apiResponse)}`
+    );
+    const returnedObj = {
+        registrationNumber: data?.registrationNumber,
+        state: data?.state,
+        shopName: data?.result?.result?.nameOfTheShop,
+        shopAddress: data?.result?.result?.address
+    }
+    console.log('ShopEstablishmenten Response data is', JSON.stringify(returnedObj));
+
+    return {
+        registrationNumber: data?.registrationNumber,
+        result: returnedObj,
+        message: "Valid",
+        responseOfService: apiResponse,
+        service: "INVINCIBLE",
+    };
 }
+async function faceMatch(data, service) {
+    const url = process.env.INVINCIBLE_FACEMATCH_URL;
+    const headers = {
+        accept: "application/json",
+        "content-type": "application/json",
+        clientId: process.env.INVINCIBLE_CLIENT_ID,
+        secretKey: process.env.INVINCIBLE_SECRET_KEY,
+    };
+    const dataToSend = JSON.stringify({
+        sourceImage: data?.userImage,
+        targetImage: data?.aadhaarImage
+    });
 
-
+    const resData =  await apiCall(url, dataToSend, headers, service);
+    console.log("Face Match Invincible Response ===>", resData);
+      logger.info(`Face Match Invincible Response: ${JSON.stringify(resData)}`);
+      const returnedObj = {
+        success: resData?.success,
+        response_code: resData?.response_code,
+        response_message: resData?.response_message,
+        result: resData?.result
+      }
+      console.log('facematch Response data is', JSON.stringify(returnedObj));
+      return {
+        result: returnedObj,
+        message: "Valid",
+        responseOfService: resData,
+        service: "Invincible",
+      };
+}
 
 module.exports = {
     verifyPanInvincible,
@@ -163,7 +207,6 @@ module.exports = {
     faceMatch,
     verifyBank,
     verifyAadhaarMasked,
-    verifyFaceComparison,
     verifyGstin,
     shopEstablishment
 };

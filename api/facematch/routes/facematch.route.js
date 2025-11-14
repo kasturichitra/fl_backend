@@ -4,9 +4,12 @@ const faceRouter = express.Router();
 const facematchController = require('../controllers/facematch.controller');
 const facematchValidator = require('../validations/facematch.validator');
 
-faceRouter.post('/facematchapiwithzoop', facematchValidator.facematchapi,facematchController.facematchapi);
-faceRouter.post('/facematchapiwithtruthscreen', facematchController.handleTruthScreenFaceVerification);
-faceRouter.post('/facematchapiinvincible', facematchController.handleFaceComparison);
+// faceRouter.post('/facematchapiwithzoop', facematchValidator.facematchapi,facematchController.facematchapi);
+// faceRouter.post('/facematchapiwithtruthscreen', facematchController.handleTruthScreenFaceVerification);
+// faceRouter.post('/facematchapiinvincible', facematchController.handleFaceComparison);
+
+faceRouter.post("/facematch",facematchController.faceMatchVerification);
+// faceRouter.post("/FaceVerification",facematchController.FaceVerification);
 
 
 module.exports = faceRouter;

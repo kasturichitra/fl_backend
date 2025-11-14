@@ -17,7 +17,7 @@ const {
   updateFailure,
   selectService,
 } = require("../../service/serviceSelector");
-const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const { verifyPanInvincible } = require("../../service/provider.invincible");
 const { verifyPanTruthScreen } = require("../../service/provider.truthscreen");
 const { verifyPanZoop } = require("../../service/provider.zoop");

@@ -148,12 +148,12 @@ const verifyOtp = async (req, res, next) => {
       };
       return next(errorMessage);
     }
-    
+
     console.log("Submitted OTP:", submittedOtp);
     console.log("Stored OTP:", storedOTP);
 
     if (submittedOtp === storedOTP) {
-      
+
       res.status(200).json({ message: "Login Successful", success: "Otp Verified Successfully", token: check })
 
     } else {
@@ -173,7 +173,7 @@ const verifyOtp = async (req, res, next) => {
   }
 }
 
-
+// step 1
 const loginDetails = async (req, res, next) => {
   const { email, mobileNumber, password } = req.body
   console.log("req.body==>>", req.body)
@@ -201,7 +201,7 @@ const loginDetails = async (req, res, next) => {
         statusCode: 404,
       };
       return next(errorMessage);
-    }else{
+    } else {
       const passwordVerify = await bcrypt.compareSync(password, user.password)
 
       if (!passwordVerify) {
@@ -210,7 +210,7 @@ const loginDetails = async (req, res, next) => {
           statusCode: 400,
         };
         return next(errorMessage);
-      }else{
+      } else {
         await handleOTPSend(user, res)
       }
     }
@@ -256,13 +256,13 @@ const getUser = async (req, res, next) => {
     }
 
     const foundUserResponse = {
-      name : foundUser?.name,
-      email : foundUser?.email,
-      mobileNumber : foundUser?.mobileNumber,
-      companyName : foundUser?.companyName,
-      createdDate : foundUser?.createdDate,
-      MerchantId : foundUser?.merchantId,
-      role : foundUser?.role
+      name: foundUser?.name,
+      email: foundUser?.email,
+      mobileNumber: foundUser?.mobileNumber,
+      companyName: foundUser?.companyName,
+      createdDate: foundUser?.createdDate,
+      MerchantId: foundUser?.merchantId,
+      role: foundUser?.role
     }
 
     res.status(200).json({ message: "valid", success: true, response: foundUserResponse })

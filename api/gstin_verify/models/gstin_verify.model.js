@@ -5,29 +5,10 @@ const Gstin_details = new mongoose.Schema({
     type: String,
     required: true
   },
-  response: {
-    type: Object,
-    required: true
-  },
-  token: {
-    type: String,
-    required: false
-  },
-  MerchantId: {
-    type: String,
-  },
-  companyName: {
-    type: String
-  },
-  createdTime: {
-    type: String,
-    default: Date.now,
-  },
-  createdDate: {
-    type: String,
-    default: Date.now,
-  },
-
+  result: { type: Object },
+  message: { type: String },
+  responseOfService: { type: Object },
+  service: { type: String },
 },
   {
     timestamps: true,

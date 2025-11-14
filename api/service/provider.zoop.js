@@ -1,17 +1,19 @@
 const axios = require("axios");
 const { generateTransactionId } = require("../truthScreen/callTruthScreen");
+const {updateFailure} = require("./serviceSelector")
+const logger = require("../Logger/logger");
 
-async function apiCall(url, body, headers) {
+async function apiCall(url, body, headers,service) {
   console.log("Api call triggred in zoop", url, body, headers);
-  const data ={...body}
 
   try {
-    const res = await axios.post(url, data, {
+    const res = await axios.post(url, body, {
       headers,
     });
-    console.log("Api Call response in zoop===>", res);
-    return res;
+    console.log("Api Call response in zoop===>", res?.data);
+    return res?.data;
   } catch (err) {
+    await updateFailure(service);
     console.log(`zoop Retry Attempt error ${err}`);
     const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
     if (!isNetworkErr) {
@@ -70,24 +72,12 @@ async function verifyPanZoop(data) {
     }
   }
 }
-
 async function verifyAadhaar(data) {
   const url = process.env.ZOOP_AADHAAR_URL;
   const headers = {
     "Content-Type": "application/json",
     Authorization: `Zoop-Api-Key ${process.env.ZOOP_API_KEY}`,
   };
-  return await apiCall(url, data, headers);
-}
-
-async function faceMatch(data) {
-   const url = process.env.ZOOP_FACE_URL || "https://live.zoop.one/api/v1/in/ml/face/match";
-  const headers = {
-    "app-id": process.env.ZOOP_APP_ID,
-    "api-key": process.env.ZOOP_API_KEY,
-    "Content-Type": "application/json",
-  };
-
   return await apiCall(url, data, headers);
 }
 
@@ -101,39 +91,107 @@ async function verifyBank(data) {
 }
 
 // Vishnu
-async function verifyGstin(data) {
-    console.log('is triggred verifygstin');
-    const url = 'https://live.zoop.one/api/v1/in/merchant/gstin/lite';
-    const headers = {
-        "app-id": process.env.ZOOP_APP_ID,
-        "api-key": process.env.ZOOP_API_KEY,
-        "content-type": "application/json",
-    }
+async function verifyGstin(data,service) {
+  console.log('is triggred verifygstin');
+  const url = process.env.ZOOP_GSTIN_URL;
+  const headers = {
+    "app-id": process.env.ZOOP_APP_ID,
+    "api-key": process.env.ZOOP_API_KEY,
+    "content-type": "application/json",
+  }
 
-    return await apiCall(url, data, headers);
+  const apiresponse = await apiCall(url, data, headers, service);
+  console.log(
+    "zoop verifyGsting Response ===>>>",
+    apiresponse
+  );
+  logger.info(
+    `zoop verifyGsting Response: : GSTNumber:${data?.business_gstin_number} ${JSON.stringify(apiresponse)}`
+  );
+  const returnedObj = {
+    gstinNumber: apiresponse?.result?.gstin,
+    business_constitution: apiresponse?.business_constitution,
+    central_jurisdiction: apiresponse?.central_jurisdiction,
+    gstin: apiresponse?.gstin,
+    companyName: apiresponse?.result?.legal_name,
+    other_business_address: apiresponse?.result?.other_business_address,
+    register_cancellation_date: apiresponse?.result?.register_cancellation_date,
+    state_jurisdiction: apiresponse?.result?.state_jurisdiction,
+    tax_payer_type: apiresponse?.result?.tax_payer_type,
+    trade_name: apiresponse?.result?.trade_name,
 
-    const apiresponse = await apiCall(url, data, headers);
-    const gstnData = JSON.parse(data)
-    const gstinData = {
-        gstinNumber: gstnData?.gstin,
-        serviceRes: 'zoop',
-        response: apiresponse,
-        companyName: apiresponse?.result?.result?.gstnDetailed?.legalNameOfBusiness,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString()
-    };
-    console.log('VerifyGSTin Response data is', JSON.stringify(gstinData));
-    return gstinData;
-}
-async function shopEstablishment(data) {
-    const url = "https://api.invincibleocean.com/invincible/shopEstablishment";
-    const headers = {
-        accept: "application/json",
-        clientId: process.env.INVINCIBLE_CLIENT_ID,
-        "content-type": "application/json",
-        secretKey: process.env.INVINCIBLE_SECRET_KEY,
-    };
-    return await apiCall(url, data, headers);
+    primary_business_address: apiresponse?.result?.primary_business_address
+  }
+  return {
+    gstinNumber: apiresponse?.result?.gstin,
+    result: returnedObj,
+    message: "Valid",
+    responseOfService: apiresponse,
+    service: "ZOOP",
+  };
+};
+
+async function shopEstablishment(data,service) {
+  const url = process.env.ZOOP_SHOP_URL;
+  const headers = {
+    "app-id": process.env.ZOOP_APP_ID,
+    "api-key": process.env.ZOOP_API_KEY,
+    "content-type": "application/json",
+  }
+  const apiResponse = await apiCall(url, data, headers, service);
+  console.log("Zoop ShopEstablishment Response ===>", apiResponse);
+  logger.info(`Zoop ShopEstablishment Response: ${JSON.stringify(apiResponse)}`
+  );
+  const returnedObj = {
+    registrationNumber: data?.registrationNumber,
+    state: data?.state,
+    shopName: data?.result?.result?.nameOfTheShop,
+    shopAddress: data?.result?.result?.address
+  }
+  console.log('ShopEstablishmenten Response data is', JSON.stringify(returnedObj));
+
+  return {
+    registrationNumber: data?.registrationNumber,
+    result: returnedObj,
+    message: "Valid",
+    responseOfService: apiResponse,
+    service: "ZOOP",
+  };
+};
+
+async function faceMatch(data,service) {
+  const url = process.env.ZOOP_FACEMATCH_URL;
+  const headers = {
+    "app-id": process.env.ZOOP_APP_ID,
+    "api-key": process.env.ZOOP_API_KEY,
+    "Content-Type": "application/json",
+  };
+  const dataToSend = {
+    mode: "sync",
+    data: {
+      card_image: data?.userImage,
+      user_image: data?.aadhaarImage,
+      consent: "Y",
+      consent_text: "I hear by declare my consent agreement for fetching my information via ZOOP API"
+    },
+    task_id: "f26eb21e-4c35-4491-b2d5-41fa0e545a34"
+  }
+  const resData = await apiCall(url, dataToSend, headers, service);
+  console.log("Face Match Zoop Response ===>", resData);
+  logger.info(`Face Match Zoop Response: ${JSON.stringify(resData)}`);
+  const returnedObj = {
+    success: resData?.success,
+    response_code: resData?.response_code,
+    response_message: resData?.response_message,
+    result: resData?.result
+  }
+  console.log('Face match zoop Response data is', JSON.stringify(returnedObj));
+  return {
+    result: returnedObj,
+    message: "Valid",
+    responseOfService: resData,
+    service: "ZOOP",
+  };
 }
 
 module.exports = {

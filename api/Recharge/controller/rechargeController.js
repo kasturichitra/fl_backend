@@ -10,10 +10,10 @@ const FetchOperators = async (req, res) => {
         if (!mobileNumber) {
             return res.status(400).json(ERROR_CODES.BAD_REQUEST)
         }
-        const existingOperator = await reachargeModel.findOne({ Mobile: mobileNumber });
-        if (existingOperator) {
-            return res.status(200).json({ message: 'Success', data: existingOperator?.response, success: true });
-        }
+        // const existingOperator = await reachargeModel.findOne({ Mobile: mobileNumber });
+        // if (existingOperator) {
+        //     return res.status(200).json({ message: 'Success', data: existingOperator?.response, success: true });
+        // }
         const service = await selectService('RECHARGE');
         console.log('Activer service in reacharge is ==>', service);
         if (!service?.serviceFor) {

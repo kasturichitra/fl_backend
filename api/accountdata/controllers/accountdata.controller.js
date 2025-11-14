@@ -12,11 +12,11 @@ const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const {
   verifyBankAccountEaseBuzz,
 } = require("../../service/provider.easebuzz");
-const { selectService } = require("../../service/serviceSelector");
+const { selectService, updateFailure } = require("../../service/serviceSelector");
 const {
   verifyBankAccountInvincible,
 } = require("../../service/provider.invincible");
-const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const { account_no, ifsc } = req.body;
@@ -135,8 +135,8 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     }
   } catch (error) {
     console.error("Error verifying bank account verifyBankAccount:", error);
-    await updateFailure(service);
-    const errorObj = mapError(err);
+    // await updateFailure(service);
+    const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };

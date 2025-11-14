@@ -10,7 +10,7 @@ const panAadhaarDetails = new mongoose.Schema({
   },
   aadhaarNumber:{
     type: Object,
-    required: true
+    // required: true
   },
   serviceResponse:{
     type: Object,
