@@ -1,4 +1,4 @@
-export const generateTransactionId = () => {
+const generateTransactionId = () => {
   const now = new Date();
   const date = now.toISOString().slice(0, 10).replace(/-/g, "");
   const time = now.toISOString().slice(11, 19).replace(/:/g, "");
@@ -6,3 +6,5 @@ export const generateTransactionId = () => {
   const transactionId = `NB_${date}${time}${randomComponent}`;
   return transactionId;
 };
+
+module.exports = { generateTransactionId };

@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 
 const AdhaarSchema = new mongoose.Schema({
+    MerchantId:{
+      type: String
+    },
     trans_id: {
       type: String,
     },
@@ -27,7 +30,8 @@ const AdhaarSchema = new mongoose.Schema({
       type: Object,
       default: {},
     },
- 
+ address: { type: Object },
+
  
 },
 {
