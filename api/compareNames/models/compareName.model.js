@@ -1,15 +1,6 @@
 const mongoose = require("mongoose");
 
 const verify_names = new mongoose.Schema({
-
-  token: {
-    type: String,
-
-  },
-  MerchantId: {
-    type: String,
-
-  },
   firstName: {
     type: String
   },
@@ -34,5 +25,4 @@ const verify_names = new mongoose.Schema({
   }
 );
 
-// Export the model
 module.exports = mongoose.model("verify_names", verify_names);

@@ -1,10 +1,56 @@
-const checkingDetails = require("../../../utlis/authorization");
-const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
-const comparingNamesModel = require("../models/compareName.model")
+const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const logger = require("../../Logger/logger");
+const comparingNamesModel = require("../models/compareName.model");
 
-function compareNames(fName, sName) {
-  const distance = levenshteinDistance(fName, sName);
-  const maxLength = Math.max(fName.length, sName.length);
+async function checkCompareNames(firstName, secondName) {
+  console.log("firstName, secondName===>", firstName, secondName);
+  const cleanedFirstname = removeTitle(firstName);
+  const cleanedSecondName = removeTitle(secondName);
+
+  const firstNameToCompare = normalizeName(cleanedFirstname);
+  const secondNameToCompare = normalizeName(cleanedSecondName);
+
+  const reverseFirstName = firstNameToCompare.split(" ").reverse().join(" ");
+  const reverseSecondName = secondNameToCompare.split(" ").reverse().join(" ");
+
+  const sortedFirstName = firstNameToCompare.split(" ").sort().join(" ");
+  const sortedSecondName = secondNameToCompare.split(" ").sort().join(" ");
+
+  const jumbleReverseSecondName = reverseSecondName.split(" ").sort().join(" ");
+
+  console.log(
+    "sortedFirstName === sortedSecondName===>",
+    sortedFirstName,
+    sortedSecondName
+  );
+  console.log(
+    "sortedFirstName === reverseSortedSecondName===>",
+    sortedFirstName,
+    jumbleReverseSecondName
+  );
+  if (sortedFirstName === sortedSecondName) {
+    return { similarity: 100, reverseSimilarity: 100 };
+  }
+  if (sortedFirstName === jumbleReverseSecondName) {
+    return { similarity: 100, reverseSimilarity: 100 };
+  }
+
+  const similarity = await compareNames(sortedFirstName, sortedSecondName);
+  const reverseSimilarity = await compareNames(
+    sortedFirstName,
+    jumbleReverseSecondName
+  );
+  console.log("similarity===>", similarity);
+  console.log("reverseSimilarity===>", reverseSimilarity);
+
+  return { similarity: similarity, reverseSimilarity: reverseSimilarity };
+}
+function normalizeName(name) {
+  return name.toUpperCase().replace(/\s+/g, " ").trim();
+}
+function compareNames(accountName, panName) {
+  const distance = levenshteinDistance(accountName, panName);
+  const maxLength = Math.max(accountName.length, panName.length);
   const similarity = 1 - distance / maxLength;
   return similarity * 100;
 }
@@ -20,6 +66,7 @@ function levenshteinDistance(a, b) {
   for (let j = 0; j <= a.length; j++) {
     matrix[0][j] = j;
   }
+
   for (let i = 1; i <= b.length; i++) {
     for (let j = 1; j <= a.length; j++) {
       if (b.charAt(i - 1) === a.charAt(j - 1)) {
@@ -36,65 +83,94 @@ function levenshteinDistance(a, b) {
 
   return matrix[b.length][a.length];
 }
+function removeTitle(name) {
+  const titleRegex = /^(MR|MRS|MISS|MS|DR|SIR|LADY|LORD|PROF|REV)\.?\s*/i;
+  return name.replace(titleRegex, "").trim();
+}
 
 exports.compareNames = async (req, res, next) => {
   try {
     const { firstName, secondName } = req.body;
-    const MerchantId = req.merchantId;
-    const check = req.token;
+    console.log("firstName and secondName ===>>", secondName, firstName);
+    if (!firstName?.trim() || !secondName?.trim()) {
+      let errorMessage = {
+        message: "Names are Required 😁",
+        ...ERROR_CODES?.BAD_REQUEST,
+      };
+      return res.status(400).json(errorMessage);
+    }
 
-    if (!firstName || !secondName) {
-        let errorMessage = {
-          message: "Both Names are Required",
-          statusCode: 400,
-        };
-        return next(errorMessage);
-       }
+    const existingDetails = await comparingNamesModel.findOne({
+      firstName: firstName,
+      secondName: secondName,
+    });
+    console.log("response in existing===>", existingDetails);
 
-    const existingDetails = await comparingNamesModel.findOne({ firstName: firstName , secondName:secondName  });
     if (existingDetails) {
-      console.log("response in existing===>", existingDetails?.responseData);
-      const response = {
-        firstName : existingDetails?.firstName,
-        secondName : existingDetails?.secondName,
-        responseData : existingDetails?.responseData
-      }
-      return res.status(200).json(response)     
-    }else{
-      const result = await compareNames(firstName , secondName)
-      console.log("======>>>>>result in compareNames" , result)
+      return res.status(200).json({
+        message: "Valid",
+        success: true,
+        response: existingDetails?.responseData,
+      });
+    } else {
+      const result = await checkCompareNames(firstName, secondName);
+      console.log("======>>>>>result in compareNames", result);
+      logger.info("result from compareNames in name match ===>>", result);
 
-      if(result > 60){
-        const newSet = await comparingNamesModel.create({
-          firstName : firstName,
-          secondName : secondName,
-          MerchantId : MerchantId,
-          token : check,
-          responseData : {
-            data : `Your Name Comparison Comes with a accuracy of ${result}`
-          },
-          createdDate:new Date().toLocaleDateString(),
-          createdTime:new Date().toLocaleTimeString()
-        })
-        const response = {
+      const { reverseSimilarity, similarity } = result;
+
+      console.log(
+        "reverseSimilarity and similarity ===>>",
+        similarity,
+        reverseSimilarity
+      );
+      logger.info(
+        "reverseSimilarity and similarity in name match api ===>>",
+        similarity,
+        reverseSimilarity
+      );
+
+      if (result) {
+        const nameMatchResponse = {
           firstName: firstName,
-          secondName : secondName,
-          MerchantId : MerchantId,
-          responseData : {
-            data : `Your Name Comparison Comes with a accuracy of ${result}`
-          },
-        }
-        return res.status(200).json(response)
-      }else{
-        let errorMessage = {
-          message: "No Match Found",
-          statusCode: 404,
+          secondName: secondName,
+          result: Math.max(similarity, reverseSimilarity),
         };
-        return next(errorMessage);
+        console.log(
+          "reverseSimilarity and similarity ===>>",
+          similarity,
+          reverseSimilarity
+        );
+        logger.info(
+          "reverseSimilarity and similarity ===>>",
+          similarity,
+          reverseSimilarity
+        );
+        await comparingNamesModel.create({
+          firstName: firstName,
+          secondName: secondName,
+          responseData: nameMatchResponse,
+          createdDate: new Date().toLocaleDateString(),
+          createdTime: new Date().toLocaleTimeString(),
+        });
+        return res.status(200).json({
+          message: "Valid",
+          success: true,
+          response: nameMatchResponse,
+        });
+      } else {
+        let errorMessage = {
+          message: "something Went Wrong 🤦‍♂️",
+          ...ERROR_CODES?.SERVICE_UNAVAILABLE,
+        };
+        return res.status(400).json(errorMessage);
       }
     }
   } catch (error) {
-    console.log('Error performing comparing Names:', error.response?.data || error.message);
+    console.log(
+      "Error performing comparing Names:",
+      error.response?.data || error.message
+    );
     let errorMessage = {
       message: "Error performing comparing Names Try again after Some time",
       statusCode: 500,
@@ -102,4 +178,3 @@ exports.compareNames = async (req, res, next) => {
     return next(errorMessage);
   }
 };
-

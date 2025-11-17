@@ -28,6 +28,8 @@ const LiveApiKeysRouter = require("./api/live_api_keys/routes/liveKeys.route")
 const NominalRouter = require("./api/NominalCharges/Routes/NominalChargesRoutes")
 const PaymentRouter = require("./api/PaymentLinks/routes/paymentlink.route")
 const WalletRoutes = require("./api/Wallets/routes/Wallets.routes");
+const udyamRouter = require("./api/udhyamVerification/routes/udyamRoutes")
+const instantPayRouter = require("./api/instantPay/routes/InstantPayRoutes")
 
 
 // middlewares
@@ -87,6 +89,8 @@ app.use("/shop", shopRouter);
 app.use("/business", gstRouter);
 app.use("/face", faceRouter)
 app.use('/account', accountRouter)
+app.use('/instant', instantPayRouter)
+app.use('/udyam', udyamRouter)
 app.use("/name", jwtauth, validateMerchant, kycCheck, checkWhitelist, checkKeys, HandileCharges, nameRouter)
 app.use("/verify", jwtauth, validateMerchant, kycCheck, checkWhitelist, checkKeys, HandileCharges, verifyNameRouter)
 app.use("/bin", jwtauth, validateMerchant, kycCheck, binRouter)
