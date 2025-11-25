@@ -46,7 +46,7 @@ async function verifyPanZoop(data) {
 
     console.log("response in pan after service call ===>>", response)
 
-    const obj = response.data;
+    const obj = response;
     console.log("obj ===>>",obj);
 
     if (obj.response_code === "101") {
@@ -83,15 +83,6 @@ async function verifyAadhaar(data) {
     "Content-Type": "application/json",
     Authorization: `Zoop-Api-Key ${process.env.ZOOP_API_KEY}`,
   };
-  return await apiCall(url, data, headers);
-}
-
-async function verifyBank(data) {
-  const url = process.env.ZOOP_BANK_URL;
-  const headers = {
-    Authorization: `Zoop-Api-Key ${process.env.ZOOP_API_KEY}`,
-  };
-
   return await apiCall(url, data, headers);
 }
 
@@ -259,7 +250,6 @@ module.exports = {
   verifyPanZoop,
   verifyAadhaar,
   faceMatch,
-  verifyBank,
   verifyGstin,
   shopEstablishment,
   verifyBankAccountZoop

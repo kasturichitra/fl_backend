@@ -35,7 +35,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
 
   if (!account_no?.trim() || account_no?.length < 9) {
     let errorMessage = {
-      message: "Account number is Missing or Invalid 😁",
+      response: "Account number is Missing or Invalid 😁",
       ...ERROR_CODES?.BAD_REQUEST
     };
     return res.status(400).json(errorMessage);
@@ -44,7 +44,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const resultOfIfsc = checkingOfLength(ifsc, 11);
   if (resultOfIfsc) {
        let errorMessage = {
-      message: "Ifsc is Missing or Invalid 😁",
+      response: "Ifsc is Missing or Invalid 😁",
       ...ERROR_CODES?.BAD_REQUEST
     };
     return res.status(400).json(errorMessage);
