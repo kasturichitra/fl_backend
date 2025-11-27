@@ -7,8 +7,8 @@ const adhaarverificationValidator = require('../validations/adhaarverification.v
 // aadhaarRouter.post('/sentAadhaarotp', adhaarverificationValidator.sentadhaarotp,adhaarverificationController.sentadhaarotp);
 // aadhaarRouter.post('/Aadhaarotpverify', adhaarverificationValidator.adhaarotpverify,adhaarverificationController.adhaarotpverify);
 aadhaarRouter.post('/Aadhaarmaskedverify', adhaarverificationController.handleAadhaarMaskedVerify);
-aadhaarRouter.post("/aadhaar/initiate",adhaarverificationController.initiateAadhaarDigilocker)
-aadhaarRouter.post("/aadhaar/status",adhaarverificationController.checkAadhaarDigilockerStatus)
+aadhaarRouter.post("/initiate",adhaarverificationController.initiateAadhaarDigilocker)
+aadhaarRouter.post("/status",adhaarverificationController.checkAadhaarDigilockerStatus)
 // router.post('/Aadhaarotp', adhaarverificationValidator.Aadhaarotp,adhaarverificationController.Aadhaarotp);
 // router.post('/verifyAadhaarOTP', adhaarverificationValidator.verifyAadhaarOTP, adhaarverificationController.verifyAadhaarOTP);
 module.exports = aadhaarRouter;

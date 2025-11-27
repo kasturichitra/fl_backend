@@ -7,7 +7,7 @@ const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel")
 const invincibleClientId = process.env.INVINCIBLE_CLIENT_ID
 const invincibleSecretKey = process.env.INVINCIBLE_SECRET_KEY
 const moment = require("moment")
-const logger = require("../../Logger/Logger");
+const logger = require("../../Logger/logger");
 const { mapError, ERROR_CODES } = require("../../../utlis/errorCodes");
 const {
   callTruthScreenAPI,
