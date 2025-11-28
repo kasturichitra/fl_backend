@@ -4,72 +4,6 @@ const { updateFailure } = require("./serviceSelector");
 const username = process.env.TRUTHSCREEN_USERNAME;
 const password = process.env.TRUTHSCREEN_TOKEN;
 
-// Vishnu
-// function generateKey(password) {
-//     console.log('---2. GenerateKey is Called---', password)
-//     const hash = crypto.createHash("sha512");
-//     hash.update(password, "utf-8");
-//     return hash.digest("hex").substring(0, 16);
-// }
-// function encrypt(plainText, password) {
-//     console.log('---1. Encrypt is called ---')
-//     const key = generateKey(password);
-//     const iv = crypto.randomBytes(16);
-//     const cipher = crypto.createCipheriv("aes-128-cbc", Buffer.from(key), iv);
-
-//     let encrypted = cipher.update(plainText, "utf-8", "base64");
-//     encrypted += cipher.final("base64");
-
-//     return `${encrypted}:${iv.toString("base64")}`;
-// }
-// function decrypt(encryptedText, password) {
-//     const key = generateKey(password);
-
-//     //   console.log("encryptedText ===>", encryptedText, typeof encryptedText);
-
-//     if (typeof encryptedText !== "string") {
-//         throw new Error("Invalid encryptedText: must be a string");
-//     }
-
-//     const [encryptedData, ivBase64] = encryptedText.split(":");
-//     const iv = Buffer.from(ivBase64, "base64");
-
-//     const decipher = crypto.createDecipheriv("aes-128-cbc", Buffer.from(key), iv);
-//     let decrypted = decipher.update(encryptedData, "base64", "utf8");
-//     decrypted += decipher.final("utf8");
-
-//     return decrypted;
-// }
-// async function apiCall(url, body, headers) {
-//     console.log('Api call triggred', url, body, headers)
-//     const password = process.env.TRUTHSCREEN_TOKEN
-//     try {
-//         console.log('------In api Call try Block ---------')
-//         const encryptedData = encrypt(JSON.stringify(body), password);
-//         console.log('encrypted Data is ===>', encryptedData)
-//         const res = await axios.post(url, { requestData: encryptedData }, {
-//             headers,
-//         });
-//         console.log("response in truth screen", res?.data);
-
-//         const encryptedResponseData = res?.data?.responseData || res?.data;
-//         if (!encryptedResponseData || typeof encryptedResponseData !== "string") {
-//             throw new Error("Invalid or missing encrypted responseData from TruthScreen");
-//         }
-//         const decrypted = decrypt(encryptedResponseData, password);
-
-//         return decrypted;
-
-//     } catch (err) {
-//         console.log('Error while api call in TruthScreen', err)
-//         const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
-//         if (!isNetworkErr) {
-//             throw err;
-//         }
-//         console.log(`Invincible Retry Attempt error ${err}`);
-//     }
-// }
-
 async function apiCall(url, body, service) {
   console.log("Api call triggred in truth screen", url, body);
   try {
@@ -94,7 +28,7 @@ async function apiCall(url, body, service) {
 }
 
 // Poonam
-async function verifyPanTruthScreen(data) {
+async function verifyPanTruthScreen(data, service) {
   const { panNumber } = data;
   console.log("panNumber in truthScreen ===>>", panNumber);
   const url = "https://www.truthscreen.com/api/v2.2/idsearch";
@@ -110,7 +44,7 @@ async function verifyPanTruthScreen(data) {
   console.log("payload in truthscreen ===>>", payload);
 
   try {
-    const parsedResponse = await apiCall(url, payload);
+    const parsedResponse = await apiCall(url, payload, service);
 
     console.log("parsedResponse ====>>", parsedResponse);
 
@@ -138,7 +72,7 @@ async function verifyPanTruthScreen(data) {
   }
 }
 
-async function verifyCinTruthScreen(data) {
+async function verifyCinTruthScreen(data, service) {
   const { CIN } = data;
   console.log("cinNumber in truthScreen ===>>", CIN);
 
@@ -148,12 +82,12 @@ async function verifyCinTruthScreen(data) {
   const payload = { transID: transID, docType: 15, docNumber: CIN };
 
   try {
-    const CinResponse = await apiCall(url, payload);
+    const CinResponse = await apiCall(url, payload, service);
     console.log("CinResponse ===>>>", CinResponse);
-  } catch (error) {}
+  } catch (error) { }
 }
 
-async function verifyUdhyamTruthScreen(data) {
+async function verifyUdhyamTruthScreen(data, service) {
   const { udyamNumber } = data;
   console.log("udyamNumber in truthScreen ===>>", udyamNumber);
 
@@ -166,7 +100,7 @@ async function verifyUdhyamTruthScreen(data) {
   };
 
   try {
-    const UdyamResponse = await apiCall(url, payload);
+    const UdyamResponse = await apiCall(url, payload, service);
     console.log("UdyamResponse ===>>>", JSON.stringify(UdyamResponse));
 
     const udyamData = UdyamResponse?.msg?.udyamdata || {};
@@ -202,11 +136,11 @@ async function verifyUdhyamTruthScreen(data) {
         "Official address of Enterprise": {
           "Flat/Door/Block No":
             udyamData["Official address of Enterprise"]?.[
-              "Flat/Door/Block No"
+            "Flat/Door/Block No"
             ] || null,
           "Name of Premises/ Building":
             udyamData["Official address of Enterprise"]?.[
-              "Name of Premises/ Building"
+            "Name of Premises/ Building"
             ] || null,
           "Village/Town":
             udyamData["Official address of Enterprise"]?.["Village/Town"] ||
@@ -245,15 +179,13 @@ async function verifyUdhyamTruthScreen(data) {
   }
 }
 
-async function verifyAadhaar(data) {
-  const url = process.env.TRUTHSCREEN_AADHAAR_URL;
+async function verifyAadhaar(data, service) {
+  const url = process.env.TRUTHSCREEN_API_URL;
 
-  return await apiCall(url, data, {
-    "x-api-key": process.env.TRUTHSCREEN_API_KEY,
-  });
+  return await apiCall(url, data, service);
 }
 
-async function verifyBankAccountTruthScreen(data) {
+async function verifyBankAccountTruthScreen(data, service) {
   const { account_no, ifsc } = data;
   const url = "https://www.truthscreen.com/BankAccountVerificationApi";
 
@@ -267,7 +199,7 @@ async function verifyBankAccountTruthScreen(data) {
   };
 
   try {
-    const bankResponseFromTruthScreen = await apiCall(url, payload);
+    const bankResponseFromTruthScreen = await apiCall(url, payload, service);
     console.log(
       "bankResponseFromTruthScreen ===>>",
       bankResponseFromTruthScreen
@@ -299,7 +231,7 @@ async function verifyBankAccountTruthScreen(data) {
   }
 }
 
-async function verifyBankTruthScreen(data) {
+async function verifyBankTruthScreen(data, service) {
   const { account_no, ifsc } = data;
   const url = "https://www.truthscreen.com/v1/apicall/bank/bav_pennyless";
 
@@ -315,7 +247,7 @@ async function verifyBankTruthScreen(data) {
   };
 
   try {
-    const bankResponseFromTruthScreen = await apiCall(url, payload);
+    const bankResponseFromTruthScreen = await apiCall(url, payload, service);
     console.log(
       "bankResponseFromTruthScreen ===>>",
       bankResponseFromTruthScreen
@@ -395,21 +327,27 @@ async function callTruthScreenFaceVerification(userImage, aadhaarImage) {
 }
 
 // Vishnu
-async function shopEstablishment(data) {
+async function shopEstablishment(data, service) {
   const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
-  return await apiCall(url, data)
+  return await apiCall(url, data, service)
 }
-async function verifyGstin(data) {
-  const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
-  const resData = await apiCall(url, data);
+async function verifyGstin(gstinNumber, service) {
+  const url = process.env.TRUTHSCREEN_API_URL;
+  const transID = generateTransactionId(14);
+  const truthscreendata = {
+    transID,
+    "docType": "23",
+    "docNumber": gstinNumber
+  };
+  const resData = await apiCall(url, truthscreendata, service);
   console.log('VerifyGstIn Response', resData);
   return resData
 }
-async function faceMatch(data) {
+async function faceMatch(data, service) {
   const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
   const transID = generateTransactionId(14);
   const detailsToSend = { transID, docType: 201 }
-  const step1Response = await apiCall(url, detailsToSend);
+  const step1Response = await apiCall(url, detailsToSend, service);
   console.log('face match api response', step1Response)
   if (step1Response?.status !== 1) {
     return { error: "Failed to generate token from TruthScreen" };

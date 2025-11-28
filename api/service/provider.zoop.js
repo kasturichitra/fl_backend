@@ -1,9 +1,9 @@
 const axios = require("axios");
 const { generateTransactionId } = require("../truthScreen/callTruthScreen");
-const {updateFailure} = require("./serviceSelector")
+const { updateFailure } = require("./serviceSelector")
 const logger = require("../Logger/logger");
 
-async function apiCall(url, body, headers,service) {
+async function apiCall(url, body, headers, service) {
   console.log("Api call triggred in zoop", url, body, headers);
 
   try {
@@ -47,15 +47,15 @@ async function verifyPanZoop(data) {
     console.log("response in pan after service call ===>>", response)
 
     const obj = response.data;
-    console.log("obj ===>>",obj);
+    console.log("obj ===>>", obj);
 
     if (obj.response_code === "101") {
       return {
-      result: "NoDataFound",
-      message: "InValid",
-      responseOfService: {},
-      service: "Zoop",
-    };
+        result: "NoDataFound",
+        message: "InValid",
+        responseOfService: {},
+        service: "Zoop",
+      };
     }
 
     const returnedObj = {
@@ -95,8 +95,8 @@ async function verifyBank(data) {
   return await apiCall(url, data, headers);
 }
 
-// Vishnu
-async function verifyGstin(data,service) {
+
+async function verifyGstin(gstinNumber, service) {
   console.log('is triggred verifygstin');
   const url = process.env.ZOOP_GSTIN_URL;
   const headers = {
@@ -104,15 +104,18 @@ async function verifyGstin(data,service) {
     "api-key": process.env.ZOOP_API_KEY,
     "content-type": "application/json",
   }
-
-  const apiresponse = await apiCall(url, data, headers, service);
-  console.log(
-    "zoop verifyGsting Response ===>>>",
-    apiresponse
-  );
-  logger.info(
-    `zoop verifyGsting Response: : GSTNumber:${data?.business_gstin_number} ${JSON.stringify(apiresponse)}`
-  );
+  const zoopData = {
+    mode: "sync",
+    data: {
+      business_gstin_number: gstinNumber,
+      consent: "Y",
+      consent_text:
+        "I hereby declare my consent agreement for fetching my information via ZOOP API",
+    },
+  };
+  const apiresponse = await apiCall(url, zoopData, headers, service);
+  console.log("zoop verifyGsting Response ===>>>",apiresponse );
+  logger.info(`zoop verifyGsting Response: : GSTNumber:${gstinNumber} ${JSON.stringify(apiresponse)}`);
   const returnedObj = {
     gstinNumber: apiresponse?.result?.gstin,
     business_constitution: apiresponse?.business_constitution,
@@ -135,8 +138,7 @@ async function verifyGstin(data,service) {
     service: "ZOOP",
   };
 };
-
-async function shopEstablishment(data,service) {
+async function shopEstablishment(data, service) {
   const url = process.env.ZOOP_SHOP_URL;
   const headers = {
     "app-id": process.env.ZOOP_APP_ID,
@@ -163,8 +165,7 @@ async function shopEstablishment(data,service) {
     service: "ZOOP",
   };
 };
-
-async function faceMatch(data,service) {
+async function faceMatch(data, service) {
   const url = process.env.ZOOP_FACEMATCH_URL;
   const headers = {
     "app-id": process.env.ZOOP_APP_ID,
@@ -202,7 +203,7 @@ async function verifyBankAccountZoop(data) {
   const { account_no, ifsc } = data;
   const tskId = generateTransactionId(12);
   console.log("account_no, ifsc ===>>", ifsc, account_no);
-  const url = "https://live.zoop.one/api/v1/in/financial/bav/lite";
+  const url = process.env.ZOOP_ACCOUNTVERIFY_URL;
   const headers = {
     "app-id": ZOOPClientId,
     "api-key": ZOOP_API_KEY,

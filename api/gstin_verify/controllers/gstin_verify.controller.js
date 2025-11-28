@@ -9,8 +9,6 @@ const logger = require("../../Logger/logger");
 
 exports.gstinverify = async (req, res, next) => {
   const { gstinNumber } = req.body;
-  const TXNID = generateTransactionId();
-  console.log("GStIn verify txn id", TXNID);
   logger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
   
   try {
@@ -24,15 +22,7 @@ exports.gstinverify = async (req, res, next) => {
       return res.status(200).json({ message: 'Success', data: dataToShow, success: true });
     }
 
-    const zoopData = {
-      mode: "sync",
-      data: {
-        business_gstin_number: gstinNumber,
-        consent: "Y",
-        consent_text:
-          "I hereby declare my consent agreement for fetching my information via ZOOP API",
-      },
-    };
+    
     const Invincibledata = JSON.stringify({
       gstin: gstinNumber
     });
@@ -51,7 +41,7 @@ exports.gstinverify = async (req, res, next) => {
     let response;
     switch (service?.serviceFor) {
       case 'ZOOP':
-        response = await zoop.verifyGstin(zoopData, service);
+        response = await zoop.verifyGstin(gstinNumber, service);
         break;
       case 'INVINCIBLE':
         response = await invincible.verifyGstin(Invincibledata, service);
