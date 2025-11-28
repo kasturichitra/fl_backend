@@ -7,7 +7,7 @@ function generateKey(password) {
   return hash.digest("hex").substring(0, 16);
 }
 
-function generateTransactionId(length) {
+function generateTransactionId(length = 14) {
   const characters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890";
   let result = "";
   for (let i = 0; i < length; i++) {
