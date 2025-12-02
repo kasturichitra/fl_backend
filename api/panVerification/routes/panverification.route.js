@@ -3,7 +3,7 @@ const panRouter = express.Router();
 
 const panverificationController = require('../controllers/panverification.controller');
 
-panRouter.post('/panverifying', panverificationController.verifyPanNumber);
-panRouter.post('/panToAadhaar', panverificationController.verifyPanToAadhaar);
+panRouter.post('/verify', panverificationController.verifyPanNumber);
+panRouter.post('/verify-to-aadhaar', panverificationController.verifyPanToAadhaar);
 
 module.exports = panRouter;

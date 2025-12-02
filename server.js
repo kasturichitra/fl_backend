@@ -88,7 +88,7 @@ app.use("/mobileNumber", otpRouter);
 app.use("/shop", shopRouter);
 app.use("/business", gstRouter);
 app.use("/face", faceRouter)
-app.use('/account', accountRouter)
+app.use('/accounts', accountRouter)
 app.use('/instant', instantPayRouter)
 app.use('/udyam', udyamRouter)
 app.use("/name",nameRouter)
