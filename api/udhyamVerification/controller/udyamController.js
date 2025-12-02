@@ -84,7 +84,7 @@ const udyamNumberVerfication = async (req, res, next) => {
 
       return res.json({
         message: "Valid",
-        response: response?.result,
+        data: response?.result,
         success: true,
       });
     } else {
@@ -104,7 +104,7 @@ const udyamNumberVerfication = async (req, res, next) => {
       };
       return res.json({
         message: "InValid",
-        response: invalidResponse,
+        data: invalidResponse,
         success: false,
       });
     }

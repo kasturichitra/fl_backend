@@ -89,6 +89,7 @@ function removeTitle(name) {
 }
 
 exports.compareNames = async (req, res, next) => {
+  console.log('Compare Name is triggred')
   try {
     const { firstName, secondName } = req.body;
     console.log("firstName and secondName ===>>", secondName, firstName);

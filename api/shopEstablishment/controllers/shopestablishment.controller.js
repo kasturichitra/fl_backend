@@ -25,7 +25,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
       registrationNumber: registrationNumber,
     });
     if (existingDetails) {
-      return res.status(200).json({ message: "Valid", success: true, response: existingDetails?.response?.result });
+      return res.status(200).json({ message: "Valid", success: true, data: existingDetails?.response?.result });
     }
     const service = await selectService("SHOP");
     console.log("----active service for Shop Verify is ----", service);

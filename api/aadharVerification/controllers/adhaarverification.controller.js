@@ -26,7 +26,7 @@ function generateMerchantId() {
 console.log(generateMerchantId());
 
 exports.handleAadhaarMaskedVerify = async (req, res) => {
-  logger.info("🔹 Aadhaar Masked Verification triggered");
+  logger.info(" Aadhaar Masked Verification triggered");
 
   try {
     const { aadharNumber } = req.body;
@@ -114,6 +114,8 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
 //     return res.status(errorObj.httpCode).json(errorObj);
 //   }
 // };
+
+
 exports.initiateAadhaarDigilocker = async (req, res) => {
   const startTime = new Date();
   logger.info("Aadhaar DigiLocker initiation triggered");

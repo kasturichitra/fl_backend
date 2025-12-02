@@ -17,6 +17,7 @@ const checkToken = (req, res, next) => {
   try {
     const tokenWithoutBearer = token.split(" ")[1];
     const decoded = jwt.verify(tokenWithoutBearer, process.env.JWTSECRET);
+    console.log('Decodeed ',decoded);
     if (decoded) {
       req.tokenData = decoded;
       req.token = tokenWithoutBearer;

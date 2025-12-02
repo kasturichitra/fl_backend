@@ -34,11 +34,9 @@ function generationApiSalt(name) {
 }
 
 const generateApiKeys = async (req, res, next) => {
-  const MerchantId = req.merchantId;
-  const check = req.token;
-
+  const {MerchatID} = req.body;
   const existingDetails = await registerationModel.findOne({
-    merchantId: MerchantId,
+    merchantId: MerchatID,
   });
   const existingName = existingDetails?.name;
 
@@ -54,7 +52,7 @@ const generateApiKeys = async (req, res, next) => {
     );
 
     const existingKeysForService = await testingModel.find({
-      MerchantId: MerchantId,
+      MerchantId: MerchatID,
     });
 
     const existingKeysForServiceLength = existingKeysForService?.length;
@@ -71,8 +69,7 @@ const generateApiKeys = async (req, res, next) => {
       return next(errorMessage);
     } else {
       const testDetails = await testingModel.create({
-        MerchantId,
-        token: check,
+        MerchantId:MerchatID,
         client_id: testing_Api_key,
         secret_key: testing_Api_salt,
         createdDate:new Date().toLocaleDateString(),
@@ -83,6 +80,7 @@ const generateApiKeys = async (req, res, next) => {
     }
 
     const testDetailsResponse = {
+      MerchantId:MerchatID,
       client_id: testing_Api_key,
       secret_key: testing_Api_salt,
     };

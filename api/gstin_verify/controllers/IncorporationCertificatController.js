@@ -18,7 +18,7 @@ exports.handleCINVerification = async (req, res , next) => {
   const cinDetails = await IncorporationCertificateModel.findOne({ cinNumber : CIN })
 
   if(cinDetails){
-    return res.status(200).json({ message : cinDetails?.response?.data})
+    return res.status(200).json({ data : cinDetails?.response?.data, message:'Valid',success:true})
   }
 
    const service = await selectService("CIN");
@@ -70,7 +70,7 @@ exports.handleCINVerification = async (req, res , next) => {
     });
 
       console.log("Data saved to MongoDB:", newCinVerification);
-      res.status(200).json({message: "Valid", response: response, success: true});
+      res.status(200).json({message: "Valid", data: response, success: true});
     }else{
 
     }
