@@ -3,7 +3,7 @@ const accountRouter = express.Router();
 
 const accountdataController = require('../controllers/accountdata.controller');
 
-accountRouter.post("/pennyDrop/verifyBankAccount", accountdataController.verifyPennyDropBankAccount)
-accountRouter.post("/pennyLess/verifyBankAccount", accountdataController.verifyPennyLessBankAccount)
+accountRouter.post("/pd/verifyBankAccount", accountdataController.verifyPennyDropBankAccount)
+accountRouter.post("/pl/verifyBankAccount", accountdataController.verifyPennyLessBankAccount)
 
 module.exports = accountRouter;

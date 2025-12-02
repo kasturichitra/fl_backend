@@ -99,7 +99,7 @@ app.use("/email",Emailroutes)
 app.use("/testkey",testingApiRouter)
 app.use("/livekey",LiveApiKeysRouter)
 app.use("/IP",ipRouter)
-app.use('/Reacharge', RechargeRoute)
+app.use('/Recharge', RechargeRoute)
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

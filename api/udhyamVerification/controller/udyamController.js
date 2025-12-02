@@ -1,6 +1,6 @@
 const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
-const { checkingOfLength } = require("../../../utlis/lengthCheck");
+const handleValidation = require("../../../utlis/lengthCheck");
 const logger = require("../../Logger/logger");
 const { verifyUdhyamInvincible } = require("../../service/provider.invincible");
 const {
@@ -19,11 +19,7 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("udyamNumber ==>", udyamNumber);
   logger.info("udyamNumber from request ===>", udyamNumber);
 
-  const resOfObj = checkingOfLength(udyamNumber, 19);
-
-  if (resOfObj) {
-    return res.status(400).json(ERROR_CODES.BAD_REQUEST);
-  }
+  await handleValidation("udyam", udyamNumber, res);
 
   const encryptedUdhyam = encryptData(udyamNumber);
 

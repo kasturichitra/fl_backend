@@ -25,7 +25,7 @@ const {
   verifyBankInvincible,
 } = require("../../service/provider.invincible");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
-const { checkingOfLength } = require("../../../utlis/lengthCheck");
+const handleValidation = require("../../../utlis/lengthCheck");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const { account_no, ifsc } = req.body;
@@ -33,22 +33,10 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
   console.log("account_no, ifsc===>", account_no, ifsc);
   logger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
 
-  if (!account_no?.trim() || account_no?.length < 9) {
-    let errorMessage = {
-      response: "Account number is Missing or Invalid 😁",
-      ...ERROR_CODES?.BAD_REQUEST
-    };
-    return res.status(400).json(errorMessage);
-  }
+  await handleValidation("accountNumber", account_no, res);
+  await handleValidation("ifsc", ifsc, res);
 
-  const resultOfIfsc = checkingOfLength(ifsc, 11);
-  if (resultOfIfsc) {
-       let errorMessage = {
-      response: "Ifsc is Missing or Invalid 😁",
-      ...ERROR_CODES?.BAD_REQUEST
-    };
-    return res.status(400).json(errorMessage);
-  }
+  console.log("All inputs are valid, continue processing...");
 
   const encryptedAccountNumber = encryptData(account_no);
   console.log("encryptedAccountNumber ====>>", encryptedAccountNumber);
@@ -60,9 +48,9 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     accountIFSCCode: ifsc,
   });
   if (existingAccountDetails) {
-      logger.info(
-    `ExistingAccountNumber in pennyDrop Account verify ===>> ${existingAccountDetails}`
-  );
+    logger.info(
+      `ExistingAccountNumber in pennyDrop Account verify ===>> ${existingAccountDetails}`
+    );
     if (existingAccountDetails?.accountHolderName) {
       const decryptedAccountNumber = decryptData(
         existingAccountDetails?.accountNo
@@ -74,13 +62,13 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       return res.status(200).json({
         message: "Valid",
         success: true,
-        response: responseToSend,
+        data: responseToSend,
       });
     } else {
       return res.status(200).json({
         message: "InValid",
         success: false,
-        response: null,
+        data: null,
       });
     }
   }
@@ -182,15 +170,12 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
   console.log("account_no, ifsc===>", account_no, ifsc);
   logger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
 
-  try {
-    if (!account_no?.trim() || !ifsc?.trim()) {
-      let errorMessage = {
-        message: "Account number and IFSC code are required 😁",
-        statusCode: 400,
-      };
-      return next(errorMessage);
-    }
+  await handleValidation("accountNumber", account_no, res);
+  await handleValidation("ifsc", ifsc, res);
 
+  console.log("All inputs are valid, continue processing...");
+
+  try {
     const encryptedAccountNumber = encryptData(account_no);
 
     const existingAccountDetails = await accountdataModel.findOne({
@@ -255,7 +240,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       return res.status(200).json({
         message: "Valid",
         success: true,
-        response: response?.result,
+        data: response?.result,
       });
     } else {
       const objectToStoreInDb = {
@@ -271,7 +256,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       return res.status(200).json({
         message: "InValid",
         success: false,
-        response: {},
+        data: {},
       });
     }
   } catch (error) {

@@ -15,20 +15,15 @@ const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const { verifyPanInvincible } = require("../../service/provider.invincible");
 const { verifyPanTruthScreen } = require("../../service/provider.truthscreen");
 const { verifyPanZoop } = require("../../service/provider.zoop");
-const { checkingOfLength } = require("../../../utlis/lengthCheck");
+const handleValidation = require("../../../utlis/lengthCheck");
 
 exports.verifyPanNumber = async (req, res) => {
   const data = req.body;
   const { panNumber } = data;
-  const resOfLenth = checkingOfLength(panNumber, 10);
-  if (
-    resOfLenth ||
-    !panNumber?.match(
-      /^[A-Za-z]{3}[PCHABGJLFTpchabgjlft][A-Za-z][0-9]{4}[A-Za-z]$/
-    )
-  ) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
-  }
+  await handleValidation("pan", panNumber, res);
+
+  console.log("All inputs are valid, continue processing...");
+
   const encryptedPan = encryptData(panNumber);
 
   const existingPanNumber = await panverificationModel.findOne({
@@ -47,13 +42,13 @@ exports.verifyPanNumber = async (req, res) => {
       };
       return res.json({
         message: "Valid",
-        response: decryptedResponse,
+        data: decryptedResponse,
         success: true,
       });
     } else {
       return res.json({
         message: "InValid",
-        response: resOfPan,
+        data: resOfPan,
         success: false,
       });
     }
@@ -116,7 +111,7 @@ exports.verifyPanNumber = async (req, res) => {
 
       return res.json({
         message: "Valid",
-        response: response?.result,
+        data: response?.result,
         success: true,
       });
     } else {
@@ -139,7 +134,7 @@ exports.verifyPanNumber = async (req, res) => {
       };
       return res.json({
         message: "InValid",
-        response: invalidResponse,
+        data: invalidResponse,
         success: false,
       });
     }
@@ -155,16 +150,9 @@ exports.verifyPanNumber = async (req, res) => {
 exports.verifyPanToAadhaar = async (req, res) => {
   const data = req.body;
   const { panNumber } = data;
+  await handleValidation("pan", panNumber, res);
 
-  const resOfLenth = checkingOfLength(panNumber, 10);
-  if (
-    resOfLenth ||
-    !panNumber?.match(
-      /^[A-Za-z]{3}[PCHABGJLFTpchabgjlft][A-Za-z][0-9]{4}[A-Za-z]$/
-    )
-  ) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
-  }
+  console.log("All inputs are valid, continue processing...");
 
   const encryptedPan = encryptData(panNumber);
 
@@ -176,7 +164,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
     return res.json({
       message: "Valid",
       success: true,
-      response: existingPanNumber?.response,
+      data: existingPanNumber?.response,
     });
   }
 
@@ -184,7 +172,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
     return res.json({
       message: "InValid",
       success: false,
-      response: existingPanNumber?.response,
+      data: existingPanNumber?.response,
     });
   }
 
@@ -224,7 +212,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
       return res.status(404).json({
         message: "InValid",
         success: false,
-        response: panToAadhaarResponse?.data,
+        data: panToAadhaarResponse?.data,
       });
     }
 
@@ -242,7 +230,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
       return res.status(200).json({
         message: "Valid",
         success: true,
-        response: panToAadhaarResponse?.data,
+        data: panToAadhaarResponse?.data,
       });
     }
   } catch (error) {

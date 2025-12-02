@@ -3,6 +3,6 @@ const udyamNumberVerfication = require("../controller/udyamController");
 
 const udyamRouter = express.Router();
 
-udyamRouter.post("/udyamNumberverify", udyamNumberVerfication)
+udyamRouter.post("/verify", udyamNumberVerfication)
 
 module.exports = udyamRouter;
