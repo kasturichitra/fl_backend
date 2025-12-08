@@ -1,6 +1,6 @@
 const cardValidationModel = require("../models/cardValidationModel");
 const logger = require("../../Logger/logger");
-const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const { mapError } = require("../../../utlis/errorCodes");
 const { verifyCreditCardNumber } = require("../../service/provider.rapid");
 const {
   encryptData,
@@ -60,10 +60,8 @@ const verifyFullCardNumber = async (req, res, next) => {
     }
   } catch (error) {
     console.log("error in while fetching Credit Card Response ===>>", error);
-
-    if (error?.response?.status == 502) {
-      res.status(500).json(ERROR_CODES?.SERVER_ERROR);
-    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
   }
 };
 
