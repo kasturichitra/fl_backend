@@ -79,8 +79,7 @@ const getOTP = async (mobileNumber) => {
 };
 
 
-const handleOTPSend = async (user, res, next) => {
-    const { mobileNumber } = user;
+const handleOTPSend = async (mobileNumber, res, next) => {
 
     try {
         // Generate OTP and message
@@ -97,12 +96,8 @@ const handleOTPSend = async (user, res, next) => {
         console.log("Message sent:", message);
         console.log("SMS service response:", smsServiceResponse);
 
-        // Generate JWT token
-        const token = jwt.sign({ mobileNumber }, JWTSECRET, { expiresIn: "10h" });
-
         const updateData = {
             otp,
-            token,
             createdDate: new Date().toLocaleDateString(),
             createdTime: new Date().toLocaleTimeString()
         };
@@ -117,7 +112,7 @@ const handleOTPSend = async (user, res, next) => {
 
         res.status(201).json({
             message: `OTP sent to ${mobileNumber}`,
-            token: token,
+            success: true
         });
 
     } catch (error) {
@@ -132,8 +127,9 @@ const handleOTPSend = async (user, res, next) => {
 
 // step 2 vefi
 const verifyOtp = async (req, res, next) => {
+    const { submittedOtp, mobileNumber } = req.body;
+    console.log('verify Otp Response ===>', req.body);
     try {
-        const { submittedOtp,mobileNumber } = req.body;
         const storedOTP = await getOTP(mobileNumber);
 
         if (!storedOTP) {
@@ -148,7 +144,10 @@ const verifyOtp = async (req, res, next) => {
         console.log("Stored OTP:", storedOTP);
 
         if (submittedOtp === storedOTP) {
-            res.status(200).json({ message: "Login Successful", success: "Otp Verified Successfully", token: check })
+            // Generate JWT token
+            const token = jwt.sign({ mobileNumber }, JWTSECRET, { expiresIn: "10h" });
+            console.log('Handle Otp send token ===>', token);
+            res.status(200).json({ message: "Login Successful", success: true,token })
         } else {
             let errorMessage = {
                 message: "Invalid OTP",
@@ -179,7 +178,12 @@ const loginDetails = async (req, res, next) => {
     }
 
     try {
-        await handleOTPSend(user, res);
+        const isPresent = await registeration.find({ mobileNumber: mobileNumber })
+        console.log('Login details is registeration response data in dB', isPresent)
+        if (!isPresent.length) {
+            return res.status(404).json({ message: 'Register user Not Found with this Number, Pls Register', data: [], success: false, HttpsCode: 404 });
+        }
+        await handleOTPSend(mobileNumber, res);
     } catch (err) {
         let errorMessage = {
             message: "Internal Server Error",

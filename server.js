@@ -4,6 +4,7 @@ const dotenv = require("dotenv")
 const cors = require("cors")
 
 // routers
+
 const loginRouter = require("./api/loginAndSms/routes/loginRoutes")
 const registerationRouter = require("./api/registeration/routes/registerationRoutes")
 const panRouter = require("./api/panVerification/routes/panverification.route")
@@ -41,6 +42,8 @@ const kycCheck = require("./middleware/kyc.middleware")
 const HandileCharges = require('./middleware/ServicesCharges.middleware')
 const fullCardRouter = require("./api/cardValidation/routes/cardValidationRoutes")
 const RechargeRoute = require("./api/Recharge/routes/reachargeRoutes")
+const { decryptHybridPayload, decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptPyaload")
+const { keysApiroutes } = require("./api/Keysapi/keysapi.routes")
 
 const app = express()
 
@@ -75,14 +78,23 @@ mongoose.connect(mongoURI).then(() => console.log("**************************DB 
 })
 
 //  jwtauth, validateMerchant, kycCheck, checkWhitelist, checkKeys, HandileCharges,
-app.use("/registeration", registerationRouter)
-app.use("/login", loginRouter)
-app.use("/service", serviceRouter);
-app.use("/charge", NominalRouter);
-app.use("/upi", UPIrouter)
-app.use("/pay", PaymentRouter)
-app.use('/wallet',WalletRoutes);
-app.use("/pan",panRouter);
+
+// Api Moduel sign and login
+app.use("/registeration", registerationRouter);
+app.use("/login", loginRouter);
+app.use("/ApiModuel", keysApiroutes);
+
+// FetchUser Details 
+// app.use('/user',)
+
+// Api Moduel other Routes
+// decryptMiddleware loginRouter, enceryptMiddleware
+app.use("/service", serviceRouter,);
+app.use("/charge", NominalRouter,);
+app.use("/upi", UPIrouter,)
+app.use("/pay", PaymentRouter,)
+app.use('/wallet', WalletRoutes,);
+app.use("/pan", panRouter);
 app.use("/aadhaar", aadhaarRouter);
 app.use("/mobileNumber", otpRouter);
 app.use("/shop", shopRouter);
@@ -99,7 +111,7 @@ app.use("/email",Emailroutes)
 app.use("/testkey",testingApiRouter)
 app.use("/livekey",LiveApiKeysRouter)
 app.use("/IP",ipRouter)
-app.use('/Reacharge', RechargeRoute)
+app.use('/Recharge', RechargeRoute)
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

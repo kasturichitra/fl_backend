@@ -1,6 +1,6 @@
+const logger = require("../../Logger/logger");
 const registeration = require("../model/registerationModel")
 const bcrypt = require("bcrypt")
-//const logger = require("../../logger/logger")
 
 
 const generateMerchantId = () => {
@@ -10,55 +10,59 @@ const generateMerchantId = () => {
 }
 
 const registerationVerify = async (req, res, next) => {
-  const { name, email, mobileNumber, password, companyName } = req.body
+  const { mobileNumber, email, panNumber, panName, IPIN } = req.body
   console.log(req.body)
 
-  if (!email || !mobileNumber || !password) {
+  if (!email || !mobileNumber || !panNumber || !panName || !IPIN) {
     logger.info(`All Fields Should Be Filled`)
     let errorMessage = {
-      message: "Email , MobileNumber and Password Fields are mandatory 😁",
+      message: "Email , MobileNumber, panNumber & panName Fields are mandatory 😁",
       statusCode: 400,
     };
     return next(errorMessage);
 
   }
-  try {
-    const userWithMobileNumberOrEmail = await registeration.findOne({  $or: [
-      { mobileNumber },
-      { email }
-    ]});
-    // const userWithEmail = await registeration.findOne({ email });
 
+  try {
+    const userWithMobileNumberOrEmail = await registeration.findOne({
+      $or: [
+        { mobileNumber },
+        { panNumber },
+        { email }
+      ]
+    });
     if (userWithMobileNumberOrEmail) {
       logger.info(`User with this mobile number or email already exists 😒`)
       let errorMessage = {
         message: "User with this mobile number or email already exists 😒",
         statusCode: 401,
+        success:false,
+        data:[]
       };
       return next(errorMessage);
     }
 
-
     if (!userWithMobileNumberOrEmail) {
-      const hashedPassword = await bcrypt.hash(password, 10)
-      const merchantId =  generateMerchantId()
+      const hashedPassword = await bcrypt.hash(IPIN, 10);
+      const hashedpanNumber = await bcrypt.hash(panNumber, 10);
+      const merchantId = generateMerchantId()
 
-    const newUser = new registeration({
-        name,
+      const newUser = new registeration({
+        name: panName,
         email,
         mobileNumber,
+        panNumber: hashedpanNumber,
         password: hashedPassword,
-        companyName,
         merchantId,
-        createdDate:new Date().toLocaleDateString(),
-        createdTime:new Date().toLocaleTimeString()
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString()
       });
       const savedUser = await newUser.save();
-      res.status(201).json({ user : savedUser , message : "Registeration Successfull 😊"});
+      res.status(201).json({ user: savedUser, message: "Registeration Successfull 😊", success: true });
     }
 
   } catch (err) {
-    logger.error("InternalServiceError")
+    logger.error("InternalServiceError", err)
     let errorMessage = {
       message: "InternalServiceError",
       statusCode: 500,
@@ -66,7 +70,7 @@ const registerationVerify = async (req, res, next) => {
     return next(errorMessage);
   }
 
-}
+};
 
 const allUsers = async (req, res, next) => {
   try {
@@ -74,7 +78,7 @@ const allUsers = async (req, res, next) => {
 
     if (allUsers.length > 0) {
       res.status(200).send(allUsers)
-    }else{
+    } else {
       logger.error("No Users")
       let errorMessage = {
         message: "No users",
@@ -91,23 +95,23 @@ const allUsers = async (req, res, next) => {
     };
     return next(errorMessage);
   }
-}
+};
 
 const updateUser = async (req, res, next) => {
-  const {MerchantId} = req.body
+  const { MerchantId } = req.body
   console.log(MerchantId)
   try {
-    const user = await registeration.findOneAndUpdate({merchantId:MerchantId}, req.body, {new: true})
-    console.log(user , "=====>>>>>user updated")
-    return res.status(200).json({message:"Valid", success:true, response:"User Updated Successfully"})
-  }catch(error){
+    const user = await registeration.findOneAndUpdate({ merchantId: MerchantId }, req.body, { new: true })
+    console.log(user, "=====>>>>>user updated")
+    return res.status(200).json({ message: "Valid", success: true, response: "User Updated Successfully" })
+  } catch (error) {
     let errorMessage = {
       message: "InternalServiceError",
       statusCode: 500,
     };
     return next(errorMessage);
   }
-}
+};
 
 
 module.exports = { registerationVerify, allUsers, updateUser }
