@@ -1,6 +1,10 @@
 .env
 .zip
 .pem
-.log
+*.log
+logs/
+
+*.pem
+keys/
 
 node_modules
