@@ -15,6 +15,10 @@ const registerSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
+    panNumber: {
+      type: String,
+      required: true,
+    },
     password: {
       type: String,
       required: true,
@@ -23,6 +27,11 @@ const registerSchema = new mongoose.Schema(
       type: String,
       required: true,
       unique: true,
+    },
+    walletStatus:{
+      type:String,
+      enum:['DeActive','Active'],
+      default:'DeActive'
     },
     role:{
       type:String,
@@ -35,6 +44,10 @@ const registerSchema = new mongoose.Schema(
       type: String,
     },
     kycCompleted:{
+      type:Boolean,
+      default:false
+    },
+    IskycApproved:{
       type:Boolean,
       default:false
     },

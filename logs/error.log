@@ -48,3 +48,19 @@
 2025-11-07 18:50:37 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
 2025-11-10 18:24:02 [[31MERROR[39M]: Error performing GSTIN verification:TypeError: Cannot read properties of undefined (reading 'serviceErrorCount')
 2025-11-14 15:33:42 [[31MERROR[39M]: Error performing Shop verification:ReferenceError: gstinNumber is not defined
+2025-12-04 15:13:53 [[31MERROR[39M]: InternalServiceError
+2025-12-04 15:14:21 [[31MERROR[39M]: InternalServiceError
+2025-12-04 15:14:45 [[31MERROR[39M]: InternalServiceError
+2025-12-04 15:17:47 [[31MERROR[39M]: InternalServiceError
+2025-12-04 15:19:04 [[31MERROR[39M]: InternalServiceError registeredUsers validation failed: panNumber: Cast to Number failed for value "$2b$10$eI1xbL6zRisSZeu8yOdO1uLZdLe9vygl8VoQHkEAv2soq.gGMePHC" (type string) at path "panNumber"
+2025-12-08 11:34:24 [[31MERROR[39M]: Error performing GSTIN verification:ReferenceError: TXNID is not defined
+2025-12-08 11:34:24 [[31MERROR[39M]: Error performing GSTIN verification:ReferenceError: TXNID is not defined
+2025-12-08 11:36:11 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-12-08 11:36:13 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-12-08 11:37:28 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-12-08 11:37:29 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-12-08 11:41:58 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-12-08 11:42:47 [[31MERROR[39M]: Error performing GSTIN verification:ValidationError: gstinNumber: Path `gstinNumber` is required.
+2025-12-08 13:12:52 [[31MERROR[39M]: Error performing GSTIN verification:Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client
+2025-12-08 15:27:25 [[31MERROR[39M]: Error performing GSTIN verification:AxiosError: Request failed with status code 400
+2025-12-08 15:28:19 [[31MERROR[39M]: Error performing GSTIN verification:AxiosError: Request failed with status code 400

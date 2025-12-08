@@ -13,7 +13,7 @@ exports.gstinverify = async (req, res, next) => {
   
   try {
     if (!gstinNumber) {
-      return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
+     return  res.status(400).json(ERROR_CODES?.BAD_REQUEST)
     }
     const existingGstin = await gstin_verifyModel.findOne({ gstinNumber });
 
@@ -23,14 +23,14 @@ exports.gstinverify = async (req, res, next) => {
     }
 
     
-    const Invincibledata = JSON.stringify({
-      gstin: gstinNumber
-    });
-    const truthscreendata = {
-      "transID": TXNID,
-      "docType": "23",
-      "docNumber": gstinNumber
-    };
+    // const Invincibledata = JSON.stringify({
+    //   gstin: gstinNumber
+    // });
+    // const truthscreendata = {
+    //   "transID": TXNID,
+    //   "docType": "23",
+    //   "docNumber": gstinNumber
+    // };
     const service = await selectService('GSTIN');
     console.log("----active service for GSTIN Verify is ----", service);
     logger.info(`----active service for GSTIN Verify is ----, ${service}`);
@@ -44,10 +44,10 @@ exports.gstinverify = async (req, res, next) => {
         response = await zoop.verifyGstin(gstinNumber, service);
         break;
       case 'INVINCIBLE':
-        response = await invincible.verifyGstin(Invincibledata, service);
+        response = await invincible.verifyGstin(gstinNumber, service);
         break;
       case 'TRUTHSCREEN':
-        response = await truthscreen.verifyGstin(truthscreendata, service);
+        response = await truthscreen.verifyGstin(gstinNumber, service);
         break;
       default:
         throw new Error(`Unsupported GSTIN service`);
@@ -56,7 +56,7 @@ exports.gstinverify = async (req, res, next) => {
       "gstin verify response ===>",JSON.stringify(response) );
     logger.info(`gstin verify response: ${JSON.stringify(response)}`);
     const newGstinVerification = await gstin_verifyModel.create(response);
-    return res.status(200).json({ message: 'Success', data: response?.result, success: true });
+    res.status(200).json({ message: 'Success', data: response?.result, success: true });
   } catch (error) {
     // updateFailure()
     console.error("Error performing GSTIN verification:", error);
