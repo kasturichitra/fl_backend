@@ -14,7 +14,8 @@ const verifyFullCardNumber = async (req, res, next) => {
   const { creditCardNumber } = req.body;
   const data = req.body;
 
-  await handleValidation("creditCard", creditCardNumber, res);
+  const isValid = handleValidation("creditCard", creditCardNumber, res);
+  if (!isValid) return;
 
   console.log("All inputs are valid, continue processing...");
 

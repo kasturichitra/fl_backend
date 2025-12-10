@@ -11,6 +11,12 @@ const panDetails = new mongoose.Schema({
   serviceResponse:{
     type: Object,
   },
+  status:{
+    type: Number,
+  },
+  serviceId:{
+    type: String,
+  },
   serviceName:{
     type: String
   },

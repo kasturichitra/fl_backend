@@ -1,36 +1,42 @@
 const mongoose = require("mongoose");
 
-const panAadhaarDetails = new mongoose.Schema({
-  panNumber: {
-    type: String,
+const panAadhaarDetails = new mongoose.Schema(
+  {
+    panNumber: {
+      type: String,
+    },
+    response: {
+      type: Object,
+      required: true,
+    },
+    aadhaarNumber: {
+      type: Object,
+    },
+    status: {
+      type: Number,
+    },
+    serviceId: {
+      type: String,
+    },
+    serviceResponse: {
+      type: Object,
+    },
+    serviceName: {
+      type: String,
+    },
+    userName: {
+      type: String,
+      required: false,
+    },
+    createdTime: {
+      type: String,
+      default: Date.now,
+    },
+    createdDate: {
+      type: String,
+      default: Date.now,
+    },
   },
-  response: {
-    type: Object,
-    required: true
-  },
-  aadhaarNumber:{
-    type: Object,
-    // required: true
-  },
-  serviceResponse:{
-    type: Object,
-  },
-  serviceName:{
-    type: String
-  },
-  userName: {
-    type: String,
-    required: false
-  },
-  createdTime: {
-    type: String,
-    default: Date.now,
-  },
-  createdDate: {
-    type: String,
-    default: Date.now,
-  },
-},
   {
     timestamps: true,
   }

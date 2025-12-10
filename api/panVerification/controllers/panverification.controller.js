@@ -20,7 +20,8 @@ const handleValidation = require("../../../utlis/lengthCheck");
 exports.verifyPanNumber = async (req, res) => {
   const data = req.body;
   const { panNumber } = data;
-  await handleValidation("pan", panNumber, res);
+  const isValid = handleValidation("pan", panNumber, res);
+  if (!isValid) return;
 
   console.log("All inputs are valid, continue processing...");
 
@@ -150,7 +151,8 @@ exports.verifyPanNumber = async (req, res) => {
 exports.verifyPanToAadhaar = async (req, res) => {
   const data = req.body;
   const { panNumber } = data;
-  await handleValidation("pan", panNumber, res);
+  const isValid = handleValidation("pan", panNumber, res);
+  if (!isValid) return;
 
   console.log("All inputs are valid, continue processing...");
 

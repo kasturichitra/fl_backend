@@ -32,9 +32,11 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const data = req.body;
   console.log("account_no, ifsc===>", account_no, ifsc);
   logger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
+  const isAccountValid = handleValidation("accountNumber", account_no, res);
+  if (!isAccountValid) return;
 
-  await handleValidation("accountNumber", account_no, res);
-  await handleValidation("ifsc", ifsc, res);
+  const isIfscValid = handleValidation("ifsc", ifsc, res);
+  if (!isIfscValid) return;
 
   console.log("All inputs are valid, continue processing...");
 
@@ -170,8 +172,11 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
   console.log("account_no, ifsc===>", account_no, ifsc);
   logger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
 
-  await handleValidation("accountNumber", account_no, res);
-  await handleValidation("ifsc", ifsc, res);
+  const isAccountValid = handleValidation("accountNumber", account_no, res);
+  if (!isAccountValid) return;
+
+  const isIfscValid = handleValidation("ifsc", ifsc, res);
+  if (!isIfscValid) return;
 
   console.log("All inputs are valid, continue processing...");
 

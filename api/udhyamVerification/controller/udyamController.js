@@ -19,7 +19,8 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("udyamNumber ==>", udyamNumber);
   logger.info("udyamNumber from request ===>", udyamNumber);
 
-  await handleValidation("udyam", udyamNumber, res);
+  const isValid = handleValidation("udyam", udyamNumber, res);
+  if (!isValid) return;
 
   const encryptedUdhyam = encryptData(udyamNumber);
 
@@ -28,6 +29,14 @@ const udyamNumberVerfication = async (req, res, next) => {
   });
 
   console.log("existingUdhyamNumber ====>>", existingUdhyamNumber);
+
+  if (existingUdhyamNumber) {
+    return res.status(200).json({
+      message: "Valid",
+      data: existingUdhyamNumber?.response,
+      success: true,
+    });
+  }
 
   const service = await selectService("UDYAM");
 
@@ -78,7 +87,9 @@ const udyamNumberVerfication = async (req, res, next) => {
 
       await udhyamVerify.create(storingData);
 
-      return res.json({
+      console.log("RESPONSE=========>", response);
+      console.log("RESPONSE=========>", response?.result);
+      return res.status(200).json({
         message: "Valid",
         data: response?.result,
         success: true,
@@ -98,7 +109,8 @@ const udyamNumberVerfication = async (req, res, next) => {
         "National Industry Classification Code(S)": [],
         "Official address of Enterprise": {},
       };
-      return res.json({
+
+      return res.status(404).json({
         message: "InValid",
         data: invalidResponse,
         success: false,

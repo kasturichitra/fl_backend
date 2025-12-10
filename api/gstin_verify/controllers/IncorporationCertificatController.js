@@ -9,7 +9,8 @@ const handleValidation = require("../../../utlis/lengthCheck");
 exports.handleCINVerification = async (req, res, next) => {
   const { CIN } = req.body;
   const data = req.body;
-  await handleValidation("cin", CIN, res);
+  const isCinValid = handleValidation("cin", CIN, res);
+  if (!isCinValid) return;
 
   console.log("All inputs are valid, continue processing...");
 
@@ -18,13 +19,11 @@ exports.handleCINVerification = async (req, res, next) => {
   });
 
   if (cinDetails) {
-    return res
-      .status(200)
-      .json({
-        data: cinDetails?.response?.data,
-        message: "Valid",
-        success: true,
-      });
+    return res.status(200).json({
+      data: cinDetails?.response?.data,
+      message: "Valid",
+      success: true,
+    });
   }
 
   const service = await selectService("CIN");
@@ -51,7 +50,10 @@ exports.handleCINVerification = async (req, res, next) => {
     }
 
     console.log("API Response:", response);
-    logger.info("----API Response from active service of cin is ----", response);
+    logger.info(
+      "----API Response from active service of cin is ----",
+      response
+    );
 
     if (response?.message?.toUpperCase() == "VALID") {
       const companyDetails = response;
