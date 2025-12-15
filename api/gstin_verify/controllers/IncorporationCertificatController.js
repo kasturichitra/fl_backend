@@ -5,6 +5,7 @@ const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
 const logger = require("../../Logger/logger");
 const handleValidation = require("../../../utlis/lengthCheck");
+const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 
 exports.handleCINVerification = async (req, res, next) => {
   const { CIN } = req.body;
@@ -74,6 +75,7 @@ exports.handleCINVerification = async (req, res, next) => {
       }
       const newCinVerification = await IncorporationCertificateModel.create({
         response: companyDetails,
+        status: 1,
         cinNumber: CIN,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
@@ -82,6 +84,23 @@ exports.handleCINVerification = async (req, res, next) => {
       console.log("Data saved to MongoDB:", newCinVerification);
       res.status(200).json({ message: "Valid", data: response, success: true });
     } else {
+      const newCinVerification = await IncorporationCertificateModel.create({
+        response: {},
+        status: 2,
+        cinNumber: CIN,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      });
+
+      console.log("Data saved to MongoDB:", newCinVerification);
+      res.status(200).json({
+        message: "InValid",
+        data: {
+          CinNUmber: CIN,
+          ...findingInValidResponses("cin"),
+        },
+        success: false,
+      });
     }
   } catch (error) {
     console.error("Error performing company verification:", error.message);

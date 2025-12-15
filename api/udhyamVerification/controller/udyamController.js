@@ -1,5 +1,6 @@
 const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
+const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 const handleValidation = require("../../../utlis/lengthCheck");
 const logger = require("../../Logger/logger");
 const { verifyUdhyamInvincible } = require("../../service/provider.invincible");
@@ -23,6 +24,7 @@ const udyamNumberVerfication = async (req, res, next) => {
   if (!isValid) return;
 
   const encryptedUdhyam = encryptData(udyamNumber);
+  console.log("encryptedUdhyam ====>>>", encryptedUdhyam);
 
   const existingUdhyamNumber = await udhyamVerify.findOne({
     udyamNumber: encryptedUdhyam,
@@ -31,11 +33,22 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("existingUdhyamNumber ====>>", existingUdhyamNumber);
 
   if (existingUdhyamNumber) {
-    return res.status(200).json({
-      message: "Valid",
-      data: existingUdhyamNumber?.response,
-      success: true,
-    });
+    if (existingUdhyamNumber?.status == 1) {
+      return res.status(200).json({
+        message: "Valid",
+        data: existingUdhyamNumber?.response,
+        success: true,
+      });
+    } else {
+      return res.status(200).json({
+        message: "InValid",
+        data: {
+          ...findingInValidResponses("udyam"),
+          udyam: udyamNumber,
+        },
+        success: false,
+      });
+    }
   }
 
   const service = await selectService("UDYAM");
@@ -76,43 +89,49 @@ const udyamNumberVerfication = async (req, res, next) => {
         ...response?.result,
         udyam: encryptedUdhyam,
       };
+
       const storingData = {
-        udhyamNumber: encryptedUdhyam,
         response: encryptedResponse,
         serviceResponse: response?.responseOfService,
+        status: 1,
         serviceName: response?.service,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await udhyamVerify.create(storingData);
+      const existingOrNew = await udhyamVerify.findOneAndUpdate(
+        { udyamNumber: encryptedUdhyam },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
 
-      console.log("RESPONSE=========>", response);
-      console.log("RESPONSE=========>", response?.result);
       return res.status(200).json({
         message: "Valid",
-        data: response?.result,
+        data: existingOrNew.response,
         success: true,
       });
     } else {
-      const invalidResponse = {
-        udyam: udyamNumber,
-        "Date of Commencement of Production/Business": "",
-        "Date of Incorporation": "",
-        "Date of Udyam Registration": "",
-        "MSME-DFO": "",
-        "Major Activity": "",
-        "Name of Enterprise": "",
-        "Organisation Type": "",
-        "Social Category": "",
-        "Enterprise Type": [],
-        "National Industry Classification Code(S)": [],
-        "Official address of Enterprise": {},
+      const InValidData = {
+        response: {},
+        serviceResponse: {},
+        status: 2,
+        serviceName: response?.service,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
       };
+
+      await udhyamVerify.findOneAndUpdate(
+        { udyamNumber: encryptedUdhyam },
+        { $setOnInsert: InValidData },
+        { upsert: true, new: true }
+      );
 
       return res.status(404).json({
         message: "InValid",
-        data: invalidResponse,
+        data: {
+          ...findingInValidResponses("udyam"),
+          udyam: udyamNumber,
+        },
         success: false,
       });
     }

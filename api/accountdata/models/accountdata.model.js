@@ -14,6 +14,12 @@ const verify_accountdata = new mongoose.Schema(
     serviceResponse: {
       type: Object,
     },
+    status: {
+      type: Number,
+    },
+    serviceId: {
+      type: String,
+    },
     responseData: {
       type: Object,
     },

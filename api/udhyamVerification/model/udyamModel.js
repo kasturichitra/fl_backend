@@ -1,9 +1,10 @@
 const mongoose = require("mongoose");
 
-const udhyamVerificationSchema = new mongoose.Schema(
+const udyamVerificationSchema = new mongoose.Schema(
   {
-    udhyamNumber: {
+    udyamNumber: {
       type: String,
+      unique: true
     },
     response: {
       type: Object,
@@ -31,8 +32,8 @@ const udhyamVerificationSchema = new mongoose.Schema(
 );
 
 const udhyamVerify = mongoose.model(
-  "udhyamVerification",
-  udhyamVerificationSchema
+  "udyamVerification",
+  udyamVerificationSchema
 );
 
 module.exports = udhyamVerify;

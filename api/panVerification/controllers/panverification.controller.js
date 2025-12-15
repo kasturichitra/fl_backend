@@ -16,6 +16,7 @@ const { verifyPanInvincible } = require("../../service/provider.invincible");
 const { verifyPanTruthScreen } = require("../../service/provider.truthscreen");
 const { verifyPanZoop } = require("../../service/provider.zoop");
 const handleValidation = require("../../../utlis/lengthCheck");
+const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 
 exports.verifyPanNumber = async (req, res) => {
   const data = req.body;
@@ -162,20 +163,23 @@ exports.verifyPanToAadhaar = async (req, res) => {
     panNumber: encryptedPan,
   });
   console.log("existingPanNumber===>", existingPanNumber);
-  if (existingPanNumber?.response?.code == 200) {
-    return res.json({
-      message: "Valid",
-      success: true,
-      data: existingPanNumber?.response,
-    });
-  }
-
-  if (existingPanNumber?.response?.code == 404) {
-    return res.json({
-      message: "InValid",
-      success: false,
-      data: existingPanNumber?.response,
-    });
+  if (existingPanNumber) {
+    if (existingPanNumber?.status == 1) {
+      return res.json({
+        message: "Valid",
+        success: true,
+        data: existingPanNumber?.response,
+      });
+    } else {
+      return res.json({
+        message: "InValid",
+        success: false,
+        data: {
+          pan: panNumber,
+          ...findingInValidResponses("pan"),
+        },
+      });
+    }
   }
 
   try {
@@ -204,8 +208,9 @@ exports.verifyPanToAadhaar = async (req, res) => {
     if (panToAadhaarResponse?.data?.code == 404) {
       const objectToStore = {
         panNumber: encryptedPan,
-        aadhaarNumber: panToAadhaarResponse?.data?.result?.aadhaar,
-        response: panToAadhaarResponse?.data,
+        status: 2,
+        aadhaarNumber: "",
+        response: {},
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
       };
@@ -214,13 +219,17 @@ exports.verifyPanToAadhaar = async (req, res) => {
       return res.status(404).json({
         message: "InValid",
         success: false,
-        data: panToAadhaarResponse?.data,
+        data: {
+          pan: panNumber,
+          ...findingInValidResponses("pan"),
+        },
       });
     }
 
     if (panToAadhaarResponse?.data?.code == 200) {
       const objectToStore = {
         panNumber: encryptedPan,
+        status: 1,
         aadhaarNumber: panToAadhaarResponse?.data?.result?.aadhaar,
         response: panToAadhaarResponse?.data,
         createdDate: new Date().toLocaleDateString(),

@@ -2,7 +2,6 @@ const express = require('express');
 const aadhaarRouter = express.Router();
 
 const adhaarverificationController = require('../controllers/adhaarverification.controller');
-const adhaarverificationValidator = require('../validations/adhaarverification.validator');
 // const checkAccess = require("../../../middleware/permission.middleware");
 // aadhaarRouter.post('/sentAadhaarotp', adhaarverificationValidator.sentadhaarotp,adhaarverificationController.sentadhaarotp);
 // aadhaarRouter.post('/Aadhaarotpverify', adhaarverificationValidator.adhaarotpverify,adhaarverificationController.adhaarotpverify);
