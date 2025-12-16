@@ -1,14 +1,14 @@
 const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const handleValidation = require("../../../utlis/lengthCheck");
+const { shopActiveServiceResponse } = require("../../GlobalApiserviceResponse/UdyamServiceResponse");
 const logger = require("../../Logger/logger");
 const { verifyUdhyamInvincible } = require("../../service/provider.invincible");
 const {
   verifyUdhyamTruthScreen,
 } = require("../../service/provider.truthscreen");
 const {
-  selectService,
-  updateFailure,
+  selectService
 } = require("../../service/serviceSelector");
 const udhyamVerify = require("../model/udyamModel");
 
@@ -19,8 +19,8 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("udyamNumber ==>", udyamNumber);
   logger.info("udyamNumber from request ===>", udyamNumber);
 
-  const isValid = handleValidation("udyam", udyamNumber, res);
-  if (!isValid) return;
+  // const isValid = handleValidation("udyam", udyamNumber, res);
+  // if (!isValid) return;
 
   const encryptedUdhyam = encryptData(udyamNumber);
 
@@ -41,34 +41,26 @@ const udyamNumberVerfication = async (req, res, next) => {
   const service = await selectService("UDYAM");
 
   console.log("----active service for pan Verify is ----", service);
-  if (!service) {
-    return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-  }
-
-  console.log("----active service name for pan ---", service.serviceFor);
 
   try {
-    let response;
-    switch (service.serviceFor) {
-      case "INVINCIBLE":
-        console.log("Calling INVINCIBLE API...");
-        response = await verifyUdhyamInvincible(data);
-        break;
-      case "TRUTHSCREEN":
-        console.log("Calling TRUTHSCREEN API...");
-        response = await verifyUdhyamTruthScreen(data);
-        break;
-      default:
-        throw new Error("Unsupported PAN service");
-    }
+    let response = await shopActiveServiceResponse(udyamNumber,service,0);
+    // switch (service.serviceFor) {
+    //   case "INVINCIBLE":
+    //     console.log("Calling INVINCIBLE API...");
+    //     response = await verifyUdhyamInvincible(data);
+    //     break;
+    //   case "TRUTHSCREEN":
+    //     console.log("Calling TRUTHSCREEN API...");
+    //     response = await verifyUdhyamTruthScreen(data);
+    //     break;
+    //   default:
+    //     throw new Error("Unsupported PAN service");
+    // }
     console.log(
-      `response from active service for udhyam ${
-        service.serviceFor
-      } ${JSON.stringify(response)}`
+      `response from active service for udhyam ${JSON.stringify(response)}`
     );
     logger.info(
-      `response from active service for udhyam ${
-        service.serviceFor
+      `response from active service for udhyam ${service.serviceFor
       } ${JSON.stringify(response)}`
     );
     if (response?.message?.toUpperCase() == "VALID") {
@@ -87,8 +79,6 @@ const udyamNumberVerfication = async (req, res, next) => {
 
       await udhyamVerify.create(storingData);
 
-      console.log("RESPONSE=========>", response);
-      console.log("RESPONSE=========>", response?.result);
       return res.status(200).json({
         message: "Valid",
         data: response?.result,
@@ -109,18 +99,15 @@ const udyamNumberVerfication = async (req, res, next) => {
         "National Industry Classification Code(S)": [],
         "Official address of Enterprise": {},
       };
-
-      return res.status(404).json({
+      return res.status(401).json({
         message: "InValid",
         data: invalidResponse,
         success: false,
       });
     }
 
-    // await resetSuccess(service);  // if want to implement it when continue three time serr is show then Freez the service
   } catch (error) {
     console.log("error in verifyUdhyamNumber ===>>>", error);
-    await updateFailure(service);
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }

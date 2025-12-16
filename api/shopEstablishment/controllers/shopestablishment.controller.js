@@ -11,6 +11,7 @@ const Invincible = require("../../service/provider.invincible");
 const { ERROR_CODES } = require('../../../utlis/errorCodes');
 const { selectService } = require("../../service/serviceSelector");
 const logger = require("../../Logger/logger");
+const { shopActiveServiceResponse } = require("../../GlobalApiserviceResponse/ShopResponse");
 
 exports.handleCreateShopEstablishment = async (req, res, next) => {
   const { registrationNumber, state } = req.body;
@@ -30,13 +31,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
     const service = await selectService("SHOP");
     console.log("----active service for Shop Verify is ----", service);
     logger.info(`----active service for Shop Verify is ----, ${service}`);
-    let response;
-    switch (service.serviceFor) {
-      case "INVINCIBLE":
-        response = await Invincible.shopEstablishment(requestData, service);
-      case "TRUTHSCREEN":
-        response = await truthScreen.shopEstablishment(requestData, service);
-    }
+    let response = shopActiveServiceResponse({ registrationNumber, state }, service, 0);
     console.log("Shop verify response ===>", response);
     logger.info(`Shop verify response ===> ${response}`)
     const savedData = await shopestablishmentModel.create(response);

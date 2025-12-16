@@ -28,28 +28,51 @@ const registerSchema = new mongoose.Schema(
       required: true,
       unique: true,
     },
-    walletStatus:{
-      type:String,
-      enum:['DeActive','Active'],
-      default:'DeActive'
+    image: {
+      type: String,
     },
-    role:{
-      type:String,
-      default:"user"
+    companyDetails: {
+      businessName: {
+        type: String,
+      },
+      addressLine1: {
+        type: String,
+      },
+      addressLine2:{
+        type: String,
+      },
+      cityState: {
+        type: String,
+      },
     },
-    gender:{
-      type:String
+    companyKYC:{
+      type:Object
+    },
+    IndividualKYC:{ 
+      type:Object
+    },
+    walletStatus: {
+      type: String,
+      enum: ['DeActive', 'Active'],
+      default: 'DeActive'
+    },
+    role: {
+      type: String,
+      default: "user"
+    },
+    gender: {
+      type: String
     },
     companyName: {
       type: String,
     },
-    kycCompleted:{
-      type:Boolean,
-      default:false
+    kycCompleted: {
+      type: Boolean,
+      default: false
     },
-    IskycApproved:{
-      type:Boolean,
-      default:false
+    IskycApproved: {
+      type: Boolean,
+      default: false
     },
     createdTime: {
       type: String,
