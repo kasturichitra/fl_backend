@@ -6,7 +6,6 @@ const panDetails = new mongoose.Schema({
   },
   response: {
     type: Object,
-    required: true
   },
   serviceResponse:{
     type: Object,

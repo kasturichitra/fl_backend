@@ -1,7 +1,8 @@
 const axios = require("axios");
 const { generateTransactionId } = require("../truthScreen/callTruthScreen");
-const { updateFailure } = require("./serviceSelector")
 const logger = require("../Logger/logger");
+
+
 
 async function apiCall(url, body, headers, service) {
   console.log("Api call triggred in zoop", url, body, headers);
@@ -13,7 +14,6 @@ async function apiCall(url, body, headers, service) {
     console.log("Api Call response in zoop===>", res?.data);
     return res?.data;
   } catch (err) {
-    await updateFailure(service);
     console.log(`zoop Retry Attempt error ${err}`);
     const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
     if (!isNetworkErr) {
@@ -46,7 +46,7 @@ async function verifyPanZoop(data) {
 
     console.log("response in pan after service call ===>>", response)
 
-    const obj = response.data;
+    const obj = response;
     console.log("obj ===>>", obj);
 
     if (obj.response_code === "101") {
@@ -85,7 +85,6 @@ async function verifyAadhaar(data) {
   };
   return await apiCall(url, data, headers);
 }
-
 async function verifyBank(data) {
   const url = process.env.ZOOP_BANK_URL;
   const headers = {
@@ -94,7 +93,6 @@ async function verifyBank(data) {
 
   return await apiCall(url, data, headers);
 }
-
 
 async function verifyGstin(gstinNumber, service) {
   console.log('is triggred verifygstin');

@@ -5,6 +5,7 @@ const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
 const logger = require("../../Logger/logger");
 const handleValidation = require("../../../utlis/lengthCheck");
+const { CinActiveServiceResponse } = require("../../GlobalApiserviceResponse/CinServiceResponse");
 
 exports.handleCINVerification = async (req, res, next) => {
   const { CIN } = req.body;
@@ -36,19 +37,7 @@ exports.handleCINVerification = async (req, res, next) => {
   }
 
   try {
-    let response;
-    switch (service.serviceFor) {
-      case "INVINCIBLE":
-        console.log("Calling INVINCIBLE API...");
-        response = await verifyCinInvincible(data);
-        break;
-      case "TRUTHSCREEN":
-        console.log("Calling TRUTHSCREEN API...");
-        response = await verifyCinTruthScreen(data);
-        break;
-      default:
-        throw new Error("Unsupported PAN service");
-    }
+    let response = await CinActiveServiceResponse(CIN,service,0)
 
     console.log("API Response:", response);
     logger.info("----API Response from active service of cin is ----", response);

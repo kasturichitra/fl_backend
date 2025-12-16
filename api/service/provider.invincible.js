@@ -1,6 +1,5 @@
 const axios = require("axios");
 const logger = require("../Logger/logger");
-const { updateFailure } = require("./serviceSelector");
 
 async function apiCall(url, body, headers) {
   console.log("Api call triggred in invincible", url, body, headers);
@@ -386,9 +385,9 @@ async function shopEstablishment(data, service) {
   );
   const returnedObj = {
     registrationNumber: data?.registrationNumber,
-    state: data?.state,
-    shopName: data?.result?.result?.nameOfTheShop,
-    shopAddress: data?.result?.result?.address
+    state: apiResponse?.state,
+    shopName: apiResponse?.result?.result?.nameOfTheShop,
+    shopAddress: apiResponse?.result?.result?.address
   }
   console.log('ShopEstablishmenten Response data is', JSON.stringify(returnedObj));
 

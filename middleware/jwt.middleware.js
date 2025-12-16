@@ -1,35 +1,50 @@
 const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
+const registeration = require("../api/registeration/model/registerationModel");
+const tokenVerify = require("../utlis/verifyToken");
 dotenv.config();
 
-const checkToken = (req, res, next) => {
-  const token = req.headers["authorization"];
+const checkToken = async (req, res, next) => {
+  console.log('check token is triggred')
+  const authHeader = req.headers.authorization || "";
 
-
+  const token = authHeader.startsWith("Bearer ")
+    ? authHeader.split(" ")[1]
+    : null;
+  console.log('check token is ====>', token)
   if (!token) {
-    let errorMessage = {
+    return next({
       message: "Access denied. No token provided.",
       statusCode: 403,
-    };
-    return next(errorMessage);
+    });
   }
 
   try {
-    const tokenWithoutBearer = token.split(" ")[1];
-    const decoded = jwt.verify(tokenWithoutBearer, process.env.JWTSECRET);
-    console.log('Decodeed ',decoded);
-    if (decoded) {
-      req.tokenData = decoded;
-      req.token = tokenWithoutBearer;
-      next();
+    const decoded = jwt.verify(token, process.env.JWTSECRET);
+    console.log("Decoded", decoded);
+    const Merchant = await registeration.findOne({
+      mobileNumber: decoded?.mobileNumber,
+    });
+
+    if (!decoded || !Merchant) {
+      return next({
+        message: "Invalid token",
+        statusCode: 400,
+      });
     }
+
+    req.tokenData = decoded;
+    req.token = token;
+
+    next();
   } catch (err) {
-    let errorMessage = {
+    return next({
       message: "Invalid or expired token.",
       statusCode: 400,
-    };
-    return next(errorMessage);
+    });
   }
 };
+
+
 
 module.exports = checkToken;

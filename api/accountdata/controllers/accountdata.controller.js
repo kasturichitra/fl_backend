@@ -17,8 +17,7 @@ const {
   verifyBankAccountEaseBuzz,
 } = require("../../service/provider.easebuzz");
 const {
-  selectService,
-  updateFailure,
+  selectService
 } = require("../../service/serviceSelector");
 const {
   verifyBankAccountInvincible,
@@ -26,10 +25,12 @@ const {
 } = require("../../service/provider.invincible");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const handleValidation = require("../../../utlis/lengthCheck");
+const { accountActiveServiceResponse } = require("../../GlobalApiserviceResponse/accountSerciveResponse");
+const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
+
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const { account_no, ifsc } = req.body;
-  const data = req.body;
   console.log("account_no, ifsc===>", account_no, ifsc);
   logger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
 
@@ -59,56 +60,45 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
         ...existingAccountDetails?.responseData,
         account_no: decryptedAccountNumber,
       };
-      return res.status(200).json({
-        message: "Valid",
-        success: true,
-        data: responseToSend,
-      });
+      return res.status(200).json(createApiResponse(200,responseToSend,'Valid'));
     } else {
-      return res.status(200).json({
-        message: "InValid",
-        success: false,
-        data: null,
-      });
+      return res.status(200).json(createApiResponse(200,{},'InValid'));
     }
   }
   const service = await selectService("ACCOUNT_VERIFY_PD");
 
   console.log("----active service for Account Verify is ----", service);
   logger.info(`----active service for Account Verify is ----, ${service}`);
-  if (!service) {
-    return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-  }
-
-  console.log("----active service name for Account ---", service.serviceFor);
-  logger.info(`----active service name for Account --- ${service.serviceFor}`);
 
   try {
-    let response;
-    switch (service.serviceFor) {
-      case "INVINCIBLE":
-        console.log("Calling INVINCIBLE API...");
-        response = await verifyBankAccountInvincible(data);
-        break;
-      case "TRUTHSCREEN":
-        console.log("Calling TRUTHSCREEN API...");
-        response = await verifyBankAccountTruthScreen(data);
-        break;
-      case "EASEBUZZ":
-        console.log("Calling EASEBUZZ API...");
-        response = await verifyBankAccountEaseBuzz(data);
-        break;
-      case "ZOOP":
-        console.log("Calling ZOOP API...");
-        response = await verifyBankAccountZoop(data);
-        break;
-      case "CASHFREE":
-        console.log("Calling CASHFREE API...");
-        response = await verifyBankAccountCashfree(data);
-        break;
-      default:
-        throw new Error("Unsupported PAN service");
-    }
+    // let response;
+    // switch (service.serviceFor) {
+    //   case "INVINCIBLE":
+    //     console.log("Calling INVINCIBLE API...");
+    //     response = await verifyBankAccountInvincible(data);
+    //     break;
+    //   case "TRUTHSCREEN":
+    //     console.log("Calling TRUTHSCREEN API...");
+    //     response = await verifyBankAccountTruthScreen(data);
+    //     break;
+    //   case "EASEBUZZ":
+    //     console.log("Calling EASEBUZZ API...");
+    //     response = await verifyBankAccountEaseBuzz(data);
+    //     break;
+    //   case "ZOOP":
+    //     console.log("Calling ZOOP API...");
+    //     response = await verifyBankAccountZoop(data);
+    //     break;jjk
+    //   case "CASHFREE":
+    //     console.log("Calling CASHFREE API...");
+    //     response = await verifyBankAccountCashfree(data);
+    //     break;
+    //   default:
+    //     throw new Error("Unsupported PAN service");
+    // }
+
+    const response = await accountActiveServiceResponse({ account_no, ifsc },service,0)
+
     console.log(
       "response from active service for account verify ===>>",
       response
@@ -134,11 +124,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       };
       await accountdataModel.create(objectToStoreInDb);
 
-      return res.status(200).json({
-        message: "Valid",
-        success: true,
-        response: response?.result,
-      });
+      return res.status(200).json( createApiResponse(200,response?.result,'Valid'));
     } else {
       const objectToStoreInDb = {
         accountNo: encryptedAccountNumber,
@@ -150,17 +136,12 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await accountdataModel.create(objectToStoreInDb);
-      return res.status(200).json({
-        message: "InValid",
-        success: false,
-        response: null,
-      });
+      return res.status(200).json(createApiResponse(200,{},'InValid'));
     }
   } catch (error) {
     console.error("Error verifying bank account verifyBankAccount:", error);
-    // await updateFailure(service);
     const errorObj = mapError(error);
-    return res.status(errorObj.httpCode).json(errorObj);
+    return res.status(errorObj.httpCode).json(createApiResponse(500,{},'Server Error'));
   }
 };
 
@@ -190,14 +171,14 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
         Message:
           existingAccountDetails?.responseData?.result?.verification_status,
       };
-      return res.status(200).json(response);
+      return res.status(200).json(createApiResponse(200,response,'Valid'));
     }
     const service = await selectService("ACCOUNT_VERIFY_PL");
 
     console.log("----active service for Account Verify is ----", service);
     logger.info(`----active service for Account Verify is ----, ${service}`);
     if (!service) {
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+      return res.status(404).json(createApiResponse(404,null,'Requested resource not found'));
     }
 
     console.log("----active service name for Account ---", service.serviceFor);
@@ -237,11 +218,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       };
       await accountdataModel.create(objectToStoreInDb);
 
-      return res.status(200).json({
-        message: "Valid",
-        success: true,
-        data: response?.result,
-      });
+      return res.status(200).json(createApiResponse(200,response?.result,'Valid'));
     } else {
       const objectToStoreInDb = {
         accountNo: encryptedAccountNumber,
@@ -253,16 +230,11 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await accountdataModel.create(objectToStoreInDb);
-      return res.status(200).json({
-        message: "InValid",
-        success: false,
-        data: {},
-      });
+      return res.status(200).json(createApiResponse(200,{},'InValid'));
     }
   } catch (error) {
     console.error("Error verifying bank account verifyBankAccount:", error);
-    await updateFailure(service);
     const errorObj = mapError(err);
-    return res.status(errorObj.httpCode).json(errorObj);
+    return res.status(errorObj.httpCode).json(createApiResponse(500,{},'Server Error'));
   }
 };

@@ -1,3 +1,5 @@
+const { ERROR_CODES } = require("./errorCodes");
+
 const ID_RULES = {
     creditCard: { min: 13, max: 19, regex: /^\d+$/, displayName: "Credit Card Number" },      
     pan: { length: 10, regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, displayName: "PAN" }, 
@@ -27,16 +29,19 @@ const validateId = (type, value) => {
     return true;
 };
 
-const handleValidation = (type, value, res) => {
+const handleValidation = (type, value) => {
   const rule = ID_RULES[type];
+
   if (!validateId(type, value)) {
-    let errorMessage = {
+    return {
       response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
-      ...ERROR_CODES?.BAD_REQUEST
+      ...ERROR_CODES.BAD_REQUEST
     };
-    return res.status(400).json(errorMessage); 
   }
+
+  return null;  // <-- very important
 };
+
 
 
 module.exports =  handleValidation;

@@ -1,6 +1,5 @@
 const axios = require("axios");
 const { generateTransactionId, callTruthScreenAPI, performFaceVerificationEncrypted } = require("../truthScreen/callTruthScreen");
-const { updateFailure } = require("./serviceSelector");
 const username = process.env.TRUTHSCREEN_USERNAME;
 const password = process.env.TRUTHSCREEN_TOKEN;
 
@@ -18,7 +17,6 @@ async function apiCall(url, body, service) {
       return truthScreenResponse;
     }
   } catch (err) {
-    await updateFailure(service);
     const isNetworkErr = err.code === "ECONNABORTED" || !err.response;
     if (!isNetworkErr) {
       throw err;

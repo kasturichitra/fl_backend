@@ -4,13 +4,8 @@ const panAadhaarDetails = new mongoose.Schema({
   panNumber: {
     type: String,
   },
-  response: {
-    type: Object,
-    required: true
-  },
   aadhaarNumber:{
     type: Object,
-    // required: true
   },
   serviceResponse:{
     type: Object,
