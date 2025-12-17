@@ -7,4 +7,11 @@ logs/
 *.pem
 keys/
 
+*.log
+logs/
+
+*.pem
+keys/
+
+
 node_modules

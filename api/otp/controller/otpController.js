@@ -1,7 +1,8 @@
 const dotenv = require("dotenv");
 const mobileModel = require("../model/otpModel");
 const axios = require("axios");
-const {ERROR_CODES} = require('../../../utlis/errorCodes')
+const {ERROR_CODES} = require('../../../utlis/errorCodes');
+const { smsOtpActiveServiceResponse } = require("../../GlobalApiserviceResponse/smsOtpResponse");
 // const logger = require("../../logger/logger");
 
 dotenv.config();
@@ -92,14 +93,18 @@ const sendSMS = async (mobileNumber, message) => {
 
 // step 2
 const handleOTPSend = async (mobileNumber, res, next) => {
+  
+  const service = await selectService("SMSOTP");
+
   try {
     // Generate OTP and message
     const otp = Math.floor(1000 + Math.random() * 9000).toString();
     const hashCode = "";
     const message = `OTP: ${otp} ${hashCode} for user verification - NTARBZ`;
     console.log("Generated OTP:", otp);
-
-    const smsServiceResponse = await sendSMS(mobileNumber, message);
+    
+    // const smsServiceResponse = await sendSMS(mobileNumber, message);
+    const smsServiceResponse = await smsOtpActiveServiceResponse({mobileNumber, message}, service,0);
 
     console.log("Message sent:", message);
     console.log("SMS service response:", smsServiceResponse);

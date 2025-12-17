@@ -55,10 +55,11 @@ const validateId = (type, value) => {
   return true;
 };
 
-const handleValidation = (type, value, res) => {
+const handleValidation = (type, value) => {
   const rule = ID_RULES[type];
+
   if (!validateId(type, value)) {
-    let errorMessage = {
+    return {
       response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
       ...ERROR_CODES?.BAD_REQUEST,
     };
