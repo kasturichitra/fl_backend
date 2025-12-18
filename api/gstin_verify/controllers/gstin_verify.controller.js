@@ -30,7 +30,7 @@ exports.gstinverify = async (req, res, next) => {
 
     console.log("gstin verify response ===>", JSON.stringify(response));
     logger.info(`gstin verify response: ${JSON.stringify(response)}`);
-    const newGstinVerification = await gstin_verifyModel.create(response);
+    const newGstinVerification = await gstin_verifyModel.create({...response,gstinNumber});
     res.status(200).json({ message: 'Valid', data: response?.result, success: true });
 
   } catch (error) {

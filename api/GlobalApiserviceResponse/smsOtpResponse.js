@@ -45,11 +45,7 @@ const smsApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
     const {mobileNumber,message} = data
     const ApiData = {
-        "DOVESOFT": {
-            BodyData: {
-                bankAccount: account_no,
-                ifsc: ifsc,
-            },
+        DOVESOFT: {
             url: `${DOVE_SOFT_API_URL}&user=${DOVE_SOFT_USER}&key=${DOVE_SOFT_KEY}&mobile=+91${mobileNumber}&message=${message}&senderid=${DOVE_SOFT_SENDERID}&accusage=1&entityid=${DOVE_SOFT_ENTITYID}&tempid=${DOVE_SOFT_TEMPID}`,
             header: {
                 accept: "application/json",
@@ -74,11 +70,11 @@ const smsApiCall = async (data, service) => {
         ApiResponse = await axios.get(
             config.url
         );
+        console.log('Sms Apicall is trigred ===>', ApiResponse)
     } catch (error) {
         console.log("Error =>", error);
         return { success: false, data: null };
     }
-
     const obj = ApiResponse?.data ;
 
     return {

@@ -33,7 +33,6 @@ const accountActiveServiceResponse = async (data, services, index = 0) => {
         return accountActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
         return accountActiveServiceResponse(data, services, index + 1);
     }
 };
