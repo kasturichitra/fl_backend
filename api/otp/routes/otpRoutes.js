@@ -3,8 +3,8 @@ const { mobileOtpGeneration, verifyMobileOtp} = require("../controller/otpContro
 
 const otpRouter = express.Router()
 
-otpRouter.post("/mobileOtp" , mobileOtpGeneration)
-otpRouter.post("/mobileotpVerify" , verifyMobileOtp)
+otpRouter.post("/otp_generation" , mobileOtpGeneration)
+otpRouter.post("/otp_verification" , verifyMobileOtp)
 
 
 module.exports = otpRouter;

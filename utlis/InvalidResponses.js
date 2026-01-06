@@ -24,13 +24,34 @@ const inValidResponses = [
       PAN_Holder_Type: "",
     },
   },
-   {
+  {
+    service: "panToAadhaar",
+    InValidResponse: {
+      PAN: "",
+      Name: "",
+      PAN_Status: "",
+      PAN_Holder_Type: "",
+    },
+  },
+  {
     service: "cin",
     InValidResponse: {
       PAN: "",
       Name: "",
       PAN_Status: "",
       PAN_Holder_Type: "",
+    },
+  },
+  {
+    service: "fullCard",
+    InValidResponse: {
+      cardNumber: "",
+      is_Verified: "",
+      Brand: "",
+      Type: "",
+      Category: "",
+      CountryName: "",
+      Issuer: "",
     },
   },
 ];

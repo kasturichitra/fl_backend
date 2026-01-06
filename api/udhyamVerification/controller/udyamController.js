@@ -3,8 +3,8 @@ const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 const handleValidation = require("../../../utlis/lengthCheck");
-const { shopActiveServiceResponse } = require("../../GlobalApiserviceResponse/UdyamServiceResponse");
-const logger = require("../../Logger/logger");
+const { udyamActiveServiceResponse } = require("../../GlobalApiserviceResponse/UdyamServiceResponse");
+const {companyLogger} = require("../../Logger/logger");
 const { verifyUdhyamInvincible } = require("../../service/provider.invincible");
 const {
   verifyUdhyamTruthScreen,
@@ -19,7 +19,7 @@ const udyamNumberVerfication = async (req, res, next) => {
   const data = req.body;
 
   console.log("udyamNumber ==>", udyamNumber);
-  logger.info("udyamNumber from request ===>", udyamNumber);
+  companyLogger.info("udyamNumber from request ===>", udyamNumber);
 
   // const isValid = handleValidation("udyam", udyamNumber, res);
   // if (!isValid) return;
@@ -49,7 +49,7 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("----active service for pan Verify is ----", service);
 
   try {
-    let response = await shopActiveServiceResponse(udyamNumber, service, 0);
+    let response = await udyamActiveServiceResponse(udyamNumber, service, 0);
     console.log(
       `response from active service for udhyam ${JSON.stringify(response)}`
     );

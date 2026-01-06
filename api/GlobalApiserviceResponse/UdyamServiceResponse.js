@@ -1,7 +1,7 @@
 const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
-const shopActiveServiceResponse = async (data, services, index = 0) => {
+const udyamActiveServiceResponse = async (data, services, index = 0) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -10,30 +10,30 @@ const shopActiveServiceResponse = async (data, services, index = 0) => {
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return shopActiveServiceResponse(data, services, index + 1);
+        return udyamActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
     console.log(`Trying service:`, newService);
 
     try {
-        const res = await shopApiCall(data, serviceName, 0);
+        const res = await udyamApiCall(data, serviceName, 0);
 
         if (res?.success) {
             return res.data;
         }
 
         console.log(`${serviceName} responded failure → trying next`);
-        return shopActiveServiceResponse(data, services, index + 1);
+        return udyamActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
         console.log(`Error from ${serviceName}:`, err.message);
-        return shopActiveServiceResponse(data, services, index + 1);
+        return udyamActiveServiceResponse(data, services, index + 1);
     }
 };
 
-const shopApiCall = async (data, service) => {
-    const transID = await generateTransactionId(12);
+const udyamApiCall = async (data, service) => {
+    const transID = generateTransactionId(12);
 
     const ApiData = {
         "INVINCIBLE": {
@@ -210,5 +210,5 @@ const shopApiCall = async (data, service) => {
 };
 
 module.exports = {
-    shopActiveServiceResponse,
+    udyamActiveServiceResponse,
 }

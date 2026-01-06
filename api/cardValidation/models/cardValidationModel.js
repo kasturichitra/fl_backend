@@ -8,6 +8,18 @@ let cardValidationSchema = new Schema(
       required: true,
     },
     response: { type: Object, required: true },
+    status: {
+      type: Number,
+    },
+    serviceResponse: {
+      type: Object,
+    },
+    serviceId: {
+      type: String,
+    },
+     serviceName: {
+      type: String,
+    },
     createdTime: {
       type: String,
       default: Date.now,

@@ -1,5 +1,5 @@
 const axios = require("axios");
-let RapidApiKey = process.env.RAPIDAPI_KEY
+let RapidApiKey = process.env.RAPID_API_KEY
 let RapidApiBinHost = process.env.RAPIDAPI_BIN_HOST
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST
 

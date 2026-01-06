@@ -2,7 +2,7 @@ const axios = require("axios");
 const checkingDetails = require("../../../utlis/authorization");
 const FaceMatchModel = require("../models/facematch.model");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
-const logger = require("../../Logger/logger");
+const {kycLogger} = require("../../Logger/logger");
 const ERROR_CODES = require("../../../utlis/errorCodes");
 const { faceMatch } = require("../../service/provider.zoop")
 const zoop = require("../../service/provider.zoop");
@@ -161,7 +161,7 @@ exports.faceMatchVerification = async (req, res) => {
   const { userImage, aadhaarImage } = req.body;
   const service = await selectService('FACEMATCH');
   console.log("----active service for FACEMATCH Verify is ----", service);
-  logger.info(`----active service for FACEMATCH Verify is ----, ${service}`);
+  kycLogger.info(`----active service for FACEMATCH Verify is ----, ${service}`);
   try {
     if (!userImage || !aadhaarImage) {
       return res.status(400).json(ERROR_CODES?.BAD_REQUEST)

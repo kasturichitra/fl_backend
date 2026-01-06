@@ -3,6 +3,7 @@ require("dotenv").config();
 const RapidApiModel = require("../models/BinApiModels");
 const RapidApiBankModel = require("../models/BinApiBankModel");
 const { verifyIfsc, verifyBinNumber } = require("../../service/provider.rapid");
+const handleValidation = require("../../../utlis/lengthCheck");
 let RapidApiKey = process.env.RAPIDAPI_KEY;
 let RapidApiHost = process.env.RAPIDAPI_BIN_HOST;
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST;
@@ -10,18 +11,14 @@ let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST;
 exports.getCardDetailsByNumber = async (req, res) => {
   const { bin } = req.body;
   const data = req.body;
+  
   console.log("bin detailes=---> ", bin);
   console.log("RAOPID_API KEY=---> ", RapidApiKey);
   console.log("RAPID Bin API HOST =---> ", RapidApiHost);
   console.log("RAPID Bank  API HOST =---> ", RapidApiBankHost);
 
-  if (!bin?.trim()) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
-  }
-
-  if (bin?.trim()?.length > 6 || bin?.trim()?.length < 6) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
-  }
+  const isValid = handleValidation("bin", bin, res);
+    if (!isValid) return;
 
   try {
     const exsistingDetails = await RapidApiModel.findOne({ bin });

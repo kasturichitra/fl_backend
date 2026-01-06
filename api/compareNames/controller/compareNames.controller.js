@@ -1,4 +1,5 @@
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const handleValidation = require("../../../utlis/lengthCheck");
 const logger = require("../../Logger/logger");
 const comparingNamesModel = require("../models/compareName.model");
 
@@ -19,6 +20,11 @@ async function checkCompareNames(firstName, secondName) {
   const jumbleReverseSecondName = reverseSecondName.split(" ").sort().join(" ");
 
   console.log(
+    "sortedFirstName === sortedSecondName===>",
+    sortedFirstName,
+    sortedSecondName
+  );
+  logger.info(
     "sortedFirstName === sortedSecondName===>",
     sortedFirstName,
     sortedSecondName
@@ -89,21 +95,22 @@ function removeTitle(name) {
 }
 
 exports.compareNames = async (req, res, next) => {
-  console.log('Compare Name is triggred')
+  console.log("Compare Name is triggred");
+  logger.info("Compare Name is triggred")
   try {
     const { firstName, secondName } = req.body;
     console.log("firstName and secondName ===>>", secondName, firstName);
-    if (!firstName?.trim() || !secondName?.trim()) {
-      let errorMessage = {
-        message: "Names are Required 😁",
-        ...ERROR_CODES?.BAD_REQUEST,
-      };
-      return res.status(400).json(errorMessage);
-    }
+    const capitalFirstName = firstName?.toUpperCase();
+    const capitalSecondName = secondName?.toUpperCase();
+    const isFirstValid = handleValidation("firstName", capitalFirstName, res);
+    if (!isFirstValid) return;
+
+    const isSecondValid = handleValidation("firstName", capitalSecondName, res);
+    if (!isSecondValid) return;
 
     const existingDetails = await comparingNamesModel.findOne({
-      firstName: firstName,
-      secondName: secondName,
+      firstName: capitalFirstName,
+      secondName: capitalSecondName,
     });
     console.log("response in existing===>", existingDetails);
 
@@ -114,7 +121,10 @@ exports.compareNames = async (req, res, next) => {
         response: existingDetails?.responseData,
       });
     } else {
-      const result = await checkCompareNames(firstName, secondName);
+      const result = await checkCompareNames(
+        capitalFirstName,
+        capitalSecondName
+      );
       console.log("======>>>>>result in compareNames", result);
       logger.info("result from compareNames in name match ===>>", result);
 
@@ -133,8 +143,8 @@ exports.compareNames = async (req, res, next) => {
 
       if (result) {
         const nameMatchResponse = {
-          firstName: firstName,
-          secondName: secondName,
+          firstName: capitalFirstName,
+          secondName: capitalSecondName,
           result: Math.max(similarity, reverseSimilarity),
         };
         console.log(
@@ -148,8 +158,8 @@ exports.compareNames = async (req, res, next) => {
           reverseSimilarity
         );
         await comparingNamesModel.create({
-          firstName: firstName,
-          secondName: secondName,
+          firstName: capitalFirstName,
+          secondName: capitalSecondName,
           responseData: nameMatchResponse,
           createdDate: new Date().toLocaleDateString(),
           createdTime: new Date().toLocaleTimeString(),

@@ -1,48 +1,55 @@
 
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const crypto = require("crypto");
 const axios = require("axios");
 
-const CinActiveServiceResponse = async (data, services, index = 0) => {
-    if (index >= services?.length) {
+const accountPennyLessSerciveResponse = async (data, services, index = 0) => {
+    if (index >= services.length) {
         return { success: false, message: "All services failed" };
     }
 
-    const newService = services?.find((ser) => ser.priority === index + 1);
+    const newService = services.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return CinActiveServiceResponse(data, services, index + 1);
+        return accountPennyLessSerciveResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
     console.log(`Trying service:`, newService);
 
     try {
-        const res = await CinApiCall(data, serviceName);
+        const res = await accountPennyLessApiCall(data, serviceName);
 
         if (res?.success) {
             return res.data;
         }
 
         console.log(`${serviceName} responded failure → trying next`);
-        return CinActiveServiceResponse(data, services, index + 1);
+        return accountPennyLessSerciveResponse(data, services, index + 1);
 
     } catch (err) {
         console.log(`Error from ${serviceName}:`, err.message);
-        return CinActiveServiceResponse(data, services, index + 1);
+        return accountPennyLessSerciveResponse(data, services, index + 1);
     }
 };
 
+const accountPennyLessApiCall = async (data, service) => {
+    const tskId = await generateTransactionId(12);
+    const { account_no, ifsc } = data;
+    const hashString = `${EASEBUZZ_KEY}|${account_no}|${ifsc}|${EASEBUZZ_SALT}`;
 
-
-const CinApiCall = async (data, service) => {
-    console.log('CinApi Call is triggred ===>', data)
-    const tskId = generateTransactionId(12);
+    console.log("hashString ===>>", hashString);
+    const hash = crypto.createHash("sha512").update(hashString).digest("hex");
+    console.log("hash ===>>", hash);
 
     const ApiData = {
         "INVINCIBLE": {
-            BodyData:{ CIN: data},
-            url: process.env.INVINCIBLE_CIN_URL,
+            BodyData: {
+                bankAccount: account_no,
+                ifsc: ifsc,
+            },
+            url: process.env.INVINCIBLE_ACC_PENNYLESS_URL,
             header: {
                 accept: "application/json",
                 clientId: process.env.INVINCIBLE_CLIENT_ID,
@@ -51,11 +58,12 @@ const CinApiCall = async (data, service) => {
         },
         "TRUTHSCREEN": {
             BodyData: {
-                transID: tskId,
-                docType: 15,     // CIN docType
-                docNumber: data
+                transID:tskId,
+                docType: "92",
+                beneAccNo: account_no,
+                ifsc: ifsc,
             },
-            url: process.env.TRUTNSCREEN_CIN_URL,
+            url: process.env.TRUTNSCREEN_ACC_PENNYLESS_URL,
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 password: process.env.TRUTHSCREEN_TOKEN
@@ -75,6 +83,7 @@ const CinApiCall = async (data, service) => {
     let ApiResponse;
 
     try {
+
         if (service === "TRUTHSCREEN") {
             ApiResponse = await callTruthScreenAPI({
                 url: config.url,
@@ -96,18 +105,18 @@ const CinApiCall = async (data, service) => {
     }
 
     const obj = ApiResponse?.data || ApiResponse;
-    console.log("CIN Response =>", obj);
+    console.log("Account Response =>", obj);
 
 
     // If truthscreen/others return invalid code
-    if (obj?.response_code === "101") {
+    if (obj?.response_code === "101" ) {
         return {
             success: false,
             data: {
-                result: "NoDataFound",
+                result: {},
                 message: "Invalid",
                 responseOfService: obj,
-                service,
+                service: "Invincible",
             }
         };
     }
@@ -122,35 +131,44 @@ const CinApiCall = async (data, service) => {
 
         case "INVINCIBLE":
             returnedObj = {
-                CIN: obj?.result?.data?.CIN || "",
-                CompanyName: obj?.result?.data?.COMPANY_NAME || "",
-                status: obj?.result?.data?.COMPANY_STATUS || "",
+                name: obj?.result?.data?.nameAtBank || null,
+                status: obj?.result?.accountStatus || null,
+                success: obj?.result?.subCode === 200,
+                message:
+                    obj?.result?.message ||
+                    ApiResponse.message ||
+                    "Transaction Successful",
+                account_no: account_no || null,
+                ifsc: ifsc || null,
             };
             break;
 
         case "TRUTHSCREEN":
             returnedObj = {
-                CIN: obj?.result?.companyCIN || "",
-                CompanyName: obj?.result?.companyName || "",
-                status: obj?.result?.companyStatus || "",
+                name: ApiResponse?.msg.name || null,
+                status: ApiResponse?.msg.status || null,
+                success:
+                    (bankResponseFromTruthScreen.status === 1 &&
+                        msg.description?.toLowerCase().includes("success")) ||
+                    false,
+                message: ApiResponse?.msg.description || "Transaction Successful",
+                account_no: account_no || null,
+                ifsc: ifsc || null,
             };
             break;
     }
 
-    console.log('Cin apiCall is triggred ===>', returnedObj)
     return {
         success: true,
         data: {
-            cinNumber: returnedObj.CIN || "",
             result: returnedObj,
             message: "Valid",
             responseOfService: obj,
-            service,
+            service: "Invincible",
         }
     };
 };
 
-
 module.exports = {
-    CinActiveServiceResponse
+    accountPennyLessSerciveResponse
 };

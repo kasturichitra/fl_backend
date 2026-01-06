@@ -1,31 +1,36 @@
-const mongoose = require("mongooose");
+const mongoose = require("mongoose");
 
 const apiHitCountSchema = new mongoose.Schema(
   {
+    identifiers: {
+      type: Object,
+      required: true,
+    },
     service: {
       type: String,
+      required: true,
     },
-    value: {
+    clientId: {
       type: String,
+      required: true,
     },
     dayHitCount: {
-      type: String,
+      type: Number,
+      default: 0,
     },
     monthHitCount: {
-      type: Object,
-    },
-    createdTime: {
-      type: String,
-      default: Date.now,
-    },
-    createdDate: {
-      type: String,
-      default: Date.now,
+      type: Number,
+      default: 0,
     },
   },
-  {
-    timestamps: true,
-  }
+  { timestamps: true }
 );
+
+apiHitCountSchema.index({
+  clientId: 1,
+  service: 1,
+  identifiers: 1,
+  createdAt: 1
+});
 
 module.exports = mongoose.model("apiHitCount", apiHitCountSchema);
