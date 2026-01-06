@@ -1,3 +1,4 @@
+const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const handleValidation = require("../../../utlis/lengthCheck");
@@ -31,11 +32,7 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("existingUdhyamNumber ====>>", existingUdhyamNumber);
 
   if (existingUdhyamNumber) {
-    return res.status(200).json({
-      message: "Valid",
-      data: existingUdhyamNumber?.response,
-      success: true,
-    });
+    return res.status(200)?.json(createApiResponse(200,existingUdhyamNumber?.response,'Valid'))
   }
 
   const service = await selectService("UDYAM");
@@ -78,12 +75,7 @@ const udyamNumberVerfication = async (req, res, next) => {
       };
 
       await udhyamVerify.create(storingData);
-
-      return res.status(200).json({
-        message: "Valid",
-        data: response?.result,
-        success: true,
-      });
+      return res.status(200).json(createApiResponse(200,response?.result,'Valid'))
     } else {
       const invalidResponse = {
         udyam: udyamNumber,
@@ -99,11 +91,7 @@ const udyamNumberVerfication = async (req, res, next) => {
         "National Industry Classification Code(S)": [],
         "Official address of Enterprise": {},
       };
-      return res.status(401).json({
-        message: "InValid",
-        data: invalidResponse,
-        success: false,
-      });
+      return res.status(401).json(createApiResponse(401,invalidResponse,'InValid'))
     }
 
   } catch (error) {

@@ -29,26 +29,28 @@ function generateMerchantId() {
 console.log(generateMerchantId());
 
 exports.handleAadhaarMaskedVerify = async (req, res) => {
+  const { aadharNumber } = req.body;
   logger.info(" Aadhaar Masked Verification triggered");
-
   try {
-    console.log('handleAadhaar masked in try block');
-    const { aadharNumber } = req.body;
+    console.log('handleAadhaar masked in try block', req.body);
     if (!aadharNumber) {
       logger.warn("Aadhaar number missing in request");
       return res.status(ERROR_CODES?.BAD_REQUEST.httpCode).json(createApiResponse(400, [], 'Invalid request parameters'));
     }
     const encryptedAadhaar = encryptData(aadharNumber);
-    
+    console.log('handle Aadhaar Masked Verify in try block', encryptedAadhaar)
+
     const isExistAadhaar = await adhaarverificattionwithoutoptModel.findOne({ aadhaarNumber: encryptedAadhaar });
+    console.log('handle Aadhaar Masked Verify in try block', isExistAadhaar)
     if (isExistAadhaar) {
-      return res.status(200).json(createApiResponse(200, isExistAadhaar?.response, 'Requested processed successfully'))
+      return res.status(200).json(createApiResponse(200, isExistAadhaar?.response?.result, 'Valid'))
     };
 
+    console.log('handle Aadhaar Masked Verify in try block')
     const Services = await selectService('AADHAARMASKED');
     logger.info(`Aadhaar encrypted => ${encryptedAadhaar.slice(0, 10)}...`);
 
-    const response = await AadhaarActiveServiceResponse({ aadharNumber },Services,0);
+    const response = await AadhaarActiveServiceResponse({ aadharNumber }, Services, 0);
     logger.info(`invincible API Response => ${JSON.stringify(response)}`);
 
     await adhaarverificattionwithoutoptModel.create({
@@ -59,11 +61,10 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     });
     if (response?.code === 200 && response?.result) {
       logger.info("Aadhaar verified successfully");
-      return res.status(ERROR_CODES?.SUCCESS.httpCode).json(createApiResponse(200, response, 'Request processed successfully'));
+      return res.status(ERROR_CODES?.SUCCESS.httpCode).json(createApiResponse(200, response?.result, 'Valid'));
+    } else {
+      return res.status(200).json(createApiResponse(200, {}, 'Invalid'));
     }
-    logger.error("Aadhaar verification failed");
-    return res.status(ERROR_CODES?.VALIDATION_ERROR.httpCode).json(createApiResponse(422, [], 'Data validation failed'));
-
   } catch (err) {
     const errorObj = mapError(err);
     return res.status(errorObj.httpCode).json(errorObj);

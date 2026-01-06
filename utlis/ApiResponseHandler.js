@@ -1,9 +1,9 @@
-function createApiResponse(statusCode, data, message = "Success") {
+function createApiResponse(httpCode, data, message = "Success") {
   return {
-    statusCode,
+    httpCode,
     data,
     message,
-    success: statusCode < 400,
+    success: httpCode < 400,
   };
 }
 

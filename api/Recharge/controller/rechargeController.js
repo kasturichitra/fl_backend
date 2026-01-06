@@ -106,7 +106,7 @@ const FetchOldPlans = async (req, res) => {
         console.log('Activer service in reacharge is ==>', service);
         if (!service?.serviceFor) {
             return res.status(400).json({ message: 'No Active Services', httpCode: 400 })
-        }
+        };
 
         let result;
         switch (service?.serviceFor) {

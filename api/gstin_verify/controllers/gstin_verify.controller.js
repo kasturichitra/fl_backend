@@ -7,6 +7,7 @@ const { ERROR_CODES } = require("../../../utlis/errorCodes");
 const { generateTransactionId } = require("../../../utlis/helper");
 const logger = require("../../Logger/logger");
 const { GSTActiveServiceResponse } = require("../../GlobalApiserviceResponse/GstServiceResponse");
+const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 
 exports.gstinverify = async (req, res, next) => {
   const { gstinNumber } = req.body;
@@ -21,7 +22,7 @@ exports.gstinverify = async (req, res, next) => {
 
     if (existingGstin) {
       const dataToShow = existingGstin?.result;
-      return res.status(200).json({ message: 'Success', data: dataToShow, success: true });
+      return res.status(200).json(createApiResponse(200,dataToShow,'Valid'));
     }
 
     const service = await selectService('GSTIN');
@@ -31,7 +32,7 @@ exports.gstinverify = async (req, res, next) => {
     console.log("gstin verify response ===>", JSON.stringify(response));
     logger.info(`gstin verify response: ${JSON.stringify(response)}`);
     const newGstinVerification = await gstin_verifyModel.create({...response,gstinNumber});
-    res.status(200).json({ message: 'Valid', data: response?.result, success: true });
+    res.status(200).json(createApiResponse(200,response?.result,'Valid'));
 
   } catch (error) {
     console.error("Error performing GSTIN verification:", error);

@@ -5,11 +5,11 @@ let RapidApiBinHost = process.env.RAPIDAPI_BIN_HOST
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST
 
 const CreditCardActiveServiceResponse = async (data, services, index = 0) => {
-    if (index >= services.length) {
+    if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
-    const newService = services.find((ser) => ser.priority === index + 1);
+    const newService = services?.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
