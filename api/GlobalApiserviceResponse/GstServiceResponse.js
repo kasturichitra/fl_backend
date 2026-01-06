@@ -2,11 +2,11 @@ const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
 const GSTActiveServiceResponse = async (data, services, index = 0) => {
-    if (index >= services.length) {
+    if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
-    const newService = services.find((ser) => ser.priority === index + 1);
+    const newService = services?.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
@@ -36,35 +36,35 @@ const GSTApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
 
     const ApiData = {
-        // "ZOOP": {
-        //     BodyData: {
-        //         mode: "sync",
-        //         data: {
-        //             business_gstin_number: data,
-        //             consent: "Y",
-        //             consent_text:
-        //                 "I hereby declare my consent agreement for fetching my information via ZOOP API",
-        //         },
-        //     },
-        //     url: process.env.ZOOP_GSTIN_URL,
-        //     header: {
-        //         "app-id": process.env.ZOOP_APP_ID,
-        //         "api-key": process.env.ZOOP_API_KEY,
-        //         "content-type": "application/json",
-        //     }
-        // },
-        // "INVINCIBLE": {
-        //     BodyData: JSON.stringify({
-        //         gstin: data
-        //     }),
-        //     url: process.env.INVINCIBLE_GSTIN_URL,
-        //     header: {
-        //         accept: "application/json",
-        //         clientId: process.env.INVINCIBLE_CLIENT_ID,
-        //         "content-type": "application/json",
-        //         secretKey: process.env.INVINCIBLE_SECRET_KEY,
-        //     }
-        // },
+        "ZOOP": {
+            BodyData: {
+                mode: "sync",
+                data: {
+                    business_gstin_number: data,
+                    consent: "Y",
+                    consent_text:
+                        "I hereby declare my consent agreement for fetching my information via ZOOP API",
+                },
+            },
+            url: process.env.ZOOP_GSTIN_URL,
+            header: {
+                "app-id": process.env.ZOOP_APP_ID,
+                "api-key": process.env.ZOOP_API_KEY,
+                "content-type": "application/json",
+            }
+        },
+        "INVINCIBLE": {
+            BodyData: JSON.stringify({
+                gstin: data
+            }),
+            url: process.env.INVINCIBLE_GSTIN_URL,
+            header: {
+                accept: "application/json",
+                clientId: process.env.INVINCIBLE_CLIENT_ID,
+                "content-type": "application/json",
+                secretKey: process.env.INVINCIBLE_SECRET_KEY,
+            }
+        },
         "TRUTHSCREEN": {
             BodyData: {
                 transID:tskId,
@@ -98,6 +98,7 @@ const GSTApiCall = async (data, service) => {
             { headers: config.header }
         );
     } catch (error) {
+        console.log('error gst:',error)
         return { success: false, data: null }; // fallback trigger
     }
 
@@ -168,7 +169,7 @@ const GSTApiCall = async (data, service) => {
     return {
         success: true,
         data: {
-            gstinNumber: obj?.result?.essentials?.gstin || "",
+            gstinNumber: data || "",
             result: returnedObj,
             message: "Valid",
             responseOfService: obj,

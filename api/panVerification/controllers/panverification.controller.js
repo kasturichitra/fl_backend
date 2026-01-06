@@ -19,6 +19,7 @@ const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 const { GetPanResponse } = require("../../../utlis/helper");
 const { PanActiveServiceResponse } = require("../../GlobalApiserviceResponse/PanServiceResponse");
 const { PantoAadhaarActiveServiceResponse } = require("../../GlobalApiserviceResponse/PantoAadhaarRes");
+const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 
 exports.verifyPanNumber = async (req, res) => {
   const data = req.body;
@@ -85,7 +86,7 @@ exports.verifyPanNumber = async (req, res) => {
         panNumber: encryptedPan,
         userName: response?.result?.Name,
         response: encryptedResponse,
-        serviceResponse:response?.responseOfService,
+        serviceResponse: response?.responseOfService,
         // serviceResponse:{ ...response?.responseOfService,pan_number:decryptData(response?.responseOfService?.pan_number)}  ,
         serviceName: response?.service,
         createdDate: new Date().toLocaleDateString(),
@@ -147,37 +148,25 @@ exports.verifyPanToAadhaar = async (req, res) => {
   console.log("existingPanNumber===>", existingPanNumber);
   if (existingPanNumber) {
     if (existingPanNumber?.status == 1) {
-      return res.json({
-        message: "Valid",
-        success: true,
-        data: existingPanNumber?.response,
-      });
+      return res.status(200).json(createApiResponse(200, existingPanNumber?.response, 'Valid'))
     } else {
-      return res.json({
-        message: "InValid",
-        success: false,
-        data: {
-          pan: panNumber,
-          ...findingInValidResponses("pan"),
-        },
-      });
+      return res.status(200).json(createApiResponse(200, {
+        pan: panNumber,
+        ...findingInValidResponses("pan"),
+      }, 'InValid'))
     }
   }
 
-    const service = await selectService("PAN");
+  const service = await selectService("PAN");
 
   try {
 
     const response = await PantoAadhaarActiveServiceResponse(panNumber, service, 0);
-    console.log('Verify panto aadhaar number is response', JSON.stringify(response));
+    console.log('Verify panto aadhaar number is response', response);
 
-    await panToAadhaarModel.create(response);
-
-    return res.status(200).json({
-      message: "Valid",
-      success: true,
-      data: response?.responseOfService
-    });
+    const dbPayload = { ...response?.result, ...response?.message, ...response?.responseOfService, ...response?.service }
+    const savedData = await panToAadhaarModel.create(dbPayload);
+    return res.status(200).json(createApiResponse(200, response?.responseOfService, 'Valid'))
   } catch (error) {
     console.log("error in verifyPanNumber ===>>>", error);
     const errorObj = mapError(error);

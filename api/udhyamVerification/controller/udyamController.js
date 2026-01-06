@@ -1,3 +1,4 @@
+const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
@@ -34,20 +35,12 @@ const udyamNumberVerfication = async (req, res, next) => {
 
   if (existingUdhyamNumber) {
     if (existingUdhyamNumber?.status == 1) {
-      return res.status(200).json({
-        message: "Valid",
-        data: existingUdhyamNumber?.response,
-        success: true,
-      });
+      return res.status(200).json(createApiResponse(200, existingUdhyamNumber?.response, 'Valid'))
     } else {
-      return res.status(200).json({
-        message: "InValid",
-        data: {
-          ...findingInValidResponses("udyam"),
-          udyam: udyamNumber,
-        },
-        success: false,
-      });
+      return res.status(200).json(createApiResponse(200, {
+        ...findingInValidResponses("udyam"),
+        udyam: udyamNumber,
+      }, 'InValid'))
     }
   }
 
@@ -56,19 +49,7 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("----active service for pan Verify is ----", service);
 
   try {
-    let response = await shopActiveServiceResponse(udyamNumber,service,0);
-    // switch (service.serviceFor) {
-    //   case "INVINCIBLE":
-    //     console.log("Calling INVINCIBLE API...");
-    //     response = await verifyUdhyamInvincible(data);
-    //     break;
-    //   case "TRUTHSCREEN":
-    //     console.log("Calling TRUTHSCREEN API...");
-    //     response = await verifyUdhyamTruthScreen(data);
-    //     break;
-    //   default:
-    //     throw new Error("Unsupported PAN service");
-    // }
+    let response = await shopActiveServiceResponse(udyamNumber, service, 0);
     console.log(
       `response from active service for udhyam ${JSON.stringify(response)}`
     );
@@ -96,12 +77,7 @@ const udyamNumberVerfication = async (req, res, next) => {
         { $setOnInsert: storingData },
         { upsert: true, new: true }
       );
-
-      return res.status(200).json({
-        message: "Valid",
-        data: existingOrNew.response,
-        success: true,
-      });
+      return res.status(200).json(createApiResponse(200,existingOrNew.response,'Valid'))
     } else {
       const InValidData = {
         response: {},
@@ -118,14 +94,19 @@ const udyamNumberVerfication = async (req, res, next) => {
         { upsert: true, new: true }
       );
 
-      return res.status(404).json({
-        message: "InValid",
-        data: {
+      // return res.status(404).json({
+      //   message: "InValid",
+        // data: {
+        //   ...findingInValidResponses("udyam"),
+        //   udyam: udyamNumber,
+        // },
+      //   success: false,
+      // });
+
+      return res.status(404).json(createApiResponse(404,{
           ...findingInValidResponses("udyam"),
           udyam: udyamNumber,
-        },
-        success: false,
-      });
+        },'InValid'))
     }
 
   } catch (error) {

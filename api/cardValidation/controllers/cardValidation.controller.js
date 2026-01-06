@@ -8,6 +8,9 @@ const {
 } = require("../../../utlis/EncryptAndDecrypt");
 const {} = require("../../../utlis/lengthCheck");
 const handleValidation = require("../../../utlis/lengthCheck");
+const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
+const { CreditCardActiveServiceResponse } = require("../../GlobalApiserviceResponse/CreditCardServiceResponse");
+const { selectService } = require("../../service/serviceSelector");
 require("dotenv").config();
 
 const verifyFullCardNumber = async (req, res, next) => {
@@ -28,15 +31,14 @@ const verifyFullCardNumber = async (req, res, next) => {
   console.log("existingCreditCardNumber===>", existingCreditCardNumber);
   logger.info(`Existing Credit Card Number Found ${existingCreditCardNumber}`);
   if (existingCreditCardNumber) {
-    return res.json({
-      message: "Valid",
-      response: existingCreditCardNumber?.response,
-      success: true,
-    });
+    return res.status(200).json(createApiResponse(200,existingCreditCardNumber?.response,'Valid'));
   }
+  const service = await selectService("CARD_VALIDATION");
 
   try {
-    const cardNumberResponse = await verifyCreditCardNumber(data);
+    // const cardNumberResponse = await verifyCreditCardNumber(data);
+    const cardNumberResponse = await CreditCardActiveServiceResponse(creditCardNumber,service,0);
+
     console.log("cardNumberResponse ===>>", cardNumberResponse);
     const encryptedNumber = encryptData(cardNumberResponse?.card_number);
     if (cardNumberResponse?.is_valid) {
@@ -47,17 +49,9 @@ const verifyFullCardNumber = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await cardValidationModel?.create(objectToBeStored);
-      return res.status(200).json({
-        message: "Valid",
-        success: true,
-        response: cardNumberResponse,
-      });
+      return res.status(200).json(createApiResponse(200,objectToBeStored,'Valid'));
     } else {
-      return res.status(200).json({
-        message: "InValid",
-        success: false,
-        response: "",
-      });
+      return res.status(200).json(createApiResponse(200, {}, 'Invalid'));
     }
   } catch (error) {
     console.log("error in while fetching Credit Card Response ===>>", error);

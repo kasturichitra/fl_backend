@@ -1,7 +1,10 @@
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
+let RapidApiKey = process.env.RAPIDAPI_KEY
+let RapidApiBinHost = process.env.RAPIDAPI_BIN_HOST
+let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST
 
-const AadhaarActiveServiceResponse = async (data, services, index = 0) => {
+const CreditCardActiveServiceResponse = async (data, services, index = 0) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -10,41 +13,38 @@ const AadhaarActiveServiceResponse = async (data, services, index = 0) => {
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return AadhaarActiveServiceResponse(data, services, index + 1);
+        return CreditCardActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
     console.log(`Trying service:`, newService);
 
     try {
-        const res = await AadhaarApiCall(data, serviceName);
-        console.log('Aadhaar Active Service response ', data, res)
-        if (res.code === 200) {
-            return res;
-        }
+        const res = await CreditCardApiCall(data, serviceName);
+        console.log('Credit Card Active service Response ===>', res);
+        return res;
         console.log(`${serviceName} responded failure → trying next`);
-        return AadhaarActiveServiceResponse(data, services, index + 1);
+        return CreditCardActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
         console.log(`Error from ${serviceName}:`, err.message);
-        return AadhaarActiveServiceResponse(data, services, index + 1);
+        return CreditCardActiveServiceResponse(data, services, index + 1);
     }
 };
 
 // =======================================
-//         Aadhaar API CALL (ALL SERVICES)
+//         Credit Card API CALL (ALL SERVICES)
 // =======================================
 
-const AadhaarApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const CreditCardApiCall = async (data, service) => {
+    console.log('data',data)
     const ApiData = {
-        INVINCIBLE: {
+        RAPID: {
             BodyData: data,
-            url: process.env.INVINCIBLE_MASKAADHAAR_URL,
+            url: `https://cardverify.p.rapidapi.com/validate/${data}`,
             header: {
-                "Content-Type": "application/json",
-                clientId: process.env.INVINCIBLE_CLIENT_ID,
-                secretKey: process.env.INVINCIBLE_SECRET_KEY,
+                'x-rapidapi-key': RapidApiKey,
+                "x-rapidapi-host": "cardverify.p.rapidapi.com",
             }
         },
     };
@@ -61,23 +61,50 @@ const AadhaarApiCall = async (data, service) => {
     let ApiResponse;
 
     try {
-        ApiResponse = await axios.post(
+        ApiResponse = await axios.get(
             config.url,
-            config.BodyData,
             { headers: config.header }
         );
+
     } catch (error) {
-        console.log("API Error:", error);
         return { success: false };
     }
 
     const obj = ApiResponse?.data;
     console.log(`Response—${service}:`, obj);
-    return obj;
+
+    return obj
 };
 
 
 module.exports = {
-    AadhaarActiveServiceResponse,
+    CreditCardActiveServiceResponse,
 };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

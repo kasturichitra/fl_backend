@@ -7,6 +7,7 @@ const logger = require("../../Logger/logger");
 const handleValidation = require("../../../utlis/lengthCheck");
 const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 const { CinActiveServiceResponse } = require("../../GlobalApiserviceResponse/CinServiceResponse");
+const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 
 exports.handleCINVerification = async (req, res, next) => {
   const { CIN } = req.body;
@@ -18,23 +19,16 @@ exports.handleCINVerification = async (req, res, next) => {
 
   const cinDetails = await IncorporationCertificateModel.findOne({
     cinNumber: CIN,
-  });
+  }); 
+  console.log ('is cin details is present',cinDetails)
 
   if (cinDetails) {
-    return res.status(200).json({
-      data: cinDetails?.response?.data,
-      message: "Valid",
-      success: true,
-    });
+    return res.status(200).json(createApiResponse(200,cinDetails?.response?.result,'Valid'));
   }
 
   const service = await selectService("CIN");
 
-  console.log("----active service for cin Verify is ----", service);
   logger.info("----active service for cin Verify is ----", service);
-  if (!service) {
-    return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-  }
 
   try {
     let response = await CinActiveServiceResponse(CIN,service,0)
@@ -55,13 +49,6 @@ exports.handleCINVerification = async (req, res, next) => {
         };
         return next(errorMessage);
       }
-      if (!companyDetails?.data) {
-        let errorMessage = {
-          message: "Cin not found in the response",
-          statusCode: 400,
-        };
-        return next(errorMessage);
-      }
       const newCinVerification = await IncorporationCertificateModel.create({
         response: companyDetails,
         status: 1,
@@ -71,7 +58,7 @@ exports.handleCINVerification = async (req, res, next) => {
       });
 
       console.log("Data saved to MongoDB:", newCinVerification);
-      res.status(200).json({ message: "Valid", data: response, success: true });
+      res.status(200).json({ message: "Valid", data: response?.result, success: true });
     } else {
       const newCinVerification = await IncorporationCertificateModel.create({
         response: {},

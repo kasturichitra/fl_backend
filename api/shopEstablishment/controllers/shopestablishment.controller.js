@@ -35,7 +35,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
     console.log("Shop verify response ===>", response);
     logger.info(`Shop verify response ===> ${response}`)
     const savedData = await shopestablishmentModel.create(response);
-    return res.status(200).json({ message: 'Success', data: response?.result, success: true });
+    return res.status(200).json({ message: 'Valid', data: response?.result, success: true });
   } catch (error) {
     console.error("Error performing Shop verification:", error);
     logger.error(`Error performing Shop verification:${error}`);

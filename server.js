@@ -90,29 +90,29 @@ app.use('/merchant',jwtauth,merchantDetailsRoute)
 
 // Api Moduel other Routes
 // decryptMiddleware loginRouter, enceryptMiddleware
-app.use("/service",decryptMiddleware, serviceRouter,enceryptMiddleware);
-app.use("/charge",decryptMiddleware, NominalRouter,enceryptMiddleware);
-app.use("/upi",decryptMiddleware, UPIrouter,enceryptMiddleware)
-app.use("/pay",decryptMiddleware, PaymentRouter,enceryptMiddleware)
-app.use('/wallet',decryptMiddleware, WalletRoutes,enceryptMiddleware);
-app.use("/pan",decryptMiddleware, panRouter,enceryptMiddleware);
-app.use("/aadhaar",decryptMiddleware, aadhaarRouter,enceryptMiddleware);
-app.use("/mobileNumber",decryptMiddleware, otpRouter,enceryptMiddleware);
-app.use("/shop",decryptMiddleware, shopRouter,enceryptMiddleware);
-app.use("/business",decryptMiddleware, gstRouter,enceryptMiddleware);
-app.use("/face",decryptMiddleware, faceRouter,enceryptMiddleware)
-app.use('/accounts',decryptMiddleware, accountRouter,enceryptMiddleware)
-app.use('/instant',decryptMiddleware, instantPayRouter,enceryptMiddleware)
-app.use('/udyam',decryptMiddleware, udyamRouter,enceryptMiddleware)
-app.use("/name",decryptMiddleware,nameRouter,enceryptMiddleware);
-app.use("/verify",decryptMiddleware,verifyNameRouter,enceryptMiddleware);
-app.use("/bin",decryptMiddleware,binRouter,enceryptMiddleware);
-app.use("/card",decryptMiddleware,fullCardRouter,enceryptMiddleware);
-app.use("/email",decryptMiddleware,Emailroutes,enceryptMiddleware);
-app.use("/testkey",decryptMiddleware,testingApiRouter,enceryptMiddleware)
-app.use("/livekey",decryptMiddleware,LiveApiKeysRouter,enceryptMiddleware)
-app.use("/IP",decryptMiddleware,ipRouter,enceryptMiddleware)
-app.use('/Recharge',decryptMiddleware, RechargeRoute,enceryptMiddleware)
+app.use("/service", decryptMiddleware,  serviceRouter, enceryptMiddleware );
+app.use("/charge", decryptMiddleware,  NominalRouter, enceryptMiddleware );
+app.use("/upi", decryptMiddleware,  UPIrouter, enceryptMiddleware );
+app.use("/pay", decryptMiddleware,  PaymentRouter, enceryptMiddleware );
+app.use('/wallet',decryptMiddleware, WalletRoutes, enceryptMiddleware );
+app.use("/pan", decryptMiddleware,  panRouter, enceryptMiddleware );
+app.use("/aadhaar", decryptMiddleware,  aadhaarRouter, enceryptMiddleware );
+app.use("/mobileNumber", decryptMiddleware,  otpRouter, enceryptMiddleware );
+app.use("/shop", decryptMiddleware,  shopRouter, enceryptMiddleware );
+app.use("/business", decryptMiddleware,  gstRouter, enceryptMiddleware );
+app.use("/face", decryptMiddleware,  faceRouter, enceryptMiddleware );
+app.use('/accounts',decryptMiddleware, accountRouter, enceryptMiddleware );
+app.use('/instant',decryptMiddleware, instantPayRouter, enceryptMiddleware );
+app.use('/udyam',decryptMiddleware, udyamRouter, enceryptMiddleware );
+app.use("/name", decryptMiddleware, nameRouter, enceryptMiddleware );
+app.use("/verify", decryptMiddleware, verifyNameRouter, enceryptMiddleware );
+app.use("/bin", decryptMiddleware, binRouter, enceryptMiddleware );
+app.use("/card", decryptMiddleware, fullCardRouter, enceryptMiddleware );
+app.use("/email", decryptMiddleware, Emailroutes, enceryptMiddleware );
+app.use("/testkey", decryptMiddleware, testingApiRouter, enceryptMiddleware );
+app.use("/livekey", decryptMiddleware, LiveApiKeysRouter, enceryptMiddleware );
+app.use("/IP", decryptMiddleware, ipRouter, enceryptMiddleware );
+app.use('/Recharge',decryptMiddleware, RechargeRoute, enceryptMiddleware );
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

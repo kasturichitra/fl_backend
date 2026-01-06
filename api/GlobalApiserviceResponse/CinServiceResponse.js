@@ -3,11 +3,11 @@ const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/ca
 const axios = require("axios");
 
 const CinActiveServiceResponse = async (data, services, index = 0) => {
-    if (index >= services.length) {
+    if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
-    const newService = services.find((ser) => ser.priority === index + 1);
+    const newService = services?.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
@@ -36,11 +36,12 @@ const CinActiveServiceResponse = async (data, services, index = 0) => {
 
 
 const CinApiCall = async (data, service) => {
+    console.log('CinApi Call is triggred ===>', data)
     const tskId = await generateTransactionId(12);
 
     const ApiData = {
         "INVINCIBLE": {
-            BodyData:{ cin: data},
+            BodyData:{ CIN: data},
             url: process.env.INVINCIBLE_CIN_URL,
             header: {
                 accept: "application/json",
@@ -74,7 +75,6 @@ const CinApiCall = async (data, service) => {
     let ApiResponse;
 
     try {
-
         if (service === "TRUTHSCREEN") {
             ApiResponse = await callTruthScreenAPI({
                 url: config.url,
@@ -122,9 +122,9 @@ const CinApiCall = async (data, service) => {
 
         case "INVINCIBLE":
             returnedObj = {
-                CIN: obj?.result?.essentials?.cin || "",
-                CompanyName: obj?.result?.essentials?.company_name || "",
-                status: obj?.result?.essentials?.status || "",
+                CIN: obj?.result?.data?.CIN || "",
+                CompanyName: obj?.result?.data?.COMPANY_NAME || "",
+                status: obj?.result?.data?.COMPANY_STATUS || "",
             };
             break;
 
@@ -137,7 +137,7 @@ const CinApiCall = async (data, service) => {
             break;
     }
 
-
+    console.log('Cin apiCall is triggred ===>', returnedObj)
     return {
         success: true,
         data: {

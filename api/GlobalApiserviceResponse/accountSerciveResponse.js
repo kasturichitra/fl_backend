@@ -8,11 +8,11 @@ const ZOOPClientId = process.env.ZOOP_APP_ID;
 const ZOOP_API_KEY = process.env.ZOOP_API_KEY;
 
 const accountActiveServiceResponse = async (data, services, index = 0) => {
-    if (index >= services.length) {
+    if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
-    const newService = services.find((ser) => ser.priority === index + 1);
+    const newService = services?.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
@@ -33,7 +33,6 @@ const accountActiveServiceResponse = async (data, services, index = 0) => {
         return accountActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
         return accountActiveServiceResponse(data, services, index + 1);
     }
 };

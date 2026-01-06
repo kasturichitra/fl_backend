@@ -10,8 +10,6 @@ const privateKeyPem = fs.readFileSync(
 
 function decryptHybridPayload({ encryptedKey, data, iv }) {
 
-    console.log('decryptHybridPayload', encryptedKey, data, iv, privateKeyPem)
-
     try {
         // Decrypt AES key using RSA-OAEP
         const aesKey = crypto.privateDecrypt(
@@ -53,13 +51,11 @@ function decryptHybridPayload({ encryptedKey, data, iv }) {
 
 async function decryptMiddleware(req, res, next) {
     try {
-        console.log("req.body in decryptMiddleware==>>", req.body);
         const publicKeyPem = req.body.publicKeyPem;
         if (!req.body.encryptedKey || !req.body.data || !req.body.iv) {
             return res.status(400).json({ error: "Missing encrypted payload" });
         }
         const decryptedData = decryptHybridPayload(req.body);
-        console.log("decryptedData ==>>>", JSON.stringify(decryptedData));
         req.publicKey = publicKeyPem;
         req.body = decryptedData;
         next();
