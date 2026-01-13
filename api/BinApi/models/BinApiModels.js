@@ -1,13 +1,26 @@
 const mongoose = require("mongoose");
 
-const RapidBinModel = mongoose.Schema({
-    bin : {
-        type:String
+const RapidBinModel = mongoose.Schema(
+  {
+    bin: {
+      type: String,
     },
-    response :{
-        type :Object
+    response: {
+      type: Object,
     },
-      createdTime: {
+    status: {
+      type: Number,
+    },
+    serviceResponse: {
+      type: Object,
+    },
+    serviceId: {
+      type: String,
+    },
+    serviceName: {
+      type: String,
+    },
+    createdTime: {
       type: String,
       default: Date.now,
     },
@@ -15,8 +28,8 @@ const RapidBinModel = mongoose.Schema({
       type: String,
       default: Date.now,
     },
+  },
+  { timestamps: true }
+);
 
-},{timestamps : true})
-
-
-module.exports = mongoose.model("binCardValidation",RapidBinModel);
+module.exports = mongoose.model("binCardValidation", RapidBinModel);

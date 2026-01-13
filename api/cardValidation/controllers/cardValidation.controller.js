@@ -1,6 +1,6 @@
 const cardValidationModel = require("../models/cardValidationModel");
 const { cardLogger } = require("../../Logger/logger");
-const { mapError } = require("../../../utlis/errorCodes");
+const { mapError, ERROR_CODES } = require("../../../utlis/errorCodes");
 const { verifyCreditCardNumber } = require("../../service/provider.rapid");
 const {
   encryptData,

@@ -2,7 +2,7 @@ const panverificationModel = require("../models/panverification.model");
 const panToAadhaarModel = require("../models/panToAadhaarModel");
 const axios = require("axios");
 require("dotenv").config();
-const {kycLogger} = require("../../Logger/logger");
+const { kycLogger } = require("../../Logger/logger");
 const {
   encryptData,
   decryptData,
@@ -47,14 +47,14 @@ exports.verifyPanNumber = async (req, res) => {
   });
 
   if (!panRateLimitResult.allowed) {
-  return res.status(429).json({
-    success: false,
-    message: panRateLimitResult.message,
-  });
-}
+    return res.status(429).json({
+      success: false,
+      message: panRateLimitResult.message,
+    });
+  }
 
   const tnId = genrateUniqueServiceId("PAN");
-  kycLogger.info("pan txn Id ===>>", tnId)
+  kycLogger.info("pan txn Id ===>>", tnId);
   await chargesToBeDebited(req.userClientId, "PAN", tnId);
 
   const encryptedPan = encryptData(capitalNumber);
@@ -148,7 +148,9 @@ exports.verifyPanNumber = async (req, res) => {
         };
 
         await panverificationModel.create(storingData);
-        kycLogger.info("InValid response stored successfully and sent to client");
+        kycLogger.info(
+          "InValid response stored successfully and sent to client"
+        );
 
         const invalidResponse = {
           PAN: panNumber,
@@ -164,8 +166,8 @@ exports.verifyPanNumber = async (req, res) => {
       }
     } else {
       return res.json({
-        message: "some thing went wrong"
-      })
+        message: "some thing went wrong",
+      });
     }
   } catch (error) {
     console.log("error in verifyPanNumber ===>>>", error);
@@ -181,9 +183,12 @@ exports.verifyPanToAadhaar = async (req, res) => {
   if (!isValid) return;
 
   console.log("All inputs are valid, continue processing...");
-
+  
+  const tnId = genrateUniqueServiceId("PAN");
+  kycLogger.info("pan txn Id ===>>", tnId);
+  await chargesToBeDebited(req.userClientId, "PAN", tnId);
   const encryptedPan = encryptData(panNumber);
-
+  
   const existingPanNumber = await panToAadhaarModel.findOne({
     panNumber: encryptedPan,
   });

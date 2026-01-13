@@ -14,9 +14,9 @@ const ID_RULES = {
     regex: /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/,
     displayName: "CIN",
   },
-    bin: {
+  bin: {
     length: 6,
-    regex: /^\d{6,8}$/,
+    regex: /^\d{6}$/,
     displayName: "Bank Identification Number (BIN)",
   },
   gstin: {
@@ -30,7 +30,7 @@ const ID_RULES = {
     regex: /^\d+$/,
     displayName: "Bank Account Number",
   },
-    firstName: {
+  firstName: {
     min: 2,
     max: 50,
     regex: /^[A-Za-z\s]+$/,
