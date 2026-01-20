@@ -123,7 +123,7 @@ const GSTApiCall = async (data, service) => {
         case "ZOOP":
             returnedObj = {
                 gstinNumber: obj?.result?.gstin,
-                business_constitution: obj?.business_constitution,
+                business_constitution: obj?.result?.business_constitution,
                 central_jurisdiction: obj?.central_jurisdiction,
                 gstin: obj?.gstin,
                 companyName: obj?.result?.legal_name,

@@ -14,7 +14,7 @@ const registerationVerify = async (req, res, next) => {
   console.log(req.body)
 
   if (!email || !mobileNumber || !panNumber || !panName || !IPIN) {
-    logger.info(`All Fields Should Be Filled`)
+    // logger.info(`All Fields Should Be Filled`)
     let errorMessage = {
       message: "Email , MobileNumber, panNumber & panName Fields are mandatory 😁",
       statusCode: 400,
@@ -32,7 +32,7 @@ const registerationVerify = async (req, res, next) => {
       ]
     });
     if (userWithMobileNumberOrEmail) {
-      logger.info(`User with this mobile number or email already exists 😒`)
+      // logger.info(`User with this mobile number or email already exists 😒`)
       let errorMessage = {
         message: "User with this mobile number or email already exists 😒",
         statusCode: 401,

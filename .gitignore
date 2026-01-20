@@ -12,6 +12,7 @@ logs/
 
 *.pem
 keys/
+.tldr
 
 
 node_modules

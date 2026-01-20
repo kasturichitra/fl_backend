@@ -26,7 +26,6 @@ const panAadhaarDetails = new mongoose.Schema(
     },
     userName: {
       type: String,
-      required: false,
     },
     createdTime: {
       type: String,

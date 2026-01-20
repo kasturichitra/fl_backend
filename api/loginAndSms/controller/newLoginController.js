@@ -108,7 +108,7 @@ const handleOTPSend = async (mobileNumber, res, next) => {
             { new: true, upsert: true } // Creates a new document if none exists
         );
 
-        logger.info("existing otp user==>>>", existingUser)
+        // logger.info("existing otp user==>>>", existingUser)
 
         res.status(201).json({
             message: `OTP sent to ${mobileNumber}`,
