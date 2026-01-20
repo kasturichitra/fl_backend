@@ -5,6 +5,9 @@ const Gstin_details = new mongoose.Schema({
     type: String,
     required: true
   },
+  satus:{
+    type:Number
+  },
   result: { type: Object },
   message: { type: String },
   responseOfService: { type: Object },

@@ -4,7 +4,7 @@ const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 const handleValidation = require("../../../utlis/lengthCheck");
 const { udyamActiveServiceResponse } = require("../../GlobalApiserviceResponse/UdyamServiceResponse");
-const {companyLogger} = require("../../Logger/logger");
+// const { companyLogger } = require("../../Logger/logger");
 const { verifyUdhyamInvincible } = require("../../service/provider.invincible");
 const {
   verifyUdhyamTruthScreen,
@@ -14,15 +14,15 @@ const {
 } = require("../../service/serviceSelector");
 const udhyamVerify = require("../model/udyamModel");
 
+
 const udyamNumberVerfication = async (req, res, next) => {
   const { udyamNumber } = req.body;
-  const data = req.body;
 
   console.log("udyamNumber ==>", udyamNumber);
-  companyLogger.info("udyamNumber from request ===>", udyamNumber);
+  // companyLogger.info("udyamNumber from request ===>", udyamNumber);
 
-  // const isValid = handleValidation("udyam", udyamNumber, res);
-  // if (!isValid) return;
+  const isValid = handleValidation("udyam", udyamNumber, res);
+  if (!isValid) return;
 
   const encryptedUdhyam = encryptData(udyamNumber);
   console.log("encryptedUdhyam ====>>>", encryptedUdhyam);
@@ -45,7 +45,6 @@ const udyamNumberVerfication = async (req, res, next) => {
   }
 
   const service = await selectService("UDYAM");
-
   console.log("----active service for pan Verify is ----", service);
 
   try {
@@ -53,10 +52,10 @@ const udyamNumberVerfication = async (req, res, next) => {
     console.log(
       `response from active service for udhyam ${JSON.stringify(response)}`
     );
-    logger.info(
-      `response from active service for udhyam ${service.serviceFor
-      } ${JSON.stringify(response)}`
-    );
+    // logger.info(
+    //   `response from active service for udhyam ${service.serviceFor
+    //   } ${JSON.stringify(response)}`
+    // );
     if (response?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = {
         ...response?.result,
@@ -77,7 +76,7 @@ const udyamNumberVerfication = async (req, res, next) => {
         { $setOnInsert: storingData },
         { upsert: true, new: true }
       );
-      return res.status(200).json(createApiResponse(200,existingOrNew.response,'Valid'))
+      return res.status(200).json(createApiResponse(200, existingOrNew.response, 'Valid'))
     } else {
       const InValidData = {
         response: {},
@@ -96,17 +95,17 @@ const udyamNumberVerfication = async (req, res, next) => {
 
       // return res.status(404).json({
       //   message: "InValid",
-        // data: {
-        //   ...findingInValidResponses("udyam"),
-        //   udyam: udyamNumber,
-        // },
+      // data: {
+      //   ...findingInValidResponses("udyam"),
+      //   udyam: udyamNumber,
+      // },
       //   success: false,
       // });
 
-      return res.status(404).json(createApiResponse(404,{
-          ...findingInValidResponses("udyam"),
-          udyam: udyamNumber,
-        },'InValid'))
+      return res.status(404).json(createApiResponse(404, {
+        ...findingInValidResponses("udyam"),
+        udyam: udyamNumber,
+      }, 'InValid'))
     }
 
   } catch (error) {
