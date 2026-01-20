@@ -1,7 +1,5 @@
 const express = require("express")
-// const {loginDetails , verifyOtp, getUser} = require("../controller/loginController");
 const {loginDetails , verifyOtp, getUser} = require("../controller/newLoginController");
-const checkToken = require("../../../middleware/jwt.middleware");
 
 const loginRouter = express.Router()
 

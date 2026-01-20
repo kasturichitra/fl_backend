@@ -1,10 +1,7 @@
 const mongoose = require("mongoose")
 
 const testingApiKeys = new mongoose.Schema({
-    MerchantId:{
-        type:String
-    },
-    token:{
+    clientId:{
         type:String
     },
     client_id:{
@@ -12,9 +9,6 @@ const testingApiKeys = new mongoose.Schema({
     },
     secret_key:{
         type:String
-    },
-    limit:{
-        type:Number
     },
     createdTime:{
         type:String

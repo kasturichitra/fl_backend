@@ -4,18 +4,16 @@ const liveModal = require("../api/live_api_keys/models/liveKeys.model");
 const checkKeys = async (req, res, next) => {
   const client = req.headers["client_id"];
   const secret = req.headers["secret_key"];
-  const MerchantId = req.merchantId;
 
   console.log(
     "=====>>>>Merchant id and client and secret",
-    MerchantId,
     client,
     secret
   );
 
   if (!client || !secret) {
     let errorMessage = {
-      message: "Access denied. Client or Secret not provided.",
+      message: "Access denied. Client or Secret are not provided.",
       statusCode: 400,
     };
     return next(errorMessage);
@@ -25,18 +23,16 @@ const checkKeys = async (req, res, next) => {
     const existingKeys = await testingKeysModel.find({
       client_id: client,
       secret_key: secret,
-      MerchantId: MerchantId,
     });
     const existingLiveKeys = await liveModal.find({
       client_id: client,
       secret_key: secret,
-      MerchantId: MerchantId,
     });
 
     if (existingKeys?.length == 1 || existingLiveKeys?.length == 1) {
+      console.log("existingKeys found =====>>>",existingKeys?.length);
       req.userClientId =
         existingLiveKeys[0]?.MerchantId || existingKeys[0]?.MerchantId;
-      console.log(existingKeys?.length);
       next();
     } else {
       let errorMessage = {

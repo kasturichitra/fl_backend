@@ -31,16 +31,11 @@ function generationApiSalt(name) {
 const generateApiKeys = async (req, res, next) => {
   const {MerchatID} = req.body;
   console.log('merchant ID',MerchatID)
-  const existingDetails = await registerationModel.findOne({
-    merchantId: MerchatID,
-  });
-  const existingName = existingDetails?.name;
-  console.log('Existing Name ===>',existingDetails)
 
   try {
     console.log("try block");
-    const testing_Api_key = generatingApiKey(existingName);
-    const testing_Api_salt = generationApiSalt(existingName);
+    const testing_Api_key = generatingApiKey();
+    const testing_Api_salt = generationApiSalt();
 
     console.log(
       "========>>>>testing key and test salt key",
@@ -58,7 +53,7 @@ const generateApiKeys = async (req, res, next) => {
       existingKeysForServiceLength
     );
 
-    if (existingKeysForServiceLength == 3) {
+    if (existingKeysForServiceLength == 7) {
       let errorMessage = {
         message: "Your Key Limit Reached You can not Generate another one 😒!",
         statusCode: 400,

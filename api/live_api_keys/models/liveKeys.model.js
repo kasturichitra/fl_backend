@@ -1,10 +1,7 @@
 const mongoose = require("mongoose")
 
 const LiveKeys = new mongoose.Schema({
-    MerchantId:{
-        type:String
-    },
-    token:{
+    clientId:{
         type:String
     },
     client_id:{
