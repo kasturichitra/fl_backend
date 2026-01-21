@@ -10,6 +10,9 @@ const testingApiKeys = new mongoose.Schema({
     secret_key:{
         type:String
     },
+    token:{
+        type:String
+    },
     createdTime:{
         type:String
     },

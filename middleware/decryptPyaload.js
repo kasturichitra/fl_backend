@@ -1,6 +1,7 @@
 const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
+const { commonLogger } = require("../api/Logger/logger");
 
 // Load private key (PKCS#8)
 const privateKeyPem = fs.readFileSync(
@@ -8,6 +9,11 @@ const privateKeyPem = fs.readFileSync(
     "utf8"
 );
 
+/**
+ * Decrypts a hybrid encrypted payload (RSA encrypted AES key + AES-GCM encrypted data).
+ * @param {Object} payload - The encrypted payload containing encryptedKey, data, and iv.
+ * @returns {Object} - The decrypted JSON object.
+ */
 function decryptHybridPayload({ encryptedKey, data, iv }) {
 
     try {
@@ -44,73 +50,112 @@ function decryptHybridPayload({ encryptedKey, data, iv }) {
 
         return JSON.parse(decrypted.toString());
     } catch (err) {
-        console.error("Error while decrypting payload:", err);
+        commonLogger.error(`Error while decrypting payload: ${err.message}`);
         throw err;
     }
 }
 
+/**
+ * Middleware to intercept and decrypt incoming requests.
+ */
 async function decryptMiddleware(req, res, next) {
     try {
         const publicKeyPem = req.body.publicKeyPem;
+
+        // Validation: Check for required encryption fields
         if (!req.body.encryptedKey || !req.body.data || !req.body.iv) {
-            return res.status(400).json({ error: "Missing encrypted payload" });
+            commonLogger.warn("Missing encrypted payload fields in request.");
+            return res.status(400).json({
+                error: "Missing encrypted payload",
+                success: false
+            });
         }
+
+        commonLogger.info("Attempting to decrypt request payload...");
         const decryptedData = decryptHybridPayload(req.body);
+
+        // Attach public key and decrypted body for downstream use
         req.publicKey = publicKeyPem;
         req.body = decryptedData;
+
+        commonLogger.info("Request payload decrypted successfully.");
         next();
     } catch (error) {
-        console.error(":x:Error occured while decrypting payload:", error);
-        res.status(500).json({ error: "Internal server error" });
+        commonLogger.error(`Error occurred while decrypting payload: ${error.message}`);
+        res.status(500).json({
+            error: "Internal server error during decryption",
+            success: false
+        });
     }
 }
 
+/**
+ * Middleware to intercept response.json and encrypt the outgoing body.
+ */
 async function enceryptMiddleware(req, res, next) {
     try {
-        console.log("req.body in enceryptMiddleware ==>>",req.publicKey);
         const publicKey = req.publicKey;
+        // Bind original json method to use later
         const oldJson = res.json.bind(res);
-        console.log("req.body in enceryptMiddleware ==>>", oldJson,publicKey);
+
+        // Override res.json to handle encryption automatically
         res.json = function (data) {
-            console.log('Encerypt Middleware is called 1 ===>', data);
+            // commonLogger.info(`Encrypt Middleware intercepted response data: ${JSON.stringify(data)}`); // Optional verbose log
             try {
+                if (!publicKey) {
+                    commonLogger.warn("No public key found for response encryption. Sending unencrypted response.");
+                    return oldJson(data);
+                }
+
+                commonLogger.info("Encrypting response payload...");
                 const encrypted = encryptForClient(data, publicKey);
-                console.log('Encerypt Middleware is called 2 ===>', encrypted);
-                // Always send encrypted payload
+
+                // Return encrypted payload structure
                 return oldJson({
                     encrypted: true,
                     payload: encrypted,
+                    success: true // injected success flag for consistency
                 });
             } catch (err) {
-                console.error("Encryption error:", err);
+                commonLogger.error(`Encryption error: ${err.message}`);
                 return oldJson({
                     encrypted: false,
                     error: "Encryption failed",
+                    success: false
                 });
             }
         };
         next();
 
     } catch (error) {
-        console.error(":x:Error occured while decrypting payload:", error);
-        res.status(500).json({ error: "Internal server error" });
+        commonLogger.error(`Error in enceryptMiddleware setup: ${error.message}`);
+        res.status(500).json({
+            error: "Internal server error during encryption setup",
+            success: false
+        });
     }
 }
 
+/**
+ * Encrypts a response object for the client using their Public Key.
+ * @param {Object} responseObj - The data to encrypt.
+ * @param {String} clientPublicKeyPem - The client's public RSA key.
+ * @returns {Object} - The encrypted payload.
+ */
 function encryptForClient(responseObj, clientPublicKeyPem) {
-    console.log('encryptForClient is called ===>1',responseObj, clientPublicKeyPem)
     const json = JSON.stringify(responseObj);
 
-    // AES key
+    // Generate random AES key and IV
     const aesKey = crypto.randomBytes(32);
     const iv = crypto.randomBytes(12);
+
+    // Encrypt data with AES-GCM
     const cipher = crypto.createCipheriv("aes-256-gcm", aesKey, iv);
     let encrypted = cipher.update(json, "utf8", "base64");
     encrypted += cipher.final("base64");
     const authTag = cipher.getAuthTag().toString("base64");
-    // Encrypt AES key using client's public RSA key
-    console.log('encryptForClient is called ===>2',authTag)
 
+    // Encrypt AES key using client's public RSA key
     const encryptedAesKey = crypto.publicEncrypt(
         {
             key: clientPublicKeyPem,
@@ -119,7 +164,7 @@ function encryptForClient(responseObj, clientPublicKeyPem) {
         },
         aesKey
     ).toString("base64");
-    console.log('encryptedAesKey 23 ====>',encryptedAesKey)
+
     return {
         encryptedKey: encryptedAesKey, // RSA encrypted AES key
         data: encrypted,               // AES ciphertext

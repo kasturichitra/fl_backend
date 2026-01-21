@@ -1,7 +1,7 @@
 const validateMerchant = async (req, res, next) => {
 
   const check = req.token
-  console.log(req.tokenData , "LJDJVDSJVJAV")
+  console.log(req.tokenData)
 
   try {
     const merchant = await loginAndSms.findOne({ token: check });

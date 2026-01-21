@@ -2,8 +2,8 @@ const registeration = require("../../registeration/model/registerationModel");
 
 
 const FetchUserDetails = async (req,res)=>{
-    const {mobileNumber} = req.tokenData;
-    console.log('Fetch User Details ====>',req.tokenData);
+    const {mobileNumber} = req.body;
+    console.log('Fetch User Details ====>',req.body);
     try{
         const IsMerchant = await registeration.findOne({mobileNumber});
         console.log('Find merchent Details by token ===>', IsMerchant?.name)

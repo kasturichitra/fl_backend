@@ -8,19 +8,13 @@ const checkWhitelist = async (req, res, next) => {
         if (ip === "::1") ip = "127.0.0.1"; // Convert localhost IPv6
 
         console.log("Request IP:", ip);
+        const isWhitelisted = await Whitelistapi.findOne({
+            IP: { $elemMatch: { ipAddress: ip, Active: true } }
+        });
 
-        const merchantId = req.merchantId;
-        if (!merchantId) {
-            return res.status(400).json({ message: "Merchant ID is missing." });
+        if (!isWhitelisted) {
+            return res.status(403).json({ message: "Access denied. Your IP is not whitelisted." });
         }
-        // const merchant = await Whitelistapi.findOne({
-        //     merchantId,
-        //     IP: { $elemMatch: { ipAddress: ip } }
-        // });
-
-        // if (!merchant) {
-        //     return res.status(403).json({ message: "Access denied. Your IP is not whitelisted." });
-        // }
         next();
     } catch (error) {
         console.error("Error in checkWhitelist middleware:", error);

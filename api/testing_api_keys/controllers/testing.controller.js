@@ -1,7 +1,9 @@
 const testingModel = require("../models/testing.model");
 const registerationModel = require("../../registeration/model/registerationModel");
-const {Readable} = require("stream");
+const { Readable } = require("stream");
 const XLSX = require("xlsx");
+const jwt = require("jsonwebtoken");
+const { commonLogger } = require("../../Logger/logger");
 
 function generatingApiKey(name) {
   const hashcode = Math.floor(100000000 + Math.random() * 900000000).toString();
@@ -9,12 +11,9 @@ function generatingApiKey(name) {
   const timestamp = currentDateTime.getTime();
   const firstWord = timestamp.toString().split("").reverse().join("");
   const secondWord = "test"
-  const lastWord = name.substring(0, 2);
+  const lastWord = name ? name.substring(0, 2) : "XX";
 
   const apiKey = `${firstWord}_${secondWord}_${hashcode}${lastWord}`;
-
-  console.log("=====>>>>apiKey", apiKey);
-
   return apiKey;
 }
 
@@ -24,140 +23,157 @@ function generationApiSalt(name) {
   const timestamp = currentDateTime.getTime();
   const firstWord = timestamp.toString().split("").reverse().join("");
   const secondWord = timestamp.toString();
-  const lastWord = name.substring(0, 2);
+  const lastWord = name ? name.substring(0, 2) : "XX";
 
   const apiSaltKey = `${hashcode}${firstWord}${secondWord}${lastWord}`;
-
-  console.log(apiSaltKey, "======>>>>apiSaltKey");
-
   return apiSaltKey;
 }
 
 const generateApiKeys = async (req, res, next) => {
-  const {clientId} = req.body;
+  const { clientId } = req.body;
+
+  if (!clientId) {
+    commonLogger.error("ClientId not provided in generateApiKeys");
+    return res.status(400).json({
+      message: "ClientId is required",
+      statusCode: 400,
+      success: false
+    });
+  }
 
   try {
-    console.log("try block");
-    const testing_Api_key = generatingApiKey();
-    const testing_Api_salt = generationApiSalt();
+    const existingKeysForService = await testingModel.find({ clientId });
 
-    console.log(
-      "========>>>>testing key and test salt key",
-      testing_Api_key,
-      testing_Api_salt
-    );
-
-    const existingKeysForService = await testingModel.find({
-      clientId,
-    });
-
-    const existingKeysForServiceLength = existingKeysForService?.length;
-    console.log(
-      "======>>>>existingKeysForServiceLength",
-      existingKeysForServiceLength
-    );
-
-    if (existingKeysForServiceLength == 7) {
-      let errorMessage = {
+    if (existingKeysForService?.length >= 7) {
+      commonLogger.warn(`Key limit reached for client: ${clientId}`);
+      return res.status(400).json({
         message: "Your Key Limit Reached You can not Generate another one 😒!",
         statusCode: 400,
-      };
-      return next(errorMessage);
-    } else {
-      const testDetails = await testingModel.create({
-        clientId,
-        client_id: testing_Api_key,
-        secret_key: testing_Api_salt,
-        createdDate:new Date().toLocaleDateString(),
-        createdTime:new Date().toLocaleTimeString(),
+        success: false
       });
-      console.log("======>testDetails", testDetails);
     }
+
+    const testing_Api_key = generatingApiKey(clientId);
+    const testing_Api_salt = generationApiSalt(clientId);
+
+    // Default secret if env var is missing
+    const jwtSecret = process.env.JWT_SECRET || process.env.JWTSECRET || "default_secret";
+
+    const token = jwt.sign(
+      { client_id: testing_Api_key, type: 'TEST' },
+      jwtSecret,
+      { expiresIn: "365d" }
+    );
+
+    const testDetails = await testingModel.create({
+      clientId,
+      client_id: testing_Api_key,
+      secret_key: testing_Api_salt,
+      token,
+      createdDate: new Date().toLocaleDateString(),
+      createdTime: new Date().toLocaleTimeString(),
+    });
+
+    commonLogger.info(`Generated new Test API Key for Client: ${clientId}`);
 
     const testDetailsResponse = {
       client_id: testing_Api_key,
       secret_key: testing_Api_salt,
+      token,
     };
 
-    res
-      .status(200)
-      .json({ message: "Valid", success: true, response: testDetailsResponse });
+    res.status(200).json({
+      message: "Valid",
+      success: true,
+      response: testDetailsResponse
+    });
+
   } catch (error) {
-    console.log("catch block");
-    let errorMessage = {
+    commonLogger.error(`Error in generateApiKeys: ${error.message}`);
+    return res.status(500).json({
       message: "Something went wrong, try again after some time",
-      statusCode: 400,
-    };
-    return next(errorMessage);
+      statusCode: 500,
+      success: false
+    });
   }
 };
 
-const getAllApiKeys = async(req,res,next)=>{
-    const { MerchantId }=req.params;
-    console.log(MerchantId , "========>>>MerchantId")
+const getAllApiKeys = async (req, res, next) => {
+  const { MerchantId } = req.params;
 
-    try{
-      const existingKeys = await testingModel.find({MerchantId})
-      console.log(existingKeys?.length , "========>>>existingKeys")
-      if(existingKeys?.length > 0){
-        res.status(200).json({message:"Valid",success:true,response:existingKeys})
-      }else{
-        let errorMessage = {
-          message: "No Keys Found",
-          statusCode: 404,
-        };
-        return next(errorMessage);
-      }
+  if (!MerchantId) {
+    return res.status(400).json({
+      message: "MerchantId is required",
+      statusCode: 400,
+      success: false
+    });
+  }
 
-    }catch(error){
-      let errorMessage = {
-        message: "Something went wrong, try again after some time",
-        statusCode: 400,
-      };
-      return next(errorMessage);
+  try {
+    const existingKeys = await testingModel.find({clientId: MerchantId });
+
+    if (existingKeys?.length > 0) {
+      commonLogger.info(`Fetched ${existingKeys.length} keys for clientId: ${MerchantId}`);
+      res.status(200).json({ message: "Valid", success: true, response: existingKeys });
+    } else {
+      commonLogger.info(`No keys found for clientId: ${MerchantId}`);
+      return res.status(404).json({
+        message: "No Keys Found",
+        statusCode: 404,
+        success: false
+      });
     }
+
+  } catch (error) {
+    commonLogger.error(`Error in getAllApiKeys: ${error.message}`);
+    return res.status(500).json({
+      message: "Something went wrong, try again after some time",
+      statusCode: 500,
+      success: false
+    });
+  }
 }
 
 const removeOneApi = async (req, res, next) => {
-  const {id} = req.params;
-  console.log(id, "========>>>id")
+  const { id } = req.params;
+
   try {
-    const existingKey = await testingModel.findByIdAndDelete(id)
-    console.log(existingKey, "========>>>existingKey")
+    const existingKey = await testingModel.findByIdAndDelete(id);
+
     if (existingKey) {
+      commonLogger.info(`Deleted API Key ID: ${id}`);
       res.status(200).json({ message: "Valid", success: true, response: "Deleted Successfully" });
-        } else {
-          let errorMessage = {
-            message: "No Key Found",
-            statusCode: 404,
-            };
-            return next(errorMessage);
-            }
-            } catch (error) {
-              let errorMessage = {
-                message: "Something went wrong, try again after some time",
-                statusCode: 500,
-                };
-                return next(errorMessage);
-            
-          }
-     }
-            
+    } else {
+      commonLogger.warn(`Attempt to delete non-existent Key ID: ${id}`);
+      return res.status(404).json({
+        message: "No Key Found",
+        statusCode: 404,
+        success: false
+      });
+    }
+  } catch (error) {
+    commonLogger.error(`Error in removeOneApi: ${error.message}`);
+    return res.status(500).json({
+      message: "Something went wrong, try again after some time",
+      statusCode: 500,
+      success: false
+    });
+  }
+}
+
 const excelDownload = async (req, res, next) => {
   const { id } = req.body;
-  console.log(id, "========>>>id");
 
   if (!id) {
-    const errorMessage = {
+    return res.status(400).json({
       message: "Id was not provided",
       statusCode: 400,
-    };
-    return next(errorMessage);
+      success: false
+    });
   }
 
   try {
     const allTestingApiKeys = await testingModel.find({ _id: id });
-    console.log("allTestingApiKeys====>>>>", allTestingApiKeys);
 
     const wantedFields = allTestingApiKeys.map((each, index) => ({
       "S.NO": index + 1,
@@ -180,7 +196,6 @@ const excelDownload = async (req, res, next) => {
       throw new Error("Buffer is empty");
     }
 
-    // Set headers for file download
     res.setHeader("Content-Disposition", `attachment; filename="${fileName}"`);
     res.setHeader(
       "Content-Type",
@@ -188,17 +203,15 @@ const excelDownload = async (req, res, next) => {
     );
     res.setHeader("Content-Length", buffer.length);
 
-    // Send the buffer as the response
     res.end(buffer);
   } catch (error) {
-    console.error("Error exporting JSON to Excel:", error);
-    const errorMessage = {
+    commonLogger.error(`Error exporting JSON to Excel: ${error.message}`);
+    return res.status(500).json({
       message: "Something went wrong, try again after some time",
       statusCode: 500,
-    };
-    return next(errorMessage);
+      success: false
+    });
   }
 };
 
-
-module.exports = {generateApiKeys, getAllApiKeys, removeOneApi, excelDownload};
+module.exports = { generateApiKeys, getAllApiKeys, removeOneApi, excelDownload };
