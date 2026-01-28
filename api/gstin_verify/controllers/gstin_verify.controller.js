@@ -1,7 +1,7 @@
 const gstin_verifyModel = require("../models/gstin_verify.model");
 const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
-const { gstLogger } = require("../../Logger/logger");
+// const { gstLogger } = require("../../Logger/logger");
 const { GSTActiveServiceResponse } = require("../../GlobalApiserviceResponse/GstServiceResponse");
 const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 const handleValidation = require("../../../utlis/lengthCheck");
@@ -10,7 +10,7 @@ const checkingRateLimit = require("../../../utlis/checkingRateLimit");
 exports.gstinverify = async (req, res, next) => {
   const { gstinNumber } = req.body;
   console.log(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
-  gstLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
+  // gstLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
   const capitalNumber = gstinNumber?.toUpperCase();
   const isValid = handleValidation("gstin", capitalNumber, res);
@@ -52,7 +52,7 @@ exports.gstinverify = async (req, res, next) => {
     }
   } catch (error) {
     console.error("Error performing GSTIN verification:", error);
-    gstLogger.error(`Error performing GSTIN verification:${error}`);
+    // gstLogger.error(`Error performing GSTIN verification:${error}`);
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };

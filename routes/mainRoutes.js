@@ -36,7 +36,6 @@ const WalletRoutes = require("../api/Wallets/routes/Wallets.routes");
 const udyamRouter = require("../api/udhyamVerification/routes/udyamRoutes");
 const instantPayRouter = require("../api/instantPay/routes/InstantPayRoutes");
 const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoutes");
-const RechargeRoute = require("../api/Recharge/routes/reachargeRoutes");
 const merchantDetailsRoute = require("../api/merchant/routes/merchant.routes");
 const { keysApiroutes } = require("../api/Keysapi/keysapi.routes");
 
@@ -57,8 +56,8 @@ mainRouter.use("/merchant", merchantDetailsRoute);
 const protectedMiddleware = [
     // checkWhitelist,
     // checkKeys,
-    decryptMiddleware,
-    enceryptMiddleware
+    // decryptMiddleware,
+    // enceryptMiddleware
 ];
 
 mainRouter.use("/service", ...protectedMiddleware, serviceRouter);
@@ -83,7 +82,5 @@ mainRouter.use("/email", ...protectedMiddleware, Emailroutes);
 mainRouter.use("/testkey", ...protectedMiddleware, testingApiRouter);
 mainRouter.use("/livekey", ...protectedMiddleware, LiveApiKeysRouter);
 mainRouter.use("/IP", ...protectedMiddleware, ipRouter);
-mainRouter.use("/Recharge", ...protectedMiddleware, RechargeRoute);
-
 
 module.exports = mainRouter;

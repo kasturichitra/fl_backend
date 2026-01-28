@@ -253,6 +253,7 @@ const OldPlansApiCall = async (data, service) => {
 }
 
 const RechargeApiCall = async (data, service) => {
+    console.log('Recharge Api Call is Triggred ===>',data)
     const { account, actualAmount, spKey, transactionId, geoCode, customerNumber, pincode } = data;
 
     const ApiData = {

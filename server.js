@@ -1,12 +1,17 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const dotenv = require("dotenv");
+dotenv.config();
 const cors = require("cors");
 const helmet = require("helmet");
 const bodyParser = require("body-parser");
 
 const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController");
 const mainRoutes = require("./routes/mainRoutes");
+const { decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptPyaload");
+const checkWhitelist = require("./middleware/IPAddresswhitelist.middleware");
+const checkKeys = require("./middleware/keyValidation.middleware");
+const { sendEmail } = require("./api/Gmail/mailverification");
 
 
 const app = express();
@@ -15,7 +20,6 @@ app.use(helmet());
 app.use(helmet.crossOriginResourcePolicy({ policy: "cross-origin" }));
 
 app.use(cors());
-dotenv.config();
 const port = process.env.PORT;
 
 app.use(bodyParser.json({ limit: "50mb" }));
@@ -48,9 +52,22 @@ mongoose
     console.log("DB Connection Failed", err);
   });
 
+const protectedMiddleware = [
+  // checkWhitelist,
+  // checkKeys,
+  decryptMiddleware,
+  enceryptMiddleware
+];
 
 // Use Main Routes
-app.use("/", mainRoutes);
+app.use("/", ...protectedMiddleware, mainRoutes);
+app.post('/Sendmail', sendEmail)
+app.use("/inhouse", mainRoutes);
+
+// Test Server is Wroking
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'UP', timestamp: new Date(), message: 'form MicroService Health check' });
+});
 
 
 app.use(exeptionHandling.GlobalExceptionHandling);
