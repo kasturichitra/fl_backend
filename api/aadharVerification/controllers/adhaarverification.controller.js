@@ -1,20 +1,12 @@
 const adhaarverificationwithotpModel = require("../models/adhaarverificationwithotp.model");
 const adhaarverificattionwithoutoptModel = require("../models/adhaarverificationwithoutotp.model")
-const axios = require('axios');
-const panverificationModel = require("../../panVerification/models/panverification.model");
-const ServiceTrackingModelModel = require("../../ServiceTrackingModel/models/newServiceTrackingModel");
-const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel")
-const invincibleClientId = process.env.INVINCIBLE_CLIENT_ID
-const invincibleSecretKey = process.env.INVINCIBLE_SECRET_KEY
 const moment = require("moment")
 const {kycLogger} = require("../../Logger/logger");
 const { mapError, ERROR_CODES } = require("../../../utlis/errorCodes");
 const {
   callTruthScreenAPI,
-  generateTransactionId,
 } = require("../../truthScreen/callTruthScreen");
 const { encryptData, decryptData } = require("../../../utlis/EncryptAndDecrypt");
-const { verifyAadhaarMasked } = require("../../service/provider.invincible");
 const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 const { selectService } = require("../../service/serviceSelector");
 const { AadhaarActiveServiceResponse } = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
