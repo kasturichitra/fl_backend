@@ -34,11 +34,20 @@ database = {
   user: process.env.MONGODB_USERNAME,
   pass: process.env.MONGODB_PASSWORD,
 };
+uatdatabase = {
+  host: process.env.MONGODB_HOST_UAT,
+  port: process.env.MONGODB_PORT_UAT,
+  db: process.env.MONGODB_DB_UAT,
+  user: process.env.MONGODB_USERNAME_UAT,
+  pass: process.env.MONGODB_PASSWORD_UAT,
+};
 let mongoURI;
 if (process.env.NODE_ENV == "production") {
   mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
-} else {
-  mongoURI = process.env.MONGODBURL;
+}  else {
+  console.log("connected to uat data base ====>>>")
+    // mongoURI = process.env.MONGODBURL;
+  mongoURI = `mongodb://${uatdatabase.user}:${uatdatabase.pass}@${uatdatabase.host}:${uatdatabase.port}/${uatdatabase.db}?authSource=admin`;
 }
 
 mongoose
@@ -60,7 +69,7 @@ const protectedMiddleware = [
 ];
 
 // Use Main Routes
-app.use("/", ...protectedMiddleware, mainRoutes);
+app.use("/api", ...protectedMiddleware, mainRoutes);
 app.post('/Sendmail', sendEmail)
 app.use("/inhouse", mainRoutes);
 

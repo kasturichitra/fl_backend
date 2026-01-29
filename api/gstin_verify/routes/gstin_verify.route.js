@@ -6,4 +6,5 @@ const CINVerificationController=require("../controllers/IncorporationCertificatC
  
 gstRouter.post('/Gstinverify',gstin_verifyController.gstinverify);
 gstRouter.post('/CinNumberverify',CINVerificationController.handleCINVerification);
+gstRouter.post('/getpanwithgstin',gstin_verifyController.handleGST_INtoPANDetails);
 module.exports = gstRouter;
