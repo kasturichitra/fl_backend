@@ -27,19 +27,26 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-database = {
+// database = {
+//   host: process.env.MONGODB_HOST_UAT,
+//   port: process.env.MONGODB_PORT_UAT,
+//   db: process.env.MONGODB_DB_UAT,
+//   user: process.env.MONGODB_USERNAME_UAT,
+//   pass: process.env.MONGODB_PASSWORD_UAT,
+// };
+uatdatabase = {
   host: process.env.MONGODB_HOST_UAT,
   port: process.env.MONGODB_PORT_UAT,
   db: process.env.MONGODB_DB_UAT,
   user: process.env.MONGODB_USERNAME_UAT,
   pass: process.env.MONGODB_PASSWORD_UAT,
 };
-
 let mongoURI;
 if (process.env.NODE_ENV == "production") {
   mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
-} else {
-  mongoURI = process.env.MONGODBURL;
+}  else {
+  mongoURI = `mongodb://${uatdatabase.user}:${uatdatabase.pass}@${uatdatabase.host}:${uatdatabase.port}/${uatdatabase.db}?authSource=admin`;
+  console.log("connected to uat data base ====>>>")
 }
 
 mongoose
@@ -63,6 +70,11 @@ app.use("/kyc/api/v1/ApiModuels", keysApiroutes);
 // Use Main Routes
 app.use("/kyc/api/v1", mainRoutes);
 app.use("/kyc/api/v1/inhouse", mainRoutes);
+
+// For Testing
+app.use("/kyc/api/v1/test", async(req,res)=>{
+  res.send("Hello World");
+});
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

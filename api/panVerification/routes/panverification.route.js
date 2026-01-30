@@ -5,5 +5,6 @@ const panverificationController = require('../controllers/panverification.contro
 
 panRouter.post('/verify', panverificationController.verifyPanNumber);
 panRouter.post('/verify_to_aadhaar', panverificationController.verifyPanToAadhaar);
+panRouter.post('/getgstwithpan', panverificationController.verifyPantoGst_InNumber);
 
 module.exports = panRouter;
