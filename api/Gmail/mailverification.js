@@ -5,8 +5,6 @@ const { createApiResponse } = require("../../utlis/ApiResponseHandler");
 // Create a transporter using Ethereal test credentials.
 // For production, replace with your actual SMTP server details.
 
-// userEmail=vishnupatel@ntar
-// emailPasskey=hxtq zvcm wbuu mlsw
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {

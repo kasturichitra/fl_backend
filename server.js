@@ -11,7 +11,7 @@ const mainRoutes = require("./routes/mainRoutes");
 const { decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptPyaload");
 const checkWhitelist = require("./middleware/IPAddresswhitelist.middleware");
 const checkKeys = require("./middleware/keyValidation.middleware");
-const { sendEmail } = require("./api/Gmail/mailverification");
+const { keysApiroutes } = require("./api/Keysapi/keysapi.routes");
 
 
 const app = express();
@@ -28,12 +28,13 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
 database = {
-  host: process.env.MONGODB_HOST,
-  port: process.env.MONGODB_PORT,
-  db: process.env.MONGODB_DB,
-  user: process.env.MONGODB_USERNAME,
-  pass: process.env.MONGODB_PASSWORD,
+  host: process.env.MONGODB_HOST_UAT,
+  port: process.env.MONGODB_PORT_UAT,
+  db: process.env.MONGODB_DB_UAT,
+  user: process.env.MONGODB_USERNAME_UAT,
+  pass: process.env.MONGODB_PASSWORD_UAT,
 };
+
 let mongoURI;
 if (process.env.NODE_ENV == "production") {
   mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
@@ -52,23 +53,16 @@ mongoose
     console.log("DB Connection Failed", err);
   });
 
-const protectedMiddleware = [
-  // checkWhitelist,
-  // checkKeys,
-  decryptMiddleware,
-  enceryptMiddleware
-];
+// Middleware definitions removed - moved to local scopes or mainRoutes
+
+
+// ================== Public/Open Routes ==================
+// These routes do NOT need encryption, key validation, or whitelisting
+app.use("/kyc/api/v1/ApiModuels", keysApiroutes);
 
 // Use Main Routes
-app.use("/", ...protectedMiddleware, mainRoutes);
-app.post('/Sendmail', sendEmail)
-app.use("/inhouse", mainRoutes);
-
-// Test Server is Wroking
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'UP', timestamp: new Date(), message: 'form MicroService Health check' });
-});
-
+app.use("/kyc/api/v1", mainRoutes);
+app.use("/kyc/api/v1/inhouse", mainRoutes);
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 
