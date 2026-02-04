@@ -2,6 +2,7 @@ const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
 const udyamActiveServiceResponse = async (data, services, index = 0) => {
+    console.log('udyamActiveServiceResponse called');
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -14,7 +15,7 @@ const udyamActiveServiceResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[udyamActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await udyamApiCall(data, serviceName, 0);
@@ -23,11 +24,11 @@ const udyamActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[udyamActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return udyamActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[udyamActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return udyamActiveServiceResponse(data, services, index + 1);
     }
 };
@@ -73,12 +74,12 @@ const udyamApiCall = async (data, service) => {
             { headers: config.header }
         );
     } catch (error) {
-        console.log('error Response===>', error)
+        console.log(`[udyamApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null }; // fallback trigger
     }
 
     const obj = ApiResponse.data;
-    console.log('obj ==>', obj)
+    console.log(`[udyamApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
     let returnedObj = {};
 
@@ -146,7 +147,7 @@ const udyamApiCall = async (data, service) => {
             break;
         case "TRUTHSCREEN":
             returnedObj = {
-                udyam: udyamNumber,
+                udyam: data,
                 "Date of Commencement of Production/Business":
                     obj?.udyamData["Date of Commencement of Production/Business"],
                 "Date of Incorporation": obj?.udyamData["Date of Incorporation"],

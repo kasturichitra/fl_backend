@@ -27,26 +27,26 @@ const verifyFullCardNumber = async (req, res, next) => {
 
   console.log("All inputs are valid, continue processing...");
 
-  //  const identifierHash = hashIdentifiers({
-  //     creditCardNumber,
-  //   });
+  const identifierHash = hashIdentifiers({
+    creditCardNumber,
+  });
 
-  //   const fullCardRateLimitResult = await checkingRateLimit({
-  //     identifiers: { identifierHash },
-  //     service: "FULLCARDVERIFY",
-  //     clientId: req.userClientId,
-  //   });
+  const fullCardRateLimitResult = await checkingRateLimit({
+    identifiers: { identifierHash },
+    service: "FULLCARDVERIFY",
+    clientId: req.userClientId,
+  });
 
-  //   if (!fullCardRateLimitResult.allowed) {
-  //   return res.status(429).json({
-  //     success: false,
-  //     message: fullCardRateLimitResult.message,
-  //   });
-  // }
+  if (!fullCardRateLimitResult.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: fullCardRateLimitResult.message,
+    });
+  }
 
-  //   const tnId = genrateUniqueServiceId("FULLCARDVERIFY");
-  //   cardLogger.info("full card verify txn Id ===>>", tnId)
-  //   await chargesToBeDebited(req.userClientId, "FULLCARDVERIFY", tnId);
+  const tnId = genrateUniqueServiceId("FULLCARDVERIFY");
+  cardLogger.info("full card verify txn Id ===>>", tnId)
+  await chargesToBeDebited(req.userClientId, "FULLCARDVERIFY", tnId);
 
   const encryptedCreditCardNumber = encryptData(creditCardNumber);
   console.log("encryptedCreditCardNumber ====>>>", encryptedCreditCardNumber);

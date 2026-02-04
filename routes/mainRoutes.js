@@ -26,6 +26,7 @@ const udyamRouter = require("../api/udhyamVerification/routes/udyamRoutes");
 const instantPayRouter = require("../api/instantPay/routes/InstantPayRoutes");
 const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoutes");
 const { sendEmail } = require("../api/Gmail/mailverification");
+const VoterIdRouter = require("../api/VoterId/voter.routes");
 
 // ================== Public/Utils Routes ==================
 mainRouter.get('/health', (req, res) => {
@@ -72,6 +73,7 @@ mainRouter.use("/name", ...conditionalMiddleware, nameRouter);
 mainRouter.use("/bin", ...conditionalMiddleware, binRouter);
 mainRouter.use("/card", ...conditionalMiddleware, fullCardRouter);
 mainRouter.use("/IP", ...conditionalMiddleware, ipRouter);
+// mainRouter.use("/voterId", ...conditionalMiddleware, VoterIdRouter);
 
 
 module.exports = mainRouter;

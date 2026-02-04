@@ -2,6 +2,7 @@ const axios = require("axios");
 const { findingInValidResponses } = require("../../utlis/InvalidResponses");
 
 const fullNumberServiceResponse = async (data, services, index = 0) => {
+  console.log('fullNumberServiceResponse called');
   if (index >= services.length) {
     return { success: false, message: "All services failed" };
   }
@@ -14,7 +15,7 @@ const fullNumberServiceResponse = async (data, services, index = 0) => {
   }
 
   const serviceName = newService.providerId || "";
-  console.log(`Trying service:`, newService);
+  console.log(`[fullNumberServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
   try {
     const res = await FullNumberApiCall(data, serviceName);
@@ -23,10 +24,10 @@ const fullNumberServiceResponse = async (data, services, index = 0) => {
       return res.data;
     }
 
-    console.log(`${serviceName} responded failure → trying next`);
+    console.log(`[fullNumberServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
     return fullNumberServiceResponse(data, services, index + 1);
   } catch (err) {
-    console.log(`Error from ${serviceName}:`, err.message);
+    console.log(`[fullNumberServiceResponse] Error from ${serviceName}:`, err.message);
     return fullNumberServiceResponse(data, services, index + 1);
   }
 };
@@ -77,24 +78,25 @@ const FullNumberApiCall = async (data, service) => {
       ApiResponse = await axios.get(urlWithCard, { headers: config.header });
     }
   } catch (error) {
-    console.log("API Error:", error);
-    if(service?.toLowerCase() == "invincible" && error.status == 404){
+    console.log(`[FullNumberApiCall] API Error in ${service}:`, error.message);
+    if (service?.toLowerCase() == "invincible" && error.status == 404) {
       return {
         success: false,
         data: {
           result: findingInValidResponses("fullCard"),
           message: "Invalid",
-          responseOfService: raw || {},
+          // raw is undefined here, using error object or empty object
+          responseOfService: error || {},
           service,
         },
       };
-    } else{
+    } else {
       throw error;
     }
   }
 
   const obj = ApiResponse?.data || ApiResponse;
-  console.log(`Response—${service}:`, obj);
+  console.log(`[FullNumberApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
   // ===============================
   //  Conditional invalid handling

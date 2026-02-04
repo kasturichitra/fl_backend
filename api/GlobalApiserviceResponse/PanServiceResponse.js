@@ -14,7 +14,7 @@ const PanActiveServiceResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[PanActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await PanApiCall(data, serviceName);
@@ -23,11 +23,11 @@ const PanActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[PanActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return PanActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[PanActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return PanActiveServiceResponse(data, services, index + 1);
     }
 };
@@ -99,6 +99,8 @@ const PanApiCall = async (data, service) => {
                 username: config.header.username,
                 password: config.header.token,
             });
+            console.log('[PanApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
+
         } else {
             ApiResponse = await axios.post(
                 config.url,
@@ -106,9 +108,9 @@ const PanApiCall = async (data, service) => {
                 { headers: config.header }
             );
         }
-
+        console.log(`[PanApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
     } catch (error) {
-        console.log("API Error:", error);
+        console.log(`[PanApiCall] API Error in ${service}:`, error.message);
         return { success: false };
     }
 

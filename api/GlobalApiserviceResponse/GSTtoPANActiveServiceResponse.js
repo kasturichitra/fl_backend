@@ -2,6 +2,7 @@ const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
 const GSTtoPANActiveServiceResponse = async (data, services, index = 0) => {
+    console.log('GSTtoPANActiveServiceResponse called');
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }

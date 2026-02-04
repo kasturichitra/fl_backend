@@ -2,6 +2,7 @@ const { generateTransactionId } = require("../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
 const IfscActiveServiceResponse = async (data, services, index = 0) => {
+  console.log('IfscActiveServiceResponse called');
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -14,7 +15,7 @@ const IfscActiveServiceResponse = async (data, services, index = 0) => {
   }
 
   const serviceName = newService.providerId || "";
-  console.log(`Trying service:`, newService);
+  console.log(`[IfscActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
   try {
     const res = await ifscApiCall(data, serviceName, 0);
@@ -23,10 +24,10 @@ const IfscActiveServiceResponse = async (data, services, index = 0) => {
       return res.data;
     }
 
-    console.log(`${serviceName} responded failure → trying next`);
+    console.log(`[IfscActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
     return IfscActiveServiceResponse(data, services, index + 1);
   } catch (err) {
-    console.log(`Error from ${serviceName}:`, err.message);
+    console.log(`[IfscActiveServiceResponse] Error from ${serviceName}:`, err.message);
     return IfscActiveServiceResponse(data, services, index + 1);
   }
 };
@@ -37,8 +38,8 @@ const ifscApiCall = async (data, service) => {
     RAPID: {
       url: `https://ifsc-lookup-api.p.rapidapi.com/`,
       header: {
-        "x-rapidapi-key": RapidApiKey,
-        "x-rapidapi-host": RapidApiBankHost,
+        "x-rapidapi-key": process.env.RAPID_API_KEY,
+        "x-rapidapi-host": process.env.RAPID_API_BANK_HOST,
       },
     },
   };
@@ -57,14 +58,14 @@ const ifscApiCall = async (data, service) => {
   try {
     const urlWithCard = `${config.url}${data}`;
     ApiResponse = await axios.get(urlWithCard, { headers: config.header });
-    console.log("Api response success ===>", ApiResponse.data);
+    console.log(`[ifscApiCall] ${service} API response success:`, JSON.stringify(ApiResponse.data));
   } catch (error) {
-    console.log("Api Response ==>", error);
+    console.log(`[ifscApiCall] API Error in ${service}:`, error.message);
     return { success: false, data: null }; // fallback trigger
   }
 
   const obj = ApiResponse.data;
-  console.log("obj ==>", obj);
+  console.log(`[ifscApiCall] ${service} Response Object:`, JSON.stringify(obj));
   // Format responses by provider
   let returnedObj = {};
 

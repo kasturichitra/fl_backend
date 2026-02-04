@@ -2,12 +2,12 @@
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
 const {
-  DOVE_SOFT_USER,
-  DOVE_SOFT_KEY,
-  DOVE_SOFT_API_URL,
-  DOVE_SOFT_ENTITYID,
-  DOVE_SOFT_TEMPID,
-  DOVE_SOFT_SENDERID,
+    DOVE_SOFT_USER,
+    DOVE_SOFT_KEY,
+    DOVE_SOFT_API_URL,
+    DOVE_SOFT_ENTITYID,
+    DOVE_SOFT_TEMPID,
+    DOVE_SOFT_SENDERID,
 } = process.env;
 
 const smsOtpActiveServiceResponse = async (data, services, index = 0) => {
@@ -18,12 +18,12 @@ const smsOtpActiveServiceResponse = async (data, services, index = 0) => {
     const newService = services?.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
-        console.log(`No service with priority ${index + 1}, trying next`);
+        console.log(`[smsOtpActiveServiceResponse] No service with priority ${index + 1}, trying next`);
         return smsOtpActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[smsOtpActiveServiceResponse] Trying service:`, newService);
 
     try {
         const res = await smsApiCall(data, serviceName);
@@ -32,18 +32,18 @@ const smsOtpActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[smsOtpActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return smsOtpActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[smsOtpActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return smsOtpActiveServiceResponse(data, services, index + 1);
     }
 };
 
 const smsApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
-    const {mobileNumber,message} = data
+    const { mobileNumber, message } = data
     const ApiData = {
         DOVESOFT: {
             url: `${DOVE_SOFT_API_URL}&user=${DOVE_SOFT_USER}&key=${DOVE_SOFT_KEY}&mobile=+91${mobileNumber}&message=${message}&senderid=${DOVE_SOFT_SENDERID}&accusage=1&entityid=${DOVE_SOFT_ENTITYID}&tempid=${DOVE_SOFT_TEMPID}`,
@@ -70,12 +70,12 @@ const smsApiCall = async (data, service) => {
         ApiResponse = await axios.get(
             config.url
         );
-        console.log('Sms Apicall is trigred ===>', ApiResponse)
+        console.log(`[smsApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[smsApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
-    const obj = ApiResponse?.data ;
+    const obj = ApiResponse?.data;
 
     return {
         success: true,

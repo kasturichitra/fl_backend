@@ -12,7 +12,7 @@ const { decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptP
 const checkWhitelist = require("./middleware/IPAddresswhitelist.middleware");
 const checkKeys = require("./middleware/keyValidation.middleware");
 const { keysApiroutes } = require("./api/Keysapi/keysapi.routes");
-
+const { callTruthScreenAPI } = require("./api/truthScreen/callTruthScreen");
 
 const app = express();
 
@@ -44,7 +44,7 @@ uatdatabase = {
 let mongoURI;
 if (process.env.NODE_ENV == "production") {
   mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
-}  else {
+} else {
   mongoURI = `mongodb://${uatdatabase.user}:${uatdatabase.pass}@${uatdatabase.host}:${uatdatabase.port}/${uatdatabase.db}?authSource=admin`;
   console.log("connected to uat data base ====>>>")
 }
@@ -72,9 +72,8 @@ app.use("/kyc/api/v1", mainRoutes);
 app.use("/kyc/api/v1/inhouse", mainRoutes);
 
 // For Testing
-app.use("/kyc/api/v1/test", async(req,res)=>{
-  res.send("Hello World");
-});
+const { TestTruthScreen } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
+app.post("/kyc/api/v1/test",TestTruthScreen);
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

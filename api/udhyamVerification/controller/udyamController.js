@@ -48,7 +48,7 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("----active service for pan Verify is ----", service);
 
   try {
-    let response = await udyamActiveServiceResponse(udyamNumber, service, 0);
+    let response = await udyamActiveServiceResponse(udyamNumber, service);
     console.log(
       `response from active service for udhyam ${JSON.stringify(response)}`
     );

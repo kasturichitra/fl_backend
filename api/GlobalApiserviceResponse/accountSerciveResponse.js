@@ -15,12 +15,12 @@ const accountActiveServiceResponse = async (data, services, index = 0) => {
     const newService = services?.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
-        console.log(`No service with priority ${index + 1}, trying next`);
+        console.log(`[accountActiveServiceResponse] No service with priority ${index + 1}, trying next`);
         return accountActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[accountActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await accountApiCall(data, serviceName);
@@ -29,7 +29,7 @@ const accountActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[accountActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return accountActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
@@ -105,7 +105,7 @@ const accountApiCall = async (data, service) => {
         },
         "TRUTHSCREEN": {
             BodyData: {
-                transID:tskId,
+                transID: tskId,
                 docType: "92",
                 beneAccNo: account_no,
                 ifsc: ifsc,
@@ -147,23 +147,23 @@ const accountApiCall = async (data, service) => {
         }
 
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[accountApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
     const obj = ApiResponse?.data || ApiResponse;
-    console.log("Account Response =>", obj);
+    console.log(`[accountApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
 
     // If truthscreen/others return invalid code
-    if (obj?.response_code === "101" ) {
+    if (obj?.response_code === "101") {
         return {
             success: false,
             data: {
                 result: {},
                 message: "Invalid",
                 responseOfService: obj,
-                service: "Invincible",
+                service: service,
             }
         };
     }
@@ -194,7 +194,7 @@ const accountApiCall = async (data, service) => {
             returnedObj = {
                 name: obj?.result.beneficiary_name || null,
                 status: obj?.result.verification_status || null,
-                success: zoopObj.success === true && zoopObj.response_code === "100",
+                success: obj.success === true && obj.response_code === "100",
                 message:
                     obj.response_message ||
                     obj?.result.transaction_remark ||
@@ -213,18 +213,18 @@ const accountApiCall = async (data, service) => {
                 name: ApiResponse?.msg.name || null,
                 status: ApiResponse?.msg.status || null,
                 success:
-                    (bankResponseFromTruthScreen.status === 1 &&
-                        msg.description?.toLowerCase().includes("success")) ||
+                    (ApiResponse?.status === 1 &&
+                        ApiResponse?.msg?.description?.toLowerCase().includes("success")) ||
                     false,
-                message: ApiResponse?.msg.description || "Transaction Successful",
+                message: ApiResponse?.msg?.description || "Transaction Successful",
                 account_no: account_no || null,
                 ifsc: ifsc || null,
             };
             break;
         case "CASHFREE":
             returnedObj = {
-                name: ApiResponse.name_at_bank || null,
-                status: ApiResponse.account_status || null,
+                name: obj.name_at_bank || null,
+                status: obj.account_status || null,
                 success: true,
                 message: "Transaction Successful",
                 account_no: account_no || null,
@@ -239,7 +239,7 @@ const accountApiCall = async (data, service) => {
             result: returnedObj,
             message: "Valid",
             responseOfService: obj,
-            service: "Invincible",
+            service: service,
         }
     };
 };

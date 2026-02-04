@@ -2,6 +2,7 @@ const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
 const PANtoGSTActiveServiceResponse = async (data, services, index = 0) => {
+    console.log('PANtoGSTActiveServiceResponse called');
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -14,7 +15,7 @@ const PANtoGSTActiveServiceResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[PANtoGSTActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await GSTApiCall(data, serviceName, 0);
@@ -23,11 +24,11 @@ const PANtoGSTActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[PANtoGSTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return PANtoGSTActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[PANtoGSTActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return PANtoGSTActiveServiceResponse(data, services, index + 1);
     }
 };
@@ -38,7 +39,7 @@ const GSTApiCall = async (data, service) => {
     const ApiData = {
         "TRUTHSCREEN": {
             BodyData: {
-                transID:tskId,
+                transID: tskId,
                 "docType": "47",
                 "docNumber": data
             },
@@ -69,12 +70,12 @@ const GSTApiCall = async (data, service) => {
             { headers: config.header }
         );
     } catch (error) {
-        console.log('error gst:',error)
+        console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null }; // fallback trigger
     }
 
     const obj = ApiResponse.data;
-    console.log('obj ==>', obj)
+    console.log(`[GSTApiCall] ${service} API Response Object:`, JSON.stringify(obj));
 
     let returnedObj = {};
 

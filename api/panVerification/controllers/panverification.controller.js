@@ -34,22 +34,22 @@ exports.verifyPanNumber = async (req, res) => {
     panNo: capitalNumber,
   });
 
-  const panRateLimitResult = await checkingRateLimit({
-    identifiers: { identifierHash },
-    service: "PAN",
-    clientId: req.userClientId,
-  });
+  // const panRateLimitResult = await checkingRateLimit({
+  //   identifiers: { identifierHash },
+  //   service: "PAN",
+  //   clientId: req.userClientId,
+  // });
 
-  if (!panRateLimitResult.allowed) {
-    return res.status(429).json({
-      success: false,
-      message: panRateLimitResult.message,
-    });
-  }
+  // if (!panRateLimitResult.allowed) {
+  //   return res.status(429).json({
+  //     success: false,
+  //     message: panRateLimitResult.message,
+  //   });
+  // }
 
   const tnId = genrateUniqueServiceId("PAN");
   kycLogger.info("pan txn Id ===>>", tnId);
-  await chargesToBeDebited(req.userClientId, "PAN", tnId);
+  // await chargesToBeDebited(req.userClientId, "PAN", tnId);
 
   const encryptedPan = encryptData(capitalNumber);
 
@@ -113,24 +113,24 @@ exports.verifyPanNumber = async (req, res) => {
 
       await panverificationModel.create(storingData);
       kycLogger.info(
-        "InValid response stored successfully and sent to client"
+        "Valid response stored successfully and sent to client"
       );
 
       return res.status(200).json(createApiResponse(200, response?.result, 'Valid'))
     } else {
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: "",
-        response: null,
-        status: 2,
-        serviceResponse: {},
-        serviceName: response?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
+      // const storingData = {
+      //   panNumber: encryptedPan,
+      //   userName: "",
+      //   response: null,
+      //   status: 2,
+      //   serviceResponse: {},
+      //   serviceName: response?.service,
+      //   createdDate: new Date().toLocaleDateString(),
+      //   createdTime: new Date().toLocaleTimeString(),
+      // };
 
-      await panverificationModel.create(storingData);
-      kycLogger.info("InValid response stored successfully and sent to client");
+      // await panverificationModel.create(storingData);
+      // kycLogger.info("InValid response stored successfully and sent to client");
 
       const invalidResponse = {
         PAN: panNumber,
@@ -138,7 +138,7 @@ exports.verifyPanNumber = async (req, res) => {
         PAN_Status: "",
         PAN_Holder_Type: "",
       };
-      return res.satus(404).json(createApiResponse(404, invalidResponse, 'Failed'));
+      return res.status(404).json(createApiResponse(404, invalidResponse, 'Failed'));
     }
 
   } catch (error) {
@@ -266,7 +266,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         PAN_Status: "",
         PAN_Holder_Type: "",
       };
-      return res.satus(404).json(createApiResponse(404, invalidResponse, 'Failed'));
+      return res.status(404).json(createApiResponse(404, invalidResponse, 'Failed'));
     }
 
   } catch (error) {
@@ -284,9 +284,9 @@ exports.verifyPanToAadhaar = async (req, res) => {
 
   console.log("All inputs are valid, continue processing...");
 
-  const tnId = genrateUniqueServiceId("PAN");
+  const tnId = await genrateUniqueServiceId("PAN");
   kycLogger.info("pan txn Id ===>>", tnId);
-  await chargesToBeDebited(req.userClientId, "PAN", tnId);
+  // await chargesToBeDebited(req.userClientId, "PAN", tnId);
   const encryptedPan = encryptData(panNumber);
 
   const existingPanNumber = await panToAadhaarModel.findOne({
@@ -324,9 +324,9 @@ exports.verifyPanToAadhaar = async (req, res) => {
       "Verify panto aadhaar number is response",
       JSON.stringify(response)
     );
-    if (response?.message?.toUpperCase() == "VALID") {
+    if(response?.message?.toUpperCase() == "VALID") {
       const encryptedPan = encryptData(response?.result?.panNumber);
-      const encryptedResponse = { ...response?.result, PAN: encryptedPan };
+      const encryptedResponse = { ...response?.result, panNumber: encryptedPan };
       const storingData = {
         panNumber: encryptedPan,
         response: encryptedResponse,
@@ -341,7 +341,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
       kycLogger.info("Valid response stored successfully and sent to client");
       return res.status(200).json(createApiResponse(200, response?.result, 'Valid'))
     } else {
-      return res.satus(404).json(createApiResponse(404, { PAN: panNumber }, 'Failed'));
+      return res.status(404).json(createApiResponse(404, { PAN: panNumber }, 'Failed'));
     }
   } catch (error) {
     console.log("error in verifyPanNumber ===>>>", error);

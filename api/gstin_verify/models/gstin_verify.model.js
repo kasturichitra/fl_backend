@@ -9,10 +9,10 @@ const Gstin_details = new mongoose.Schema(
     status: {
       type: Number,
     },
-    result: { type: Object },
+    response: { type: Object },
+    serviceResponse: { type: Object },
     message: { type: String },
-    responseOfService: { type: Object },
-    service: { type: String },
+    serviceName: { type: String },
   },
   {
     timestamps: true,

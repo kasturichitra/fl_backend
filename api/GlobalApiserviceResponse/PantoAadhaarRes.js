@@ -2,6 +2,7 @@ const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
 const PantoAadhaarActiveServiceResponse = async (data, services, index = 0) => {
+    console.log('PantoAadhaarActiveServiceResponse called');
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -14,7 +15,7 @@ const PantoAadhaarActiveServiceResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[PantoAadhaarActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await PantoAadhaarApiCall(data, serviceName, 0);
@@ -23,11 +24,11 @@ const PantoAadhaarActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[PantoAadhaarActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return PantoAadhaarActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[PantoAadhaarActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return PantoAadhaarActiveServiceResponse(data, services, index + 1);
     }
 };
@@ -64,14 +65,14 @@ const PantoAadhaarApiCall = async (data, service) => {
             config.BodyData,
             { headers: config.header }
         );
-        console.log('Api response success ===>', ApiResponse.data)
+        console.log(`[PantoAadhaarApiCall] ${service} API response success:`, JSON.stringify(ApiResponse.data));
     } catch (error) {
-        console.log('Api Response ==>',error)
+        console.log(`[PantoAadhaarApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null }; // fallback trigger
     }
 
     const obj = ApiResponse.data;
-    console.log('obj ==>',obj)
+    console.log(`[PantoAadhaarApiCall] ${service} Processed Object:`, JSON.stringify(obj));
     // Format responses by provider
     let returnedObj = {};
 
@@ -91,8 +92,7 @@ const PantoAadhaarApiCall = async (data, service) => {
         case "INVINCIBLE":
             returnedObj = {
                 panNumber: data,
-                aadhaarNumber: obj?.result?.aadhaar,
-                response: obj,
+                aadhaarNumber: obj?.result?.aadhaar
             };
             break;
     }

@@ -14,19 +14,19 @@ const AadhaarActiveServiceResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[AadhaarActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await AadhaarApiCall(data, serviceName);
-        console.log('Aadhaar Active Service response ', data, res)
+        console.log('[AadhaarActiveServiceResponse] Response:', JSON.stringify(res));
         if (res.code === 200) {
             return res;
         }
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[AadhaarActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return AadhaarActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[AadhaarActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return AadhaarActiveServiceResponse(data, services, index + 1);
     }
 };
@@ -67,12 +67,12 @@ const AadhaarApiCall = async (data, service) => {
             { headers: config.header }
         );
     } catch (error) {
-        console.log("API Error:", error);
+        console.log(`[AadhaarApiCall] API Error in ${service}:`, error.message);
         return { success: false };
     }
 
     const obj = ApiResponse?.data;
-    console.log(`Response—${service}:`, obj);
+    console.log(`[AadhaarApiCall] ${service} Response Object:`, JSON.stringify(obj));
     return obj;
 };
 

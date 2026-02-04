@@ -15,7 +15,7 @@ const CinActiveServiceResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[CinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await CinApiCall(data, serviceName);
@@ -24,24 +24,22 @@ const CinActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[CinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return CinActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[CinActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return CinActiveServiceResponse(data, services, index + 1);
     }
 };
 
-
-
 const CinApiCall = async (data, service) => {
-    console.log('CinApi Call is triggred ===>', data)
+    console.log('[CinApiCall] Triggered with data:', data);
     const tskId = generateTransactionId(12);
 
     const ApiData = {
         "INVINCIBLE": {
-            BodyData:{ CIN: data},
+            BodyData: { CIN: data },
             url: process.env.INVINCIBLE_CIN_URL,
             header: {
                 accept: "application/json",
@@ -91,12 +89,12 @@ const CinApiCall = async (data, service) => {
         }
 
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[CinApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
     const obj = ApiResponse?.data || ApiResponse;
-    console.log("CIN Response =>", obj);
+    console.log(`[CinApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
 
     // If truthscreen/others return invalid code
@@ -137,7 +135,7 @@ const CinApiCall = async (data, service) => {
             break;
     }
 
-    console.log('Cin apiCall is triggred ===>', returnedObj)
+    console.log('[CinApiCall] Returned Object:', JSON.stringify(returnedObj));
     return {
         success: true,
         data: {
@@ -149,7 +147,6 @@ const CinApiCall = async (data, service) => {
         }
     };
 };
-
 
 module.exports = {
     CinActiveServiceResponse

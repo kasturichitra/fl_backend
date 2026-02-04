@@ -3,7 +3,11 @@ const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/ca
 const crypto = require("crypto");
 const axios = require("axios");
 
+const EASEBUZZ_KEY = process.env.EASEBUZZ_KEY;
+const EASEBUZZ_SALT = process.env.EASEBUZZ_SALT;
+
 const accountPennyLessSerciveResponse = async (data, services, index = 0) => {
+    console.log('accountPennyLessSerciveResponse called');
     if (index >= services.length) {
         return { success: false, message: "All services failed" };
     }
@@ -16,7 +20,7 @@ const accountPennyLessSerciveResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[accountPennyLessSerciveResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await accountPennyLessApiCall(data, serviceName);
@@ -25,11 +29,11 @@ const accountPennyLessSerciveResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[accountPennyLessSerciveResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return accountPennyLessSerciveResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[accountPennyLessSerciveResponse] Error from ${serviceName}:`, err.message);
         return accountPennyLessSerciveResponse(data, services, index + 1);
     }
 };
@@ -58,7 +62,7 @@ const accountPennyLessApiCall = async (data, service) => {
         },
         "TRUTHSCREEN": {
             BodyData: {
-                transID:tskId,
+                transID: tskId,
                 docType: "92",
                 beneAccNo: account_no,
                 ifsc: ifsc,
@@ -100,23 +104,23 @@ const accountPennyLessApiCall = async (data, service) => {
         }
 
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[accountPennyLessApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
     const obj = ApiResponse?.data || ApiResponse;
-    console.log("Account Response =>", obj);
+    console.log(`[accountPennyLessApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
 
     // If truthscreen/others return invalid code
-    if (obj?.response_code === "101" ) {
+    if (obj?.response_code === "101") {
         return {
             success: false,
             data: {
                 result: {},
                 message: "Invalid",
                 responseOfService: obj,
-                service: "Invincible",
+                service: service,
             }
         };
     }
@@ -148,10 +152,10 @@ const accountPennyLessApiCall = async (data, service) => {
                 name: ApiResponse?.msg.name || null,
                 status: ApiResponse?.msg.status || null,
                 success:
-                    (bankResponseFromTruthScreen.status === 1 &&
-                        msg.description?.toLowerCase().includes("success")) ||
+                    (ApiResponse?.status === 1 &&
+                        ApiResponse?.msg?.description?.toLowerCase().includes("success")) ||
                     false,
-                message: ApiResponse?.msg.description || "Transaction Successful",
+                message: ApiResponse?.msg?.description || "Transaction Successful",
                 account_no: account_no || null,
                 ifsc: ifsc || null,
             };
@@ -164,7 +168,7 @@ const accountPennyLessApiCall = async (data, service) => {
             result: returnedObj,
             message: "Valid",
             responseOfService: obj,
-            service: "Invincible",
+            service: service,
         }
     };
 };

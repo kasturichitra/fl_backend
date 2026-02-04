@@ -1,6 +1,7 @@
 const axios = require("axios");
 
 const BinActiveServiceResponse = async (data, services, index = 0) => {
+  console.log('BinActiveServiceResponse called');
   if (index >= services.length) {
     return { success: false, message: "All services failed" };
   }
@@ -13,7 +14,7 @@ const BinActiveServiceResponse = async (data, services, index = 0) => {
   }
 
   const serviceName = newService.providerId || "";
-  console.log(`Trying service:`, newService);
+  console.log(`[BinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
   try {
     const res = await BinApiCall(data, serviceName);
@@ -22,10 +23,10 @@ const BinActiveServiceResponse = async (data, services, index = 0) => {
       return res.data;
     }
 
-    console.log(`${serviceName} responded failure → trying next`);
+    console.log(`[BinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
     return BinActiveServiceResponse(data, services, index + 1);
   } catch (err) {
-    console.log(`Error from ${serviceName}:`, err.message);
+    console.log(`[BinActiveServiceResponse] Error from ${serviceName}:`, err.message);
     return BinActiveServiceResponse(data, services, index + 1);
   }
 };
@@ -103,12 +104,12 @@ const BinApiCall = async (data, service) => {
       });
     }
   } catch (error) {
-    console.log("API Error:", error);
+    console.log(`[BinApiCall] API Error in ${service}:`, error.message);
     return { success: false };
   }
 
   const obj = ApiResponse?.data || ApiResponse;
-  console.log(`Response—${service}:`, obj);
+  console.log(`[BinApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
   // =======================================
   //      UNIFIED RESULT NORMALIZATION
@@ -120,54 +121,54 @@ const BinApiCall = async (data, service) => {
   // INSTANTPAY RESPONSE
   // ------------------------
   if (service === "INSTANTPAY") {
-  if (!obj?.success) {
-    return invalidResponse(service, obj);
-  }
+    if (!obj?.success) {
+      return invalidResponse(service, obj);
+    }
 
-  returnedObj = {
-    BIN: obj?.data?.binNumber,
-    Scheme: obj?.data?.scheme,
-    CardType: obj?.data?.cardType,
-    Bank: obj?.data?.bankName,
-    Country: obj?.data?.country,
-  };
-}
+    returnedObj = {
+      BIN: obj?.data?.binNumber,
+      Scheme: obj?.data?.scheme,
+      CardType: obj?.data?.cardType,
+      Bank: obj?.data?.bankName,
+      Country: obj?.data?.country,
+    };
+  }
 
   // ------------------------
   // RAPID RESPONSE
   // ------------------------
   if (service === "RAPID") {
-  if (!obj?.bin) return invalidResponse(service, obj);
+    if (!obj?.bin) return invalidResponse(service, obj);
 
-  returnedObj = {
-    BIN: obj.bin,
-    Scheme: obj.brand,
-    CardType: obj.type,
-    CardLevel: obj.level,
-    Bank: obj.bank,
-    Country: obj.country,
-    CountryCode: obj.countrycode,
-  };
-}
+    returnedObj = {
+      BIN: obj.bin,
+      Scheme: obj.brand,
+      CardType: obj.type,
+      CardLevel: obj.level,
+      Bank: obj.bank,
+      Country: obj.country,
+      CountryCode: obj.countrycode,
+    };
+  }
 
   // ------------------------
   // RAPID2 RESPONSE
   // ------------------------
   if (service === "RAPID2") {
-  const msg = obj?.msg || obj;
+    const msg = obj?.msg || obj;
 
-  if (!msg || msg?.STATUS === "INVALID") {
-    return invalidResponse(service, msg);
+    if (!msg || msg?.STATUS === "INVALID") {
+      return invalidResponse(service, msg);
+    }
+
+    returnedObj = {
+      BIN: msg?.binNumber || data,
+      Scheme: msg?.scheme,
+      CardType: msg?.cardType,
+      Bank: msg?.bankName,
+      Country: msg?.country,
+    };
   }
-
-  returnedObj = {
-    BIN: msg?.binNumber || data,
-    Scheme: msg?.scheme,
-    CardType: msg?.cardType,
-    Bank: msg?.bankName,
-    Country: msg?.country,
-  };
-}
 
 
   // ===========================

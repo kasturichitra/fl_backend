@@ -168,6 +168,7 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
         headers: {
           "Content-Type": "application/json",
           username: username,
+          password: password,
         },
       }
     );

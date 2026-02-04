@@ -12,6 +12,14 @@ const transporter = nodemailer.createTransport({
         pass: process.env.emailPasskey,
     },
 });
+// const TestisTransporter = transporter(error,success)=>{
+//     if(error){
+//         console.log('Error in sending email',error);
+//         return res.status(500).json(createApiResponse(500, null, "Server Error"));
+//     }
+//     console.log('Send Email is successfull',success);
+//     return res.status(200).json(createApiResponse(200, null, success))
+// }
 
 
 const sendEmail = async (req, res) => {

@@ -2,6 +2,7 @@ const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
 const shopActiveServiceResponse = async (data, services, index = 0) => {
+    console.log('shopActiveServiceResponse called');
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -14,7 +15,7 @@ const shopActiveServiceResponse = async (data, services, index = 0) => {
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service:`, newService);
+    console.log(`[shopActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await shopApiCall(data, serviceName, 0);
@@ -23,11 +24,11 @@ const shopActiveServiceResponse = async (data, services, index = 0) => {
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[shopActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return shopActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`Error from ${serviceName}:`, err.message);
+        console.log(`[shopActiveServiceResponse] Error from ${serviceName}:`, err.message);
         return shopActiveServiceResponse(data, services, index + 1);
     }
 };
@@ -54,7 +55,8 @@ const shopApiCall = async (data, service) => {
             }
         },
         "INVINCIBLE": {
-            BodyData: JSON.stringify({registrationNumber, state }),
+            // Assuming data is an object { registrationNumber, state } or just registrationNumber string
+            BodyData: JSON.stringify(typeof data === 'object' ? data : { registrationNumber: data, state: "" }),
             url: process.env.INVINCIBLE_SHOP_URL,
             header: {
                 accept: "application/json",
@@ -100,7 +102,7 @@ const shopApiCall = async (data, service) => {
     }
 
     const obj = ApiResponse.data;
-    console.log('obj ==>', obj)
+    console.log(`[shopApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
     let returnedObj = {};
 
@@ -164,7 +166,7 @@ const shopApiCall = async (data, service) => {
             result: returnedObj,
             message: "Valid",
             responseOfService: obj,
-            service:service ,
+            service: service,
         }
     };
 };

@@ -5,6 +5,7 @@ const axios = require("axios");
 const xml2js = require('xml2js');
 
 const rechargeOperatorActiveServiceResponse = async (data, services, ApiType, index = 0) => {
+    console.log('rechargeOperatorActiveServiceResponse called');
     if (!data) {
         return { success: false, message: "Invalid Data" };
     }
@@ -16,12 +17,12 @@ const rechargeOperatorActiveServiceResponse = async (data, services, ApiType, in
     const newService = services?.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
-        console.log(`No service with priority ${index + 1}, trying next`);
+        console.log(`[rechargeOperatorActiveServiceResponse] No service with priority ${index + 1}, trying next`);
         return rechargeOperatorActiveServiceResponse(data, services, ApiType, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`Trying service: ${serviceName} for ${ApiType}`);
+    console.log(`[rechargeOperatorActiveServiceResponse] Trying service: ${serviceName} for ${ApiType}`);
 
     try {
         let res;
@@ -42,7 +43,7 @@ const rechargeOperatorActiveServiceResponse = async (data, services, ApiType, in
                 res = await RechargeApiCall(data, serviceName);
                 break;
             default:
-                console.log("No valid ApiType provided, defaulting to OPERATORS");
+                console.log(`[rechargeOperatorActiveServiceResponse] No valid ApiType provided, defaulting to OPERATORS`);
                 res = await OperatorsApiCall(data, serviceName);
                 break;
         }
@@ -54,11 +55,11 @@ const rechargeOperatorActiveServiceResponse = async (data, services, ApiType, in
             return res.data;
         }
 
-        console.log(`${serviceName} responded failure → trying next`);
+        console.log(`[rechargeOperatorActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
         return rechargeOperatorActiveServiceResponse(data, services, ApiType, index + 1);
 
     } catch (err) {
-        console.log(`Error in service ${serviceName}:`, err);
+        console.log(`[rechargeOperatorActiveServiceResponse] Error in service ${serviceName}:`, err.message);
         return rechargeOperatorActiveServiceResponse(data, services, ApiType, index + 1);
     }
 };
@@ -92,11 +93,11 @@ const OperatorsApiCall = async (data, service) => {
         ApiResponse = await axios.get(config.url, { params: config?.Paramdata });
 
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[OperatorsApiCall] Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
-    console.log("Operators Response =>", ApiResponse?.data);
+    console.log(`[OperatorsApiCall] ${service} Response:`, JSON.stringify(ApiResponse?.data));
 
     if (!ApiResponse || !ApiResponse.data) {
         return { success: false, data: null };
@@ -150,11 +151,11 @@ const PlansApiCall = async (data, service) => {
     try {
         ApiResponse = await axios.get(config.url, { params: config?.Paramdata });
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[PlansApiCall] Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
-    console.log("Plans Response =>", ApiResponse?.data);
+    console.log(`[PlansApiCall] ${service} Response:`, JSON.stringify(ApiResponse?.data));
 
     if (!ApiResponse || !ApiResponse.data) {
         return { success: false, data: null };
@@ -193,11 +194,11 @@ const OffersApiCall = async (data, service) => {
     try {
         ApiResponse = await axios.get(config.url, { params: config?.Paramdata });
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[OffersApiCall] Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
-    console.log("Offers Response =>", ApiResponse?.data);
+    console.log(`[OffersApiCall] ${service} Response:`, JSON.stringify(ApiResponse?.data));
 
     if (!ApiResponse || !ApiResponse.data) {
         return { success: false, data: null };
@@ -236,11 +237,11 @@ const OldPlansApiCall = async (data, service) => {
     try {
         ApiResponse = await axios.get(config.url, { params: config?.Paramdata });
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[OldPlansApiCall] Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
-    console.log("Old Plans Response =>", ApiResponse?.data);
+    console.log(`[OldPlansApiCall] ${service} Response:`, JSON.stringify(ApiResponse?.data));
 
     if (!ApiResponse || !ApiResponse.data) {
         return { success: false, data: null };
@@ -253,7 +254,7 @@ const OldPlansApiCall = async (data, service) => {
 }
 
 const RechargeApiCall = async (data, service) => {
-    console.log('Recharge Api Call is Triggred ===>',data)
+    console.log('[RechargeApiCall] Triggered with data:', JSON.stringify(data));
     const { account, actualAmount, spKey, transactionId, geoCode, customerNumber, pincode } = data;
 
     const ApiData = {
@@ -286,11 +287,11 @@ const RechargeApiCall = async (data, service) => {
     try {
         ApiResponse = await axios.get(config.url, { params: config?.Paramdata });
     } catch (error) {
-        console.log("Error =>", error);
+        console.log(`[RechargeApiCall] Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
-    console.log("Recharge Response =>", ApiResponse?.data);
+    console.log(`[RechargeApiCall] ${service} Response:`, JSON.stringify(ApiResponse?.data));
 
     if (!ApiResponse || !ApiResponse.data) {
         return { success: false, data: null };
@@ -302,7 +303,7 @@ const RechargeApiCall = async (data, service) => {
         try {
             jsonData = await parser.parseStringPromise(ApiResponse.data);
         } catch (e) {
-            console.log("XML Parsing Error", e);
+            console.log(`[RechargeApiCall] XML Parsing Error in ${service}:`, e.message);
         }
     }
 
