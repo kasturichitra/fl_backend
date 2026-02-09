@@ -1,70 +1,52 @@
-const testingKeysModel = require("../api/testing_api_keys/models/testing.model");
-const liveModal = require("../api/live_api_keys/models/liveKeys.model");
 const { commonLogger } = require("../api/Logger/logger");
+const jwt = require("jsonwebtoken");
+const { createApiResponse } = require("../utlis/ApiResponseHandler");
 
-const checkKeys = async (req, res, next) => {
+const AuthValidation = (req, res, next) => {
+  // Get client, secretkey, secToken form heards
   const client = req.headers["client_id"];
-  const secret = req.headers["secret_key"];
-  const secToken = req.headers["sec_token"];
-
-  if (!client || !secret || !secToken) {
-    commonLogger.warn(`Access denied. Client or Secret or SecToken missing.`);
-    return res.status(400).json({
-      message: "Access denied. Client or Secret or SecToken are not provided.",
-      statusCode: 400,
-    });
-  };
-
-  const decodedToken = jwt.verify(secToken, process.env.SECRET_KEY);
-  if (client !== decodedToken.client_id) {
-    commonLogger.warn(`Access denied. Client Id Mismatched.`);
-    return res.status(400).json({
-      message: "Access denied. Client Id Mismatched.",
-      statusCode: 400,
-    });
-  }
+  const secretkey = req.headers["secret_key"];
+  const secToken = req.headers["secret_token"];
 
   try {
-    // 1. Check Testing Keys
-    const testingKey = await testingKeysModel.findOne({
-      client_id: client,
-      secret_key: secret,
-    });
 
-    if (testingKey) {
-      commonLogger.info(`Testing Key Matched for Client: ${client}`);
-      req.userClientId = testingKey.MerchantId;
-      req.environment = 'TEST';
-      return next();
-    };
-
-    // 2. Check Live Keys
-    const liveKey = await liveModal.findOne({
-      client_id: client,
-      secret_key: secret,
-    });
-
-    if (liveKey) {
-      commonLogger.info(`Live Key Matched for Client: ${client}`);
-      req.userClientId = liveKey.MerchantId;
-      req.environment = 'LIVE';
-      return next();
+    // if Not present return 
+    if (!client || !secretkey || !secToken) {
+      return res.status(400).json(createApiResponse(400, null, 'client_id or secret_key or secret_token missing'))
     }
 
-    // 3. No Match
-    commonLogger.warn(`Invalid Keys provided: Client: ${client}`);
-    return res.status(404).json({
-      message: "You Provided Wrong Keys",
-      statusCode: 404,
-    });
+    // Decode the token with secretkey
+    const decode = jwt.verify(secToken, process.env.JWT_SECRET_KEY);
+    console.log('AuthValidation response ', decode);
+    const { clientId, secretKey, environment } = decode; // in decode of token we get clientId, secretkey, environment( live or test)
 
-  } catch (error) {
-    commonLogger.error(`Error in key validation: ${error.message}`);
-    return res.status(500).json({
-      message: "Something went wrong, Try Again after some time",
-      statusCode: 500,
-    });
+    // validate the clientId, secretkey 
+    console.log(client, clientId)
+    if ((client != clientId)) {
+      commonLogger.warn(`Access denied. Client Id Mismatched.`);
+      return res.status(400).json({
+        message: "Access denied. Client Id Mismatched.",
+        statusCode: 400,
+      });
+    }
+    if (secretkey != secretKey) {
+      commonLogger.warn(`Access denied. secret_key Mismatched.`);
+      return res.status(400).json({
+        message: "Access denied. secret_key Mismatched.",
+        statusCode: 400,
+      });
+    }
+
+    // After verify updated in res with environment 
+    res.clientId = client;
+    res.secretKey = secretkey;
+    res.environment = environment;
+    res.role = 'Client';
+    next()
+  } catch (err) {
+    console.log('AuthValication Error', err.message, err);
+    return res.status(500).json(createApiResponse(500, null, 'Server Error!'))
   }
-};
+}
 
-module.exports = checkKeys;
+module.exports = AuthValidation;

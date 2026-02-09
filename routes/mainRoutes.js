@@ -3,7 +3,6 @@ const mainRouter = express.Router();
 
 // Middlewares
 const checkWhitelist = require("../middleware/IPAddresswhitelist.middleware");
-const checkKeys = require("../middleware/keyValidation.middleware");
 const {
     decryptMiddleware,
     enceryptMiddleware,
@@ -27,6 +26,7 @@ const instantPayRouter = require("../api/instantPay/routes/InstantPayRoutes");
 const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoutes");
 const { sendEmail } = require("../api/Gmail/mailverification");
 const VoterIdRouter = require("../api/VoterId/voter.routes");
+const AuthValidation = require("../middleware/keyValidation.middleware");
 
 // ================== Public/Utils Routes ==================
 mainRouter.get('/health', (req, res) => {
@@ -46,7 +46,7 @@ mainRouter.use("/livekey", LiveApiKeysRouter);
 
 const protectedMiddleware = [
     // checkWhitelist,
-    // checkKeys,
+    AuthValidation,
     decryptMiddleware,
     enceryptMiddleware
 ];

@@ -1,7 +1,7 @@
 const gstin_verifyModel = require("../models/gstin_verify.model");
 const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
-// const { gstLogger } = require("../../Logger/logger");
+const { kycLogger } = require("../../Logger/logger");
 const { GSTActiveServiceResponse } = require("../../GlobalApiserviceResponse/GstServiceResponse");
 const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 const handleValidation = require("../../../utlis/lengthCheck");
@@ -9,45 +9,67 @@ const checkingRateLimit = require("../../../utlis/checkingRateLimit");
 const { GSTtoPANActiveServiceResponse } = require("../../GlobalApiserviceResponse/GSTtoPANActiveServiceResponse");
 const gstin_panModel = require("../models/gstin_pan.model");
 const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
-
+const { handleValidateActiveProducts } = require("../../../utlis/ValidateActiveProducts");
+const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 
 exports.gstinverify = async (req, res, next) => {
   const { gstinNumber } = req.body;
-  console.log(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
-  // gstLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
+  const clientId = req.clientId;
+  const isClient = req.role;
 
-  const capitalNumber = gstinNumber?.toUpperCase();
-  const isValid = handleValidation("gstin", capitalNumber, res);
-  if (!isValid) return;
+  kycLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
   try {
     if (!gstinNumber) {
       return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
-    }
-    const gstinRateLimitResult = await checkingRateLimit({
-      identifiers: { gstinNumber },
-      service: "GSTIN",
-      clientId: req.userClientId,
-    });
-
-    if (!gstinRateLimitResult.allowed) {
-      return res.status(429).json({
-        success: false,
-        message: gstinRateLimitResult.message,
-      });
-    }
+    };
     const encryptedGst = encryptData(gstinNumber);
-    const existingGstin = await gstin_verifyModel.findOne({ gstinNumber: encryptedGst });
+    kycLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
+    const capitalNumber = gstinNumber?.toUpperCase();
+    const isValid = handleValidation("gstin", capitalNumber, res);
+    if (!isValid) return;
+
+    if (isClient == 'Client') {
+      // STEP 1: Check the rate limit
+      const gstinRateLimitResult = await checkingRateLimit({
+        identifiers: { gstinNumber },
+        service: "GSTIN", clientId
+      });
+      if (!gstinRateLimitResult.allowed) {
+        return res.status(429).json({ success: false, message: gstinRateLimitResult.message });
+      };
+
+      // STEP 2: check the is Product Subscribe
+      const isClientSubscribe = await handleValidateActiveProducts({ clientId, serviceId: 'GSTIN' });
+      if (!isClientSubscribe?.isSubscribe) {
+        return res.status(200).json({
+          success: false, message: isClientSubscribe?.message
+        });
+      };
+
+      // SETP 3: Add charge back trn
+      // await chargesToBeDebited(clientId, "GSTIN", tnId);
+
+    }
+
+    // Check if the record is present in the DB
+    const existingGstin = await gstin_verifyModel.findOne({ gstinNumber: encryptedGst });
     if (existingGstin) {
-      console.log('existing GSTIN Response')
+      kycLogger.info('existing GSTIN Response');
       const dataToShow = existingGstin?.response;
       return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
     }
+
+    // Get All Active Services
     const service = await selectService('GSTIN');
-    console.log('gst inverify activer service', service);
+    kycLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
+
+    //  get Acitve Service Response
     let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
-    console.log('gst inverify activer response', response);
+    kycLogger.info(`gst inverify activer response ${JSON.stringify(response)}`);
+
+    // Response form Active Service if response message is Valid
     if (response?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = { ...response?.result, gstinNumber: encryptedGst };
       const storingData = {
@@ -67,8 +89,7 @@ exports.gstinverify = async (req, res, next) => {
       return res.status(404).json(createApiResponse(404, { gstinNumber }, 'Failed'));
     }
   } catch (error) {
-    console.error("Error performing GSTIN verification:", error);
-    // gstLogger.error(`Error performing GSTIN verification:${error}`);
+    kycLogger.error(`Error performing GSTIN verification:${error}`);
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };
@@ -76,16 +97,42 @@ exports.gstinverify = async (req, res, next) => {
 
 exports.handleGST_INtoPANDetails = async (req, res, next) => {
   const { gstinNumber } = req.body;
-  console.log(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
-  gstLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
+  const clientId = req.clientId;
+  const isClient = req.role;
 
-  const capitalNumber = gstinNumber?.toUpperCase();
-  const isValid = handleValidation("gstin", capitalNumber, res);
-  if (!isValid) return;
+  kycLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
   try {
     if (!gstinNumber) {
       return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
+    }
+    const capitalNumber = gstinNumber?.toUpperCase();
+
+    const isValid = handleValidation("gstin", capitalNumber, res);
+    if (!isValid) return;
+
+    if (isClient == 'Client') {
+      // STEP 1: Check the rate limit
+      const gstinRateLimitResult = await checkingRateLimit({
+        identifiers: { gstinNumber },
+        service: "GSTIN", clientId
+      });
+      if (!gstinRateLimitResult.allowed) {
+        return res.status(429).json({ success: false, message: gstinRateLimitResult.message });
+      };
+
+      // STEP 2: check the is Product Subscribe
+      const isClientSubscribe = await handleValidateActiveProducts({ clientId, serviceId: 'GSTIN' });
+      if (!isClientSubscribe?.isSubscribe) {
+        return res.status(200).json({
+          success: false, message: isClientSubscribe?.message
+        });
+      };
+
+      // We Also have to check the Environment form request for TEST key or live key
+      // STEP 3: Add charge back trn 
+      // await chargesToBeDebited(clientId, "GSTIN", tnId);
+
     }
     const existingGstin = await gstin_panModel.findOne({ gstinNumber });
 
@@ -95,7 +142,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     }
 
     const service = await selectService('GSTIN');
-    console.log('gst inverify activer service', service);
+    kycLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
     let response = await GSTtoPANActiveServiceResponse(gstinNumber, service, 0)
 
     if (response?.message?.toUpperCase() == "VALID") {
@@ -118,8 +165,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       return res.satus(404).json(createApiResponse(404, { gstinNumber }, 'Failed'));
     }
   } catch (error) {
-    console.error("Error performing GSTIN verification:", error);
-    gstLogger.error(`Error performing GSTIN verification:${error}`);
+    kycLogger.error(`Error performing GSTIN verification:${error}`);
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };

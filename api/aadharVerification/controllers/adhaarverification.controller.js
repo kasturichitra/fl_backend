@@ -62,7 +62,6 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
-
 exports.initiateAadhaarDigilocker = async (req, res) => {
   const startTime = new Date();
   kycLogger.info("Aadhaar DigiLocker initiation triggered");

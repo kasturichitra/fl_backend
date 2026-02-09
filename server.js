@@ -10,7 +10,6 @@ const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionH
 const mainRoutes = require("./routes/mainRoutes");
 const { decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptPyaload");
 const checkWhitelist = require("./middleware/IPAddresswhitelist.middleware");
-const checkKeys = require("./middleware/keyValidation.middleware");
 const { keysApiroutes } = require("./api/Keysapi/keysapi.routes");
 const { callTruthScreenAPI } = require("./api/truthScreen/callTruthScreen");
 
