@@ -141,7 +141,8 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
     }
 
-    const service = await selectService('GSTIN');
+        const service = await selectService('GSTINTOPAN', "GSTSERVICES");
+    console.log('gst_in to pan verify activer service ===>>>', service);
     kycLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
     let response = await GSTtoPANActiveServiceResponse(gstinNumber, service, 0)
 

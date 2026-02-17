@@ -1,7 +1,7 @@
 const { generateTransactionId } = require("../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
-const IfscActiveServiceResponse = async (data, services, index = 0) => {
+const IfscActiveServiceResponse = async (data, services=[], index = 0) => {
   console.log('IfscActiveServiceResponse called');
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };

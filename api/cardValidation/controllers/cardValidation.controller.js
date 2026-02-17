@@ -1,7 +1,6 @@
 const cardValidationModel = require("../models/cardValidationModel");
 const { cardLogger } = require("../../Logger/logger");
 const { mapError, ERROR_CODES } = require("../../../utlis/errorCodes");
-const { verifyCreditCardNumber } = require("../../service/provider.rapid");
 const {
   encryptData,
   decryptData,
@@ -16,10 +15,11 @@ const {
   fullNumberServiceResponse,
 } = require("../../GlobalApiserviceResponse/fullNumberServiceResponse");
 const { selectService } = require("../../service/serviceSelector");
+const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 require("dotenv").config();
 
 const verifyFullCardNumber = async (req, res, next) => {
-  const { creditCardNumber } = req.body;
+  const { creditCardNumber, mobileNumber="", categoryId, serviceId } = req.body;
   const data = req.body;
 
   const isValid = handleValidation("creditCard", creditCardNumber, res);
@@ -44,10 +44,32 @@ const verifyFullCardNumber = async (req, res, next) => {
     });
   }
 
-  const tnId = genrateUniqueServiceId("FULLCARDVERIFY");
+  const tnId = genrateUniqueServiceId();
   cardLogger.info("full card verify txn Id ===>>", tnId)
-  await chargesToBeDebited(req.userClientId, "FULLCARDVERIFY", tnId);
+  let maintainanceResponse;
+  if (req.environment?.toLowercase() == "test") {
+    maintainanceResponse = await creditsToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  } else {
+    maintainanceResponse = await chargesToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  }
 
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
+  }
   const encryptedCreditCardNumber = encryptData(creditCardNumber);
   console.log("encryptedCreditCardNumber ====>>>", encryptedCreditCardNumber);
   cardLogger.info(
@@ -76,7 +98,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     }
   }
 
-  const service = await selectService("FULL_CARD");
+  const service = await selectService(categoryId, serviceId);
 
   console.log("----active service for full card Verify is ----", service);
   if (!service) {

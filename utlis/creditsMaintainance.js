@@ -2,13 +2,12 @@ const { default: axios } = require("axios");
 const {commonLogger} = require("../api/Logger/logger");
 const superAdminUrl = process.env.SUPERADMIN_URL;
 
-const chargesToBeDebited = async (clientId, service, category, tnxId) => {
+const creditsToBeDebited = async (clientId, service, categoryId) => {
   try {
     const objectToSent = {
       serviceId: service,
-      categoryId: category,
       clientId: clientId,
-      transactionId: tnxId,
+      categoryId: categoryId
     };
 
     const response = await axios.post(
@@ -34,4 +33,4 @@ const chargesToBeDebited = async (clientId, service, category, tnxId) => {
   }
 };
 
-module.exports = chargesToBeDebited;
+module.exports = creditsToBeDebited;

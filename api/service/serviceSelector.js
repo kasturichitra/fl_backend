@@ -1,9 +1,9 @@
 const { default: axios } = require("axios");
 
 
-async function selectService(serviceName) {
+async function selectService(servicecategory, serviceName) {
     try{
-        const FinalService = await axios.get(`${process.env.SUPERADMIN_URL}/api/v1/apimodule/getAllProvidersByService?serviceId=${serviceName}`)
+        const FinalService = await axios.get(`${process.env.SUPERADMIN_URL}/api/v1/apimodule/getAllProvidersByService?serviceId=${serviceName}&categoryId=${servicecategory}`)
     console.log("Final selected service =>", FinalService?.data);
     const { success, statusCode, data } = FinalService?.data;
     if (success) {

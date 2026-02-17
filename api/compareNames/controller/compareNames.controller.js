@@ -1,6 +1,7 @@
+const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
 const handleValidation = require("../../../utlis/lengthCheck");
-const logger = require("../../Logger/logger");
+const {kycLogger} = require("../../Logger/logger");
 const comparingNamesModel = require("../models/compareName.model");
 
 async function checkCompareNames(firstName, secondName) {
@@ -96,7 +97,12 @@ function removeTitle(name) {
 
 exports.compareNames = async (req, res, next) => {
   console.log("Compare Name is triggred");
-  logger.info("Compare Name is triggred")
+  kycLogger.info("Compare Name is triggred")
+
+   const tnId = genrateUniqueServiceId("NAME");
+    console.log("NAME txn Id ===>>", tnId);
+    kycLogger.info("NAME txn Id ===>>", tnId);
+    await chargesToBeDebited(req.userClientId, "NAME", tnId);
   try {
     const { firstName, secondName } = req.body;
     console.log("firstName and secondName ===>>", secondName, firstName);

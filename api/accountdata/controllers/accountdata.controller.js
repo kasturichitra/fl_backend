@@ -1,26 +1,11 @@
 const accountdataModel = require("../models/accountdata.model");
 require("dotenv").config();
-const {
-  verifyBankAccountCashfree,
-} = require("../../service/provider.cashfree");
-const {accountLogger} = require("../../Logger/logger");
-const {
-  verifyBankAccountTruthScreen,
-  verifyBankTruthScreen,
-} = require("../../service/provider.truthscreen");
-const { verifyBankAccountZoop } = require("../../service/provider.zoop");
+const { accountLogger } = require("../../Logger/logger");
 const {
   encryptData,
   decryptData,
 } = require("../../../utlis/EncryptAndDecrypt");
-const {
-  verifyBankAccountEaseBuzz,
-} = require("../../service/provider.easebuzz");
 const { selectService } = require("../../service/serviceSelector");
-const {
-  verifyBankAccountInvincible,
-  verifyBankInvincible,
-} = require("../../service/provider.invincible");
 const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
 const handleValidation = require("../../../utlis/lengthCheck");
 const {
@@ -28,11 +13,20 @@ const {
   accountPennyLessSerciveResponse,
 } = require("../../GlobalApiserviceResponse/accountPennyDropSerciveResponse");
 const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
+const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
-  const { account_no, ifsc } = req.body;
+  const {
+    account_no,
+    ifsc,
+    mobileNumber = "",
+    serviceId = "",
+    categoryId = "",
+  } = req.body;
   console.log("account_no, ifsc===>", account_no, ifsc);
-  accountLogger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
+  accountLogger.info(
+    `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
+  );
   const capitalIfsc = ifsc?.toUpperCase();
 
   const isAccountValid = handleValidation("accountNumber", account_no, res);
@@ -43,10 +37,56 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
 
   console.log("All inputs are valid, continue processing...");
 
+  const identifierHash = hashIdentifiers({
+    accNo: account_no,
+    ifscCode: capitalIfsc,
+  });
+
+  const accountPennyDropRateLimitResult = await checkingRateLimit({
+    identifiers: { identifierHash },
+    serviceId,
+    categoryId,
+    clientId: req.clientId,
+  });
+
+  if (!accountPennyDropRateLimitResult.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: accountPennyDropRateLimitResult.message,
+    });
+  }
+
+  const tnId = genrateUniqueServiceId();
+  accountLogger.info(`account penny drop txn Id ===>> ${tnId}`);
+  let maintainanceResponse;
+  if (req.environment?.toLowercase() == "test") {
+    maintainanceResponse = await creditsToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  } else {
+    maintainanceResponse = await chargesToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  }
+
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
+  }
+
   const encryptedAccountNumber = encryptData(account_no);
   console.log("encryptedAccountNumber ====>>", encryptedAccountNumber);
   accountLogger.info(
-    `encryptedAccountNumber in pennyDrop Account verify ===>> ${encryptedAccountNumber}`
+    `encryptedAccountNumber in pennyDrop Account verify ===>> ${encryptedAccountNumber}`,
   );
   const existingAccountDetails = await accountdataModel.findOne({
     accountNo: encryptedAccountNumber,
@@ -55,11 +95,11 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
 
   if (existingAccountDetails) {
     accountLogger.info(
-      `ExistingAccountNumber in pennyDrop Account verify ===>> ${existingAccountDetails}`
+      `ExistingAccountNumber in pennyDrop Account verify ===>> ${existingAccountDetails}`,
     );
     if (existingAccountDetails?.accountHolderName) {
       const decryptedAccountNumber = decryptData(
-        existingAccountDetails?.accountNo
+        existingAccountDetails?.accountNo,
       );
       const responseToSend = {
         ...existingAccountDetails?.responseData,
@@ -72,57 +112,31 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       return res.status(200).json(createApiResponse(200, {}, "InValid"));
     }
   }
-  const service = await selectService("ACCOUNT_VERIFY_PD");
+  const service = await selectService(categoryId, serviceId);
 
   console.log(
     "----active service for Account penny drop Verify is ----",
-    service
+    service,
   );
   accountLogger.info(
-    `----active service for Account penny drop Verify is ----, ${service}`
+    `----active service for Account penny drop Verify is ----, ${service}`,
   );
 
   try {
-    // let response;
-    // switch (service.serviceFor) {
-    //   case "INVINCIBLE":
-    //     console.log("Calling INVINCIBLE API...");
-    //     response = await verifyBankAccountInvincible(data);
-    //     break;
-    //   case "TRUTHSCREEN":
-    //     console.log("Calling TRUTHSCREEN API...");
-    //     response = await verifyBankAccountTruthScreen(data);
-    //     break;
-    //   case "EASEBUZZ":
-    //     console.log("Calling EASEBUZZ API...");
-    //     response = await verifyBankAccountEaseBuzz(data);
-    //     break;
-    //   case "ZOOP":
-    //     console.log("Calling ZOOP API...");
-    //     response = await verifyBankAccountZoop(data);
-    //     break;jjk
-    //   case "CASHFREE":
-    //     console.log("Calling CASHFREE API...");
-    //     response = await verifyBankAccountCashfree(data);
-    //     break;
-    //   default:
-    //     throw new Error("Unsupported PAN service");
-    // }
-
     const response = await accountPennyDropSerciveResponse(
       { account_no, ifsc },
       service,
-      0
+      0,
     );
 
     console.log(
       "response from active service for account verify ===>>",
-      response
+      response,
     );
     accountLogger.info(
       `response from active service for account verify ===>> ${JSON.stringify(
-        response
-      )}`
+        response,
+      )}`,
     );
     if (response?.message?.toLowerCase() == "valid") {
       const modifiedResponse = {
@@ -171,7 +185,9 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
   const { account_no, ifsc } = req.body;
   const data = req.body;
   console.log("account_no, ifsc===>", account_no, ifsc);
-  accountLogger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
+  accountLogger.info(
+    `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
+  );
 
   const isAccountValid = handleValidation("accountNumber", account_no, res);
   if (!isAccountValid) return;
@@ -180,6 +196,52 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
   if (!isIfscValid) return;
 
   console.log("All inputs are valid, continue processing...");
+
+   const identifierHash = hashIdentifiers({
+    accNo: account_no,
+    ifscCode: capitalIfsc,
+  });
+
+  const accountPennyLessRateLimitResult = await checkingRateLimit({
+    identifiers: { identifierHash },
+    serviceId,
+    categoryId,
+    clientId: req.clientId,
+  });
+
+  if (!accountPennyLessRateLimitResult?.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: accountPennyLessRateLimitResult?.message,
+    });
+  }
+
+  const tnId = genrateUniqueServiceId();
+  accountLogger.info(`account penny drop txn Id ===>> ${tnId}`);
+  let maintainanceResponse;
+  if (req.environment?.toLowercase() == "test") {
+    maintainanceResponse = await creditsToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  } else {
+    maintainanceResponse = await chargesToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  }
+
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
+  }
 
   try {
     const encryptedAccountNumber = encryptData(account_no);
@@ -202,10 +264,10 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
 
     console.log(
       "----active service for Account penny less Verify is ----",
-      service
+      service,
     );
     accountLogger.info(
-      `----active service for Account penny less Verify is ----, ${service}`
+      `----active service for Account penny less Verify is ----, ${service}`,
     );
     if (!service) {
       return res
@@ -215,7 +277,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
 
     console.log("----active service name for Account ---", service.serviceFor);
     accountLogger.info(
-      `----active service name for Account --- ${service.serviceFor}`
+      `----active service name for Account --- ${service.serviceFor}`,
     );
 
     // let response;
@@ -232,16 +294,17 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     //     throw new Error("Unsupported PAN service");
     // }
 
-   const response = await accountPennyLessSerciveResponse(
+    const response = await accountPennyLessSerciveResponse(
       { account_no, ifsc },
       service,
-      0
-    );    console.log(
+      0,
+    );
+    console.log(
       "response from active service for account verify ===>>",
-      response
+      response,
     );
     accountLogger.info(
-      `response from active service for account verify ===>> ${response}`
+      `response from active service for account verify ===>> ${response}`,
     );
     if (response?.message?.toLowerCase() == "valid") {
       const objectToStoreInDb = {

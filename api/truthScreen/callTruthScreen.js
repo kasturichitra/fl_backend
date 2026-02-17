@@ -191,7 +191,6 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
 
     return JSON.parse(decrypted);
   } catch (error) {
-    console.log("error in truth screen", error);
     console.log("error response in truth screen", error?.response);
     console.log(
       "error response in truth screen error?.response?.data",

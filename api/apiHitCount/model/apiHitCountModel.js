@@ -10,6 +10,10 @@ const apiHitCountSchema = new mongoose.Schema(
       type: String,
       required: true,
     },
+     category: {
+      type: String,
+      required: true,
+    },
     clientId: {
       type: String,
       required: true,
@@ -17,11 +21,7 @@ const apiHitCountSchema = new mongoose.Schema(
     dayHitCount: {
       type: Number,
       default: 0,
-    },
-    monthHitCount: {
-      type: Number,
-      default: 0,
-    },
+    }
   },
   { timestamps: true }
 );
@@ -29,6 +29,7 @@ const apiHitCountSchema = new mongoose.Schema(
 apiHitCountSchema.index({
   clientId: 1,
   service: 1,
+  category: 1,
   identifiers: 1,
   createdAt: 1
 });

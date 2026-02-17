@@ -1,9 +1,11 @@
 const crypto = require("crypto");
 
-const genrateUniqueServiceId = (service) => {
+const genrateUniqueServiceId = () => {
   const timestamp = Date.now(); 
+  console.log("timestamp ====>>", timestamp)
   const random = crypto.randomBytes(4).toString("hex"); 
-  return `TXON${service}${timestamp}${random}`;
+  console.log("random ===>>", random)
+  return `TXON${timestamp}${random}`;
 };
 
 module.exports = genrateUniqueServiceId;

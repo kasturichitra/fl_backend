@@ -2,14 +2,17 @@ const axios = require("axios");
 require("dotenv").config();
 const RapidApiModel = require("../models/BinApiModels");
 const RapidApiBankModel = require("../models/BinApiBankModel");
-const { verifyIfsc, verifyBinNumber } = require("../../service/provider.rapid");
 const handleValidation = require("../../../utlis/lengthCheck");
 const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
-const { cardLogger } = require("../../Logger/logger");
+const { cardLogger, accountLogger } = require("../../Logger/logger");
 const {
   BinActiveServiceResponse,
 } = require("../../GlobalApiserviceResponse/BinServiceResponse");
-const { IfscActiveServiceResponse } = require("../../GlobalApiserviceResponse/IfscActiveServiceResponse");
+const {
+  IfscActiveServiceResponse,
+} = require("../../GlobalApiserviceResponse/IfscActiveServiceResponse");
+const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
+const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 let RapidApiKey = process.env.RAPIDAPI_KEY;
 let RapidApiHost = process.env.RAPIDAPI_BIN_HOST;
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST;
@@ -43,11 +46,33 @@ exports.getCardDetailsByNumber = async (req, res) => {
     });
   }
 
-  const tnId = genrateUniqueServiceId("BIN");
+  const tnId = genrateUniqueServiceId();
   console.log("bin txn Id ===>>", tnId);
   cardLogger.info("bin txn Id ===>>", tnId);
-  await chargesToBeDebited(req.userClientId, "BIN", tnId);
+  let maintainanceResponse;
+  if (req.environment?.toLowercase() == "test") {
+    maintainanceResponse = await creditsToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  } else {
+    maintainanceResponse = await chargesToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  }
 
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
+  }
   const encryptedBin = encryptData(bin);
   cardLogger.info("bin encrypted response ====>>", encryptedBin);
 
@@ -83,7 +108,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
     const exsistingDetails = await RapidApiModel.findOne({ bin });
     console.log(
       "==============================>>>>>bin existing",
-      exsistingDetails
+      exsistingDetails,
     );
     let response = await BinActiveServiceResponse(bin, service, 0);
     // const response = await verifyBinNumber(data);
@@ -115,6 +140,10 @@ exports.getBankDetailsByIfsc = async (req, res) => {
   const { ifsc } = req.body;
   const data = req.body;
   console.log("IFSC Code:", ifsc);
+
+  const tnId = genrateUniqueServiceId("IFSC");
+  accountLogger.info("IFSC txn Id ===>>", tnId);
+  await chargesToBeDebited(req.userClientId, "IFSC", tnId);
 
   try {
     const existingBankDetails = await RapidApiBankModel.findOne({ Ifsc: ifsc });

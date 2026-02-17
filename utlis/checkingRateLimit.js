@@ -5,14 +5,16 @@ const superAdminUrl = process.env.SUPERADMIN_URL;
 
 const RATE_LIMIT_URL = `${superAdminUrl}/api/v1/apimodule/get-service-rate-limit`;
 
-const checkingRateLimit = async ({ identifiers, service, clientId }) => {
+const checkingRateLimit = async ({ identifiers, serviceId, categoryId, clientId }) => {
   try {
     if (!identifiers || typeof identifiers !== "object") {
       throw new Error("Identifiers must be an object");
     }
 
     const rateLimitResponse = await axios.post(RATE_LIMIT_URL, {
-      serviceId: service,
+      serviceId,
+      categoryId,
+      clientId
     });
 
     console.log(
@@ -22,8 +24,8 @@ const checkingRateLimit = async ({ identifiers, service, clientId }) => {
 
     const dayLimit = rateLimitResponse.data?.data?.rateLimit;
 
-    commonLogger.info(`rate limit of servie: ${service} is ${dayLimit}`);
-    console.log("service and dayLimit ===>>", dayLimit, service);
+    commonLogger.info(`rate limit of category and service: ${categoryId}, ${serviceId} is ${dayLimit}`);
+    console.log("serviceId and dayLimit ===>>", dayLimit, serviceId);
 
     if (!dayLimit) {
       throw new Error("Rate limit not configured for service");
@@ -34,7 +36,8 @@ const checkingRateLimit = async ({ identifiers, service, clientId }) => {
 
     const query = {
       identifiers,
-      service,
+      service: serviceId,
+      category: categoryId,
       clientId,
       createdAt: { $gte: today },
     };

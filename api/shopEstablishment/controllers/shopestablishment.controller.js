@@ -10,7 +10,7 @@ const truthScreen = require("../../service/provider.truthscreen");
 const Invincible = require("../../service/provider.invincible");
 const { ERROR_CODES } = require('../../../utlis/errorCodes');
 const { selectService } = require("../../service/serviceSelector");
-const logger = require("../../Logger/logger");
+const {kycLogger} = require("../../Logger/logger");
 const { shopActiveServiceResponse } = require("../../GlobalApiserviceResponse/ShopResponse");
 
 exports.handleCreateShopEstablishment = async (req, res, next) => {
@@ -18,10 +18,14 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
   const requestData = { registrationNumber, state };
   console.log("Shop Establishment Detiails ", registrationNumber, state, req.body);
   logger.info(`Shop Establishment Detiails ===>> registrationNumber: ${registrationNumber} --- state: ${state}`);
+  if (!registrationNumber || !state) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
+  }
+
+    const tnId = genrateUniqueServiceId("SHOP");
+    kycLogger.info("SHOP txn Id ===>>", tnId);
+    await chargesToBeDebited(req.userClientId, "SHOP", tnId);
   try {
-    if (!registrationNumber || !state) {
-      return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
-    }
     const existingDetails = await shopestablishmentModel.findOne({
       registrationNumber: registrationNumber,
     });
