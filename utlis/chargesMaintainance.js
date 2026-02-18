@@ -1,5 +1,5 @@
 const { default: axios } = require("axios");
-const {commonLogger} = require("../api/Logger/logger");
+const { commonLogger } = require("../api/Logger/logger");
 const superAdminUrl = process.env.SUPERADMIN_URL;
 
 const chargesToBeDebited = async (clientId, service, category, tnxId) => {
@@ -10,8 +10,8 @@ const chargesToBeDebited = async (clientId, service, category, tnxId) => {
       clientId: clientId,
       transactionId: tnxId,
     };
-
-    const response = await axios.post(
+    let response;
+    response = await axios.post(
       `${superAdminUrl}/api/v1/apimodule/calculate-charges`,
       objectToSent,
       {
@@ -20,13 +20,12 @@ const chargesToBeDebited = async (clientId, service, category, tnxId) => {
         },
       }
     );
-
     console.log("response in charges maintainance ====>>", response?.data);
     commonLogger.info("response in charges maintainance ====>>", response?.data);
-    if(response?.data?.success){
-      return {result: true}
-    }else{
-      return {result: false}
+    if (response?.data?.success) {
+      return { result: true }
+    } else {
+      return { result: false }
     }
   } catch (error) {
     console.log("error in charges maintainance ===>>", error);

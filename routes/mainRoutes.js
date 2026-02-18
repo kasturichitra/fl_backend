@@ -45,7 +45,7 @@ mainRouter.use("/livekey", LiveApiKeysRouter);
 // Note: enceryptMiddleware must be BEFORE the router to intercept res.json
 
 const protectedMiddleware = [
-    // checkWhitelist,
+    checkWhitelist,
     AuthValidation,
     decryptMiddleware,
     enceryptMiddleware

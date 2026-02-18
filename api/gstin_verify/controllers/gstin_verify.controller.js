@@ -28,7 +28,7 @@ exports.gstinverify = async (req, res, next) => {
   } = req.body;
 
   const clientId = req.clientId;
-  const isClient = req.role;
+  const environment = req.environment
 
   companyLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
@@ -99,34 +99,51 @@ exports.gstinverify = async (req, res, next) => {
   companyLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
 
   try {
-    if (isClient == "Client") {
-      // STEP 1: Check the rate limit
-      const gstinRateLimitResult = await checkingRateLimit({
-        identifiers: { gstinNumber },
-        service: "GSTIN",
-        clientId,
-      });
-      if (!gstinRateLimitResult.allowed) {
-        return res
-          .status(429)
-          .json({ success: false, message: gstinRateLimitResult.message });
-      }
+    if (!gstinNumber) {
+      return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
+    };
+    const encryptedGst = encryptData(gstinNumber);
+    kycLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
-      // STEP 2: check the is Product Subscribe
-      const isClientSubscribe = await handleValidateActiveProducts({
-        clientId,
-        serviceId: "GSTIN",
-      });
-      if (!isClientSubscribe?.isSubscribe) {
-        return res.status(200).json({
-          success: false,
-          message: isClientSubscribe?.message,
-        });
-      }
+    const capitalNumber = gstinNumber?.toUpperCase();
+    const isValid = handleValidation("gstin", capitalNumber, res);
+    if (!isValid) return;
 
-      // SETP 3: Add charge back trn
-      // await chargesToBeDebited(clientId, "GSTIN", tnId);
+    // STEP 1: Check the rate limit
+    // const gstinRateLimitResult = await checkingRateLimit({
+    //   identifiers: { gstinNumber },
+    //   service: "GSTIN", clientId
+    // });
+    // if (!gstinRateLimitResult.allowed) {
+    //   return res.status(429).json({ success: false, message: gstinRateLimitResult.message });
+    // };
+
+    // STEP 2: check the is Product Subscribe
+    // const isClientSubscribe = await handleValidateActiveProducts({ clientId, serviceId: 'GSTIN' });
+    // if (!isClientSubscribe?.isSubscribe) {
+    //   return res.status(200).json({
+    //     success: false, message: isClientSubscribe?.message
+    //   });
+    // };
+
+    // SETP 3: Add charge back trn
+    // await chargesToBeDebited(clientId, "GSTIN", tnId, environment);
+
+    // Check if the record is present in the DB
+    const existingGstin = await gstin_verifyModel.findOne({ gstinNumber: encryptedGst });
+    if (existingGstin) {
+      const dataToShow = {
+        ...existingGstin?.response,
+        gstinNumber
+      };
+      kycLogger.info('existing GSTIN Response', dataToShow);
+
+      return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
     }
+
+    // Get All Active Services
+    const service = await selectService('GSTIN');
+    kycLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
 
     //  get Acitve Service Response
     let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
