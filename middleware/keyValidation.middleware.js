@@ -41,7 +41,6 @@ const AuthValidation = (req, res, next) => {
     res.clientId = client;
     res.secretKey = secretkey;
     res.environment = environment;
-    res.role = 'Client';
     next()
   } catch (err) {
     console.log('AuthValication Error', err.message, err);

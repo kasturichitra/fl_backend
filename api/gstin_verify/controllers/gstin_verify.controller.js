@@ -15,7 +15,7 @@ const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 exports.gstinverify = async (req, res, next) => {
   const { gstinNumber } = req.body;
   const clientId = req.clientId;
-  const isClient = req.role;
+  const environment = req.environment
 
   kycLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
@@ -30,34 +30,35 @@ exports.gstinverify = async (req, res, next) => {
     const isValid = handleValidation("gstin", capitalNumber, res);
     if (!isValid) return;
 
-    if (isClient == 'Client') {
-      // STEP 1: Check the rate limit
-      const gstinRateLimitResult = await checkingRateLimit({
-        identifiers: { gstinNumber },
-        service: "GSTIN", clientId
-      });
-      if (!gstinRateLimitResult.allowed) {
-        return res.status(429).json({ success: false, message: gstinRateLimitResult.message });
-      };
+    // STEP 1: Check the rate limit
+    // const gstinRateLimitResult = await checkingRateLimit({
+    //   identifiers: { gstinNumber },
+    //   service: "GSTIN", clientId
+    // });
+    // if (!gstinRateLimitResult.allowed) {
+    //   return res.status(429).json({ success: false, message: gstinRateLimitResult.message });
+    // };
 
-      // STEP 2: check the is Product Subscribe
-      const isClientSubscribe = await handleValidateActiveProducts({ clientId, serviceId: 'GSTIN' });
-      if (!isClientSubscribe?.isSubscribe) {
-        return res.status(200).json({
-          success: false, message: isClientSubscribe?.message
-        });
-      };
+    // STEP 2: check the is Product Subscribe
+    // const isClientSubscribe = await handleValidateActiveProducts({ clientId, serviceId: 'GSTIN' });
+    // if (!isClientSubscribe?.isSubscribe) {
+    //   return res.status(200).json({
+    //     success: false, message: isClientSubscribe?.message
+    //   });
+    // };
 
-      // SETP 3: Add charge back trn
-      // await chargesToBeDebited(clientId, "GSTIN", tnId);
-
-    }
+    // SETP 3: Add charge back trn
+    // await chargesToBeDebited(clientId, "GSTIN", tnId, environment);
 
     // Check if the record is present in the DB
     const existingGstin = await gstin_verifyModel.findOne({ gstinNumber: encryptedGst });
     if (existingGstin) {
-      kycLogger.info('existing GSTIN Response');
-      const dataToShow = existingGstin?.response;
+      const dataToShow = {
+        ...existingGstin?.response,
+        gstinNumber
+      };
+      kycLogger.info('existing GSTIN Response', dataToShow);
+
       return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
     }
 
