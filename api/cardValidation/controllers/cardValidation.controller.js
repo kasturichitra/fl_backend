@@ -19,57 +19,57 @@ const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 require("dotenv").config();
 
 const verifyFullCardNumber = async (req, res, next) => {
-  const { creditCardNumber, mobileNumber="", categoryId, serviceId } = req.body;
-  const data = req.body;
+  const { creditCardNumber, mobileNumber="", categoryId="", serviceId="" } = req.body;
 
   const isValid = handleValidation("creditCard", creditCardNumber, res);
   if (!isValid) return;
 
   console.log("All inputs are valid, continue processing...");
 
-  const identifierHash = hashIdentifiers({
-    creditCardNumber,
-  });
+  // const identifierHash = hashIdentifiers({
+  //   cardNo: creditCardNumber,
+  // });
 
-  const fullCardRateLimitResult = await checkingRateLimit({
-    identifiers: { identifierHash },
-    service: "FULLCARDVERIFY",
-    clientId: req.userClientId,
-  });
+  // const fullCardRateLimitResult = await checkingRateLimit({
+  //   identifiers: { identifierHash },
+  //   serviceId,
+  //   categoryId,
+  //   clientId: req.userClientId,
+  // });
 
-  if (!fullCardRateLimitResult.allowed) {
-    return res.status(429).json({
-      success: false,
-      message: fullCardRateLimitResult.message,
-    });
-  }
+  // if (!fullCardRateLimitResult.allowed) {
+  //   return res.status(429).json({
+  //     success: false,
+  //     message: fullCardRateLimitResult.message,
+  //   });
+  // }
 
-  const tnId = genrateUniqueServiceId();
-  cardLogger.info("full card verify txn Id ===>>", tnId)
-  let maintainanceResponse;
-  if (req.environment?.toLowercase() == "test") {
-    maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  } else {
-    maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  }
+  // const tnId = genrateUniqueServiceId();
+  // cardLogger.info("full card verify txn Id ===>>", tnId)
+  // let maintainanceResponse;
+  // if (req.environment?.toLowercase() == "test") {
+  //   maintainanceResponse = await creditsToBeDebited(
+  //     req.clientId,
+  //     serviceId,
+  //     categoryId,
+  //     tnId,
+  //   );
+  // } else {
+  //   maintainanceResponse = await chargesToBeDebited(
+  //     req.clientId,
+  //     serviceId,
+  //     categoryId,
+  //     tnId,
+  //   );
+  // }
 
-  if (!maintainanceResponse?.result) {
-    return res.status(500).json({
-      success: false,
-      message: "InValid",
-      response: {},
-    });
-  }
+  // if (!maintainanceResponse?.result) {
+  //   return res.status(500).json({
+  //     success: false,
+  //     message: "InValid",
+  //     response: {},
+  //   });
+  // }
   const encryptedCreditCardNumber = encryptData(creditCardNumber);
   console.log("encryptedCreditCardNumber ====>>>", encryptedCreditCardNumber);
   cardLogger.info(

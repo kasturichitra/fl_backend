@@ -182,7 +182,13 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
 };
 
 exports.verifyPennyLessBankAccount = async (req, res, next) => {
-  const { account_no, ifsc } = req.body;
+    const {
+    account_no,
+    ifsc,
+    mobileNumber = "",
+    serviceId = "",
+    categoryId = "",
+  } = req.body;
   const data = req.body;
   console.log("account_no, ifsc===>", account_no, ifsc);
   accountLogger.info(

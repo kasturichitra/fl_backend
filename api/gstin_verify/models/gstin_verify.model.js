@@ -12,6 +12,7 @@ const Gstin_details = new mongoose.Schema(
     response: { type: Object },
     serviceResponse: { type: Object },
     message: { type: String },
+    mobileNumber: { type: String },
     serviceName: { type: String },
   },
   {

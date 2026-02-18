@@ -6,7 +6,7 @@ const axios = require("axios");
 const EASEBUZZ_KEY = process.env.EASEBUZZ_KEY;
 const EASEBUZZ_SALT = process.env.EASEBUZZ_SALT;
 
-const accountPennyLessSerciveResponse = async (data, services, index = 0) => {
+const accountPennyLessSerciveResponse = async (data, services=[], index = 0) => {
     console.log('accountPennyLessSerciveResponse called');
     if (index >= services.length) {
         return { success: false, message: "All services failed" };

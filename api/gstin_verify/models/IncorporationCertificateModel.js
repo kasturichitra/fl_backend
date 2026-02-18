@@ -13,6 +13,7 @@ const IncorporationCertificate = new mongoose.Schema(
     status: {
       type: Number,
     },
+    mobileNumber: { type: String },
     serviceId: {
       type: String,
     },
@@ -33,10 +34,10 @@ const IncorporationCertificate = new mongoose.Schema(
   },
   {
     timestamps: true,
-  }
+  },
 );
 
 module.exports = mongoose.model(
   "incorporationCertificate",
-  IncorporationCertificate
+  IncorporationCertificate,
 );

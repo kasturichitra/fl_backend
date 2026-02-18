@@ -18,7 +18,7 @@ let RapidApiHost = process.env.RAPIDAPI_BIN_HOST;
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST;
 
 exports.getCardDetailsByNumber = async (req, res) => {
-  const { bin } = req.body;
+  const { bin, serviceId = "", categoryId = "", mobileNumber = "" } = req.body;
   const data = req.body;
 
   console.log("bin detailes=---> ", bin);
@@ -35,7 +35,8 @@ exports.getCardDetailsByNumber = async (req, res) => {
 
   const binRateLimitResult = await checkingRateLimit({
     identifiers: { identifierHash },
-    service: "BIN",
+    serviceId,
+    categoryId,
     clientId: req.userClientId,
   });
 
@@ -96,7 +97,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
     }
   }
 
-  const service = await selectService("BIN");
+  const service = await selectService(categoryId, serviceId);
 
   console.log("----active service for bin Verify is ----", service);
   cardLogger.info("----active service for bin Verify is ----", service);
@@ -137,45 +138,69 @@ exports.getCardDetailsByNumber = async (req, res) => {
 };
 
 exports.getBankDetailsByIfsc = async (req, res) => {
-  const { ifsc } = req.body;
+  const { ifsc, serviceId = "", categoryId = "", mobileNumber = "" } = req.body;
   const data = req.body;
   console.log("IFSC Code:", ifsc);
 
-  const tnId = genrateUniqueServiceId("IFSC");
+  const tnId = genrateUniqueServiceId();
   accountLogger.info("IFSC txn Id ===>>", tnId);
-  await chargesToBeDebited(req.userClientId, "IFSC", tnId);
+  let maintainanceResponse;
+  if (req.environment?.toLowercase() == "test") {
+    maintainanceResponse = await creditsToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  } else {
+    maintainanceResponse = await chargesToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  }
+
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
+  }
+
+  const existingBankDetails = await RapidApiBankModel.findOne({ Ifsc: ifsc });
+
+  if (existingBankDetails) {
+    return res.status(200).json({
+      message: "valid",
+      success: true,
+      response: existingBankDetails?.response,
+    });
+  }
+    const service = await selectService(categoryId, serviceId);
 
   try {
-    const existingBankDetails = await RapidApiBankModel.findOne({ Ifsc: ifsc });
 
-    if (existingBankDetails) {
-      return res.status(200).json({
-        message: "valid",
-        success: true,
-        response: existingBankDetails?.response,
-      });
-    } else {
-      // const response = await verifyIfsc(data);
-      const response = await IfscActiveServiceResponse(data);
-      console.log("Bank details fetched successfully:", response);
-      if (response) {
-        let saveData = await RapidApiBankModel({
-          Ifsc: ifsc,
-          response: response,
-          createdDate: new Date().toLocaleDateString(),
-          createdTime: new Date().toLocaleTimeString(),
-        });
-        let done = await saveData.save();
-        if (done) {
-          console.log("Bank Data save to db successfully ");
-        }
-      }
-      return res.status(200).json({
-        message: "Valid",
-        success: true,
+    const response = await IfscActiveServiceResponse(data, service, 0);
+    console.log("Bank details fetched successfully:", response);
+    if (response) {
+      let saveData = await RapidApiBankModel({
+        Ifsc: ifsc,
         response: response,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
       });
+      let done = await saveData.save();
+      if (done) {
+        console.log("Bank Data save to db successfully ");
+      }
     }
+    return res.status(200).json({
+      message: "Valid",
+      success: true,
+      response: response,
+    });
   } catch (error) {
     console.error("Error fetching Bank info:", error.message);
     res.status(500).json({ error: "Failed to fetch Bank information" });

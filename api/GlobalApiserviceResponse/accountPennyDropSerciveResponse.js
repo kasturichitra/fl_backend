@@ -7,7 +7,7 @@ const EASEBUZZ_SALT = process.env.EASEBUZZ_SALT;
 const ZOOPClientId = process.env.ZOOP_APP_ID;
 const ZOOP_API_KEY = process.env.ZOOP_API_KEY;
 
-const accountPennyDropSerciveResponse = async (data, services, index = 0) => {
+const accountPennyDropSerciveResponse = async (data, services=[], index = 0) => {
     console.log('accountPennyDropSerciveResponse called');
     if (index >= services.length) {
         return { success: false, message: "All services failed" };

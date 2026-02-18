@@ -63,6 +63,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
   }
 };
 exports.initiateAadhaarDigilocker = async (req, res) => {
+  const { callback_url, redirect_url, mobileNumber="", serviceId="", categoryId="" } = req.body;
   const startTime = new Date();
   kycLogger.info("Aadhaar DigiLocker initiation triggered");
 
@@ -70,7 +71,6 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
     const transId = "TS-" + Date.now();
     const username = process.env.TRUTHSCREEN_USERNAME;
     const password = process.env.TRUTHSCREEN_TOKEN;
-    const { callback_url, redirect_url } = req.body;
     const finalCallback = callback_url || process.env.DEFAULT_CALLBACK_URL;
     const finalRedirect = redirect_url || process.env.DEFAULT_REDIRECT_URL;
 
