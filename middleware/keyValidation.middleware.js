@@ -38,9 +38,9 @@ const AuthValidation = (req, res, next) => {
     }
 
     // After verify updated in res with environment 
-    res.clientId = client;
-    res.secretKey = secretkey;
-    res.environment = environment;
+    req.clientId = client;
+    req.secretKey = secretkey;
+    req.environment = environment;
     next()
   } catch (err) {
     console.log('AuthValication Error', err.message, err);

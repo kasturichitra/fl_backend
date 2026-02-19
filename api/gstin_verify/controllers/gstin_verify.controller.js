@@ -18,6 +18,7 @@ const {
 } = require("../../../utlis/ValidateActiveProducts");
 const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
+const { hashIdentifiers } = require("../../../utlis/hashIdentifier");
 
 exports.gstinverify = async (req, res, next) => {
   const {
@@ -32,7 +33,6 @@ exports.gstinverify = async (req, res, next) => {
 
   companyLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
-  const encryptedGst = encryptData(gstinNumber);
   companyLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
   const capitalGstNumber = gstinNumber?.toUpperCase();
@@ -43,17 +43,17 @@ exports.gstinverify = async (req, res, next) => {
     gstNo: capitalGstNumber,
   });
 
-  const panRateLimitResult = await checkingRateLimit({
+  const gstRateLimitResult = await checkingRateLimit({
     identifiers: { identifierHash },
     serviceId,
     categoryId,
     clientId: req.clientId,
   });
 
-  if (!panRateLimitResult.allowed) {
+  if (!gstRateLimitResult.allowed) {
     return res.status(429).json({
       success: false,
-      message: panRateLimitResult.message,
+      message: gstRateLimitResult.message,
     });
   }
 
@@ -83,6 +83,8 @@ exports.gstinverify = async (req, res, next) => {
       response: {},
     });
   }
+
+  const encryptedGst = encryptData(gstinNumber);
 
   // Check if the record is present in the DB
   const existingGstin = await gstin_verifyModel.findOne({
@@ -142,7 +144,7 @@ exports.gstinverify = async (req, res, next) => {
     }
 
     // Get All Active Services
-    const service = await selectService('GSTIN');
+    const service = await selectService(categoryId, serviceId);
     kycLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
 
     //  get Acitve Service Response
@@ -204,20 +206,20 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
   if (!isValid) return;
 
   const identifierHash = hashIdentifiers({
-    panNo: capitalGstNumber,
+    gstNo: capitalGstNumber,
   });
 
-  const panRateLimitResult = await checkingRateLimit({
+  const gstRateLimitResult = await checkingRateLimit({
     identifiers: { identifierHash },
     serviceId,
     categoryId,
     clientId: req.clientId,
   });
 
-  if (!panRateLimitResult.allowed) {
+  if (!gstRateLimitResult.allowed) {
     return res.status(429).json({
       success: false,
-      message: panRateLimitResult.message,
+      message: gstRateLimitResult.message,
     });
   }
 
