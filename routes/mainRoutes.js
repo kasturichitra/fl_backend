@@ -27,6 +27,7 @@ const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoute
 const { sendEmail } = require("../api/Gmail/mailverification");
 const VoterIdRouter = require("../api/VoterId/voter.routes");
 const AuthValidation = require("../middleware/keyValidation.middleware");
+const analyticdataRouter = require("../api/analytics/routes/analyticdata.route");
 
 // ================== Public/Utils Routes ==================
 mainRouter.get('/health', (req, res) => {
@@ -74,6 +75,7 @@ mainRouter.use("/bin", ...conditionalMiddleware, binRouter);
 mainRouter.use("/card", ...conditionalMiddleware, fullCardRouter);
 mainRouter.use("/IP", ...conditionalMiddleware, ipRouter);
 // mainRouter.use("/voterId", ...conditionalMiddleware, VoterIdRouter);
+mainRouter.use("/analytics", ...conditionalMiddleware, analyticdataRouter);
 
 
 module.exports = mainRouter;
