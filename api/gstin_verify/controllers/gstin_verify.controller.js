@@ -1,7 +1,7 @@
 const gstin_verifyModel = require("../models/gstin_verify.model");
 const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
-const { companyLogger } = require("../../Logger/logger");
+const { companyLogger, kycLogger } = require("../../Logger/logger");
 const {
   GSTActiveServiceResponse,
 } = require("../../GlobalApiserviceResponse/GstServiceResponse");
@@ -19,6 +19,7 @@ const {
 const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 const { hashIdentifiers } = require("../../../utlis/hashIdentifier");
+const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
 
 exports.gstinverify = async (req, res, next) => {
   const {
@@ -27,6 +28,10 @@ exports.gstinverify = async (req, res, next) => {
     categoryId = "",
     mobileNumber = "",
   } = req.body;
+
+  if (!gstinNumber || !serviceId || !categoryId) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
+  };
 
   const clientId = req.clientId;
   const environment = req.environment
@@ -58,30 +63,30 @@ exports.gstinverify = async (req, res, next) => {
   }
 
   const tnId = genrateUniqueServiceId();
-  kycLogger.info(`pan txn Id ===>> ${tnId}`);
+  kycLogger.info(`GSTIN txn Id ===>> ${tnId}`);
   let maintainanceResponse;
   if (req.environment?.toLowercase() == "test") {
-    maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
-      serviceId,
-      categoryId,
-      tnId,
-    );
+  maintainanceResponse = await creditsToBeDebited(
+  req.clientId,
+  serviceId,
+  categoryId,
+  tnId,
+  );
   } else {
-    maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
-      serviceId,
-      categoryId,
-      tnId,
-    );
+  maintainanceResponse = await chargesToBeDebited(
+  req.clientId,
+  serviceId,
+  categoryId,
+  tnId,
+  );
   }
 
   if (!maintainanceResponse?.result) {
-    return res.status(500).json({
-      success: false,
-      message: "InValid",
-      response: {},
-    });
+  return res.status(500).json({
+  success: false,
+  message: "InValid",
+  response: {},
+  });
   }
 
   const encryptedGst = encryptData(gstinNumber);
@@ -101,9 +106,7 @@ exports.gstinverify = async (req, res, next) => {
   companyLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
 
   try {
-    if (!gstinNumber) {
-      return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
-    };
+    
     const encryptedGst = encryptData(gstinNumber);
     kycLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 

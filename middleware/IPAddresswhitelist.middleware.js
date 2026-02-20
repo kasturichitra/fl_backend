@@ -6,23 +6,34 @@ require('dotenv').config();
 
 const SUPERADMIN_URL = process.env.SUPERADMIN_URL;
 
+const jwt = require("jsonwebtoken");
+
 const checkWhitelist = async (req, res, next) => {
-    console.log("checkWhitelist is called ===>", req.headers["client_id"]);
+    const accessToken = req.headers["secret_token"];
+    console.log('check whiltelist is called ', accessToken)
     try {
-        // 1. Extract IP and Client ID
+        // 1. Extract IP
         let ip = requestIp.getClientIp(req);
         ip = ip.includes("::ffff:") ? ip.split("::ffff:")[1] : ip;
         if (ip === "::1") ip = "127.0.0.1";
 
-        const clientId = req.headers["client_id"]
+        // const accessToken = req.headers["secret_token"];
 
-        if (!clientId) {
-            commonLogger.warn(`IP Check: Missing client_id for IP ${ip}`);
-            // Depending on policy, we might allow or block. 
-            // For now, let's block as whitelisting implies strict access.
-            return res.status(400).json({ message: "Missing client_id header for IP validation." });
+        if (!accessToken) {
+            commonLogger.warn(`IP Check: Missing secret_token for IP ${ip}`);
+            return res.status(400).json({ message: "Missing secret_token header." });
         }
 
+        // Decode token to get clientId (signature verification happens in AuthValidation later)
+        const decodedToken = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
+        // Token has camelCase fields based on user sample
+        const { clientId, clientSecret } = decodedToken;
+        if (!clientId || !clientSecret) {
+            return res.status(400).json({ message: "Invalid token structure." });
+        }
+
+        // Map to snake_case for Super Admin consistency if needed, 
+        // but Redis key uses clientId
         const redisKey = `whitelist:${clientId}`;
 
         // 2. Check Redis Cache (Shared with Super Admin)
@@ -30,9 +41,15 @@ const checkWhitelist = async (req, res, next) => {
         try {
             const cachedData = await redisClient.get(redisKey);
             if (cachedData) {
-                const whitelistedIps = JSON.parse(cachedData);
-                if (whitelistedIps.includes(ip)) {
+                const cachedDataObj = JSON.parse(cachedData);
+                const ips = Array.isArray(cachedDataObj) ? cachedDataObj : (cachedDataObj.ips || []);
+                if (ips.includes(ip)) {
                     isWhitelisted = true;
+                    if (!Array.isArray(cachedDataObj)) {
+                        req.isKycCompleted = cachedDataObj.isKycCompleted;
+                        req.isKycApproved = cachedDataObj.isKycApproved;
+                        req.environment = cachedDataObj.environment;
+                    }
                 }
             }
         } catch (cacheErr) {
@@ -49,13 +66,18 @@ const checkWhitelist = async (req, res, next) => {
 
         try {
             const response = await axios.post(`${SUPERADMIN_URL}/api/v1/client/authorize-ip`, {
-                clientId,
+                client_id: clientId,
+                client_secret: clientSecret,
                 ip
             });
 
             if (response.data?.success) {
-                // If Super Admin authorized it, they have ALREADY updated Redis.
-                // We can proceed safely.
+                const data = response.data.data;
+                // Update req with details from Super Admin response
+                req.isKycCompleted = data.isKycCompleted;
+                req.isKycApproved = data.isKycApproved;
+                req.environment = data.environment;
+
                 console.log(`Super Admin authorized IP ${ip} for client ${clientId}`);
                 return next();
             } else {
