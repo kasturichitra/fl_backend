@@ -46,7 +46,7 @@ mainRouter.use("/livekey", LiveApiKeysRouter);
 
 const protectedMiddleware = [
     checkWhitelist,
-    AuthValidation,
+    // AuthValidation, // Need to remove
     decryptMiddleware,
     enceryptMiddleware
 ];
