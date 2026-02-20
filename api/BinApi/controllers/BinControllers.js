@@ -13,6 +13,7 @@ const {
 } = require("../../GlobalApiserviceResponse/IfscActiveServiceResponse");
 const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 let RapidApiKey = process.env.RAPIDAPI_KEY;
 let RapidApiHost = process.env.RAPIDAPI_BIN_HOST;
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST;
@@ -171,7 +172,23 @@ exports.getBankDetailsByIfsc = async (req, res) => {
 
   const existingBankDetails = await RapidApiBankModel.findOne({ Ifsc: ifsc });
 
+    const analyticsRes = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
+  if(!analyticsRes?.success){
+    return res.status(400).json(  {
+      response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
+      ...ERROR_CODES?.BAD_REQUEST,
+    })
+  }
+
   if (existingBankDetails) {
+         await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: decryptedResponse,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
     return res.status(200).json({
       message: "valid",
       success: true,

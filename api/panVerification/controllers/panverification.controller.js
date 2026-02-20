@@ -36,7 +36,7 @@ exports.verifyPanNumber = async (req, res) => {
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
-    clientId = ""
+    clientId = "",
   } = data;
   const capitalPanNumber = panNumber?.toUpperCase();
   const isValid = handleValidation("pan", capitalPanNumber, res);
@@ -223,6 +223,8 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
   const isValid = handleValidation("pan", capitalNumber, res);
   if (!isValid) return;
 
+  const storingClient = req.clientId || clientId;
+
   console.log("All inputs in pan are valid, continue processing...");
   kycLogger.info("All inputs in pan are valid, continue processing...");
 
@@ -234,7 +236,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
     identifiers: { identifierHash },
     serviceId,
     categoryId,
-    clientId: req.clientId,
+    clientId: storingClient,
   });
 
   if (!panRateLimitResult.allowed) {
@@ -249,14 +251,14 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
   let maintainanceResponse;
   if (req.environment?.toLowercase() == "test") {
     maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
     );
   } else {
     maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
@@ -276,6 +278,8 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
     panNumber: encryptedPan,
   });
 
+  await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
+
   console.log("existingPanNumber===>", existingPanNumber);
   if (existingPanNumber) {
     const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
@@ -286,12 +290,30 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         ...existingPanNumber?.response,
         PAN: decryptedPanNumber,
       };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: decryptedResponse,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.json({
         message: "Valid",
         data: decryptedResponse,
         success: true,
       });
     } else {
+        await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result:  {
+        PAN: decryptedPanNumber,
+      },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.json({
         message: "InValid",
         data: resOfPan,
