@@ -1,7 +1,9 @@
 const analyticsModel = require("../api/analytics/model/analyticsModel");
 
 const AnalyticsDataUpdate = async (client, serviceId, categoryId) => {
-  if (!client || !serviceId || !categoryId) return;
+  if (!client || !serviceId || !categoryId){
+    return {success: false}
+  };
 
   // First try to increment if service already exists
   const updateResult = await analyticsModel.updateOne(
@@ -31,6 +33,8 @@ const AnalyticsDataUpdate = async (client, serviceId, categoryId) => {
       { upsert: true }
     );
   }
+      return {success: true}
+
 };
 
 module.exports = AnalyticsDataUpdate;

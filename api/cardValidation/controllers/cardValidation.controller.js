@@ -16,15 +16,27 @@ const {
 } = require("../../GlobalApiserviceResponse/fullNumberServiceResponse");
 const { selectService } = require("../../service/serviceSelector");
 const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
+const AnalyticsDataUpdate = require("../../../utlis/analyticsStoring");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 require("dotenv").config();
 
 const verifyFullCardNumber = async (req, res, next) => {
-  const { creditCardNumber, mobileNumber="", categoryId="", serviceId="" } = req.body;
+  const {
+    creditCardNumber,
+    mobileNumber = "",
+    categoryId = "",
+    serviceId = "",
+    clientId = "",
+  } = req.body;
 
   const isValid = handleValidation("creditCard", creditCardNumber, res);
   if (!isValid) return;
 
   console.log("All inputs are valid, continue processing...");
+
+  console.log("clientId in card ===>>", clientId)
+
+  const storingClient = req.clientId || clientId;
 
   // const identifierHash = hashIdentifiers({
   //   cardNo: creditCardNumber,
@@ -34,7 +46,7 @@ const verifyFullCardNumber = async (req, res, next) => {
   //   identifiers: { identifierHash },
   //   serviceId,
   //   categoryId,
-  //   clientId: req.userClientId,
+  //   clientId: storingClient,
   // });
 
   // if (!fullCardRateLimitResult.allowed) {
@@ -49,14 +61,14 @@ const verifyFullCardNumber = async (req, res, next) => {
   // let maintainanceResponse;
   // if (req.environment?.toLowercase() == "test") {
   //   maintainanceResponse = await creditsToBeDebited(
-  //     req.clientId,
+  //     storingClient,
   //     serviceId,
   //     categoryId,
   //     tnId,
   //   );
   // } else {
   //   maintainanceResponse = await chargesToBeDebited(
-  //     req.clientId,
+  //     storingClient,
   //     serviceId,
   //     categoryId,
   //     tnId,
@@ -73,23 +85,46 @@ const verifyFullCardNumber = async (req, res, next) => {
   const encryptedCreditCardNumber = encryptData(creditCardNumber);
   console.log("encryptedCreditCardNumber ====>>>", encryptedCreditCardNumber);
   cardLogger.info(
-    `encryptedCreditCardNumber ====>> ${encryptedCreditCardNumber}`
+    `encryptedCreditCardNumber ====>> ${encryptedCreditCardNumber}`,
   );
   const existingCreditCardNumber = await cardValidationModel.findOne({
     cardNumber: encryptedCreditCardNumber,
   });
   console.log("existingCreditCardNumber===>", existingCreditCardNumber);
   cardLogger.info(
-    `Existing Credit Card Number Found ${existingCreditCardNumber}`
+    `Existing Credit Card Number Found ${existingCreditCardNumber, storingClient}`,
   );
+  const analyticsRes = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
+  if(!analyticsRes?.success){
+    return res.status(400).json(  {
+      response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
+      ...ERROR_CODES?.BAD_REQUEST,
+    })
+  }
   if (existingCreditCardNumber) {
     if (existingCreditCardNumber?.status == 1) {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: existingCreditCardNumber?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.json({
         message: "Valid",
         response: existingCreditCardNumber?.response,
         success: true,
       });
     } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: existingCreditCardNumber?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.json({
         message: "InValid",
         response: existingCreditCardNumber?.response,
@@ -110,12 +145,20 @@ const verifyFullCardNumber = async (req, res, next) => {
     const cardNumberResponse = await fullNumberServiceResponse(
       creditCardNumber,
       service,
-      0
+      0,
     );
     // const cardNumberResponse = await verifyCreditCardNumber(data);
     console.log("cardNumberResponse ===>>", cardNumberResponse);
     const encryptedNumber = encryptData(creditCardNumber);
     if (cardNumberResponse?.message?.toLowerCase() == "valid") {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: cardNumberResponse?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const objectToBeStored = {
         cardNumber: encryptedNumber,
         response: cardNumberResponse?.result,
@@ -133,6 +176,14 @@ const verifyFullCardNumber = async (req, res, next) => {
         response: cardNumberResponse?.result,
       });
     } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: cardNumberResponse?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const objectToBeStored = {
         cardNumber: encryptedNumber,
         response: cardNumberResponse?.result,
@@ -144,7 +195,7 @@ const verifyFullCardNumber = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await cardValidationModel?.create(objectToBeStored);
-      return res.status(200).json({
+      return res.status(404).json({
         message: "InValid",
         success: false,
         response: cardNumberResponse?.result,

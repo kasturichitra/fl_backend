@@ -10,6 +10,7 @@ const {
 } = require("../../GlobalApiserviceResponse/UdyamServiceResponse");
 const { companyLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const udhyamVerify = require("../model/udyamModel");
 
 const udyamNumberVerfication = async (req, res, next) => {
@@ -18,6 +19,7 @@ const udyamNumberVerfication = async (req, res, next) => {
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
+    clientId = "",
   } = req.body;
 
   console.log("udyamNumber ==>", udyamNumber);
@@ -30,6 +32,8 @@ const udyamNumberVerfication = async (req, res, next) => {
   console.log("All inputs in pan are valid, continue processing...");
   kycLogger.info("All inputs in pan are valid, continue processing...");
 
+  const storingClient = req.clientId || clientId;
+
   const identifierHash = hashIdentifiers({
     udyamNo: capitalUdyamNumber,
   });
@@ -38,7 +42,7 @@ const udyamNumberVerfication = async (req, res, next) => {
     identifiers: { identifierHash },
     serviceId,
     categoryId,
-    clientId: req.clientId,
+    clientId: storingClient,
   });
 
   if (!udyamRateLimitResult.allowed) {
@@ -54,14 +58,14 @@ const udyamNumberVerfication = async (req, res, next) => {
 
   if (req.environment?.toLowercase() == "test") {
     maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
     );
   } else {
     maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
@@ -87,10 +91,29 @@ const udyamNumberVerfication = async (req, res, next) => {
 
   if (existingUdhyamNumber) {
     if (existingUdhyamNumber?.status == 1) {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: existingUdhyamNumber?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res
         .status(200)
         .json(createApiResponse(200, existingUdhyamNumber?.response, "Valid"));
     } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: {
+          ...findingInValidResponses("udyam"),
+          udyam: udyamNumber,
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.status(200).json(
         createApiResponse(
           200,
@@ -117,8 +140,9 @@ const udyamNumberVerfication = async (req, res, next) => {
       `response from active service for udhyam ${JSON.stringify(response)}`,
     );
     companyLogger.info(
-      `response from active service for udhyam ${service.serviceFor
-      } ${JSON.stringify(response)}`
+      `response from active service for udhyam ${
+        service.serviceFor
+      } ${JSON.stringify(response)}`,
     );
     if (response?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = {

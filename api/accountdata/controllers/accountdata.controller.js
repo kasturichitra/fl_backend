@@ -15,6 +15,8 @@ const {
 const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
 const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 const { hashIdentifiers } = require("../../../utlis/hashIdentifier");
+const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const {
@@ -183,18 +185,21 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
 };
 
 exports.verifyPennyLessBankAccount = async (req, res, next) => {
-    const {
+  const {
     account_no,
     ifsc,
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
+    clientId = "",
   } = req.body;
   const data = req.body;
   console.log("account_no, ifsc===>", account_no, ifsc);
   accountLogger.info(
     `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
   );
+
+  const storingClient = req.clientId || clientId;
 
   const isAccountValid = handleValidation("accountNumber", account_no, res);
   if (!isAccountValid) return;
@@ -204,7 +209,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
 
   console.log("All inputs are valid, continue processing...");
 
-   const identifierHash = hashIdentifiers({
+  const identifierHash = hashIdentifiers({
     accNo: account_no,
     ifscCode: capitalIfsc,
   });
@@ -213,7 +218,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     identifiers: { identifierHash },
     serviceId,
     categoryId,
-    clientId: req.clientId,
+    clientId: storingClient,
   });
 
   if (!accountPennyLessRateLimitResult?.allowed) {
@@ -228,14 +233,14 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
   let maintainanceResponse;
   if (req.environment?.toLowercase() == "test") {
     maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
     );
   } else {
     maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
@@ -265,6 +270,14 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
         Message:
           existingAccountDetails?.responseData?.result?.verification_status,
       };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.status(200).json(createApiResponse(200, response, "Valid"));
     }
     const service = await selectService("ACCOUNT_VERIFY_PL");
@@ -317,12 +330,21 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       const objectToStoreInDb = {
         accountNo: encryptedAccountNumber,
         accountIFSCCode: ifsc,
+        status: 1,
         accountHolderName: response?.result?.name,
         serviceResponse: response?.responseOfService,
         responseData: response?.result,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
       };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       await accountdataModel.create(objectToStoreInDb);
 
       return res
@@ -334,6 +356,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
         accountIFSCCode: ifsc,
         accountHolderName: "",
         serviceResponse: {},
+        status: 2,
         responseData: ERROR_CODES?.NOT_FOUND,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
