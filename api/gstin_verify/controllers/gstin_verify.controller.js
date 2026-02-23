@@ -20,6 +20,9 @@ const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 const { hashIdentifiers } = require("../../../utlis/hashIdentifier");
 const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
+const AnalyticsDataUpdate = require("../../../utlis/analyticsStoring");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 
 exports.gstinverify = async (req, res, next) => {
   const {
@@ -30,11 +33,11 @@ exports.gstinverify = async (req, res, next) => {
   } = req.body;
 
   if (!gstinNumber || !serviceId || !categoryId) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
-  };
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
 
   const clientId = req.clientId;
-  const environment = req.environment
+  const environment = req.environment;
 
   companyLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
@@ -66,27 +69,27 @@ exports.gstinverify = async (req, res, next) => {
   kycLogger.info(`GSTIN txn Id ===>> ${tnId}`);
   let maintainanceResponse;
   if (req.environment?.toLowercase() == "test") {
-  maintainanceResponse = await creditsToBeDebited(
-  req.clientId,
-  serviceId,
-  categoryId,
-  tnId,
-  );
+    maintainanceResponse = await creditsToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
   } else {
-  maintainanceResponse = await chargesToBeDebited(
-  req.clientId,
-  serviceId,
-  categoryId,
-  tnId,
-  );
+    maintainanceResponse = await chargesToBeDebited(
+      req.clientId,
+      serviceId,
+      categoryId,
+      tnId,
+    );
   }
 
   if (!maintainanceResponse?.result) {
-  return res.status(500).json({
-  success: false,
-  message: "InValid",
-  response: {},
-  });
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
   }
 
   const encryptedGst = encryptData(gstinNumber);
@@ -106,7 +109,6 @@ exports.gstinverify = async (req, res, next) => {
   companyLogger.info(`gst inverify activer service ${JSON.stringify(service)}`);
 
   try {
-    
     const encryptedGst = encryptData(gstinNumber);
     kycLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
@@ -135,15 +137,17 @@ exports.gstinverify = async (req, res, next) => {
     // await chargesToBeDebited(clientId, "GSTIN", tnId, environment);
 
     // Check if the record is present in the DB
-    const existingGstin = await gstin_verifyModel.findOne({ gstinNumber: encryptedGst });
+    const existingGstin = await gstin_verifyModel.findOne({
+      gstinNumber: encryptedGst,
+    });
     if (existingGstin) {
       const dataToShow = {
         ...existingGstin?.response,
-        gstinNumber
+        gstinNumber,
       };
-      kycLogger.info('existing GSTIN Response', dataToShow);
+      kycLogger.info("existing GSTIN Response", dataToShow);
 
-      return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
+      return res.status(200).json(createApiResponse(200, dataToShow, "Valid"));
     }
 
     // Get All Active Services
@@ -255,6 +259,18 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
 
   const existingGstin = await gstin_panModel.findOne({ gstinNumber });
 
+  const analyticsRes = await AnalyticsDataUpdate(
+    storingClient,
+    serviceId,
+    categoryId,
+  );
+  if (!analyticsRes?.success) {
+    return res.status(400).json({
+      response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
+      ...ERROR_CODES?.BAD_REQUEST,
+    });
+  }
+
   if (existingGstin) {
     const dataToShow = existingGstin?.result;
     return res.status(200).json(createApiResponse(200, dataToShow, "Valid"));
@@ -305,6 +321,14 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         ...response?.result,
         gstinNumber: encryptedGst,
       };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const storingData = {
         status: 1,
         gstinNumber: encryptedGst,
@@ -320,6 +344,17 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         .status(200)
         .json(createApiResponse(200, response?.result, "Success"));
     } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn")
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res
         .satus(404)
         .json(createApiResponse(404, { gstinNumber }, "Failed"));

@@ -1,11 +1,12 @@
 const IncorporationCertificateModel = require("../models/IncorporationCertificateModel");
 const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
-const logger = require("../../Logger/logger");
+const {companyLogger} = require("../../Logger/logger");
 const handleValidation = require("../../../utlis/lengthCheck");
 const { findingInValidResponses } = require("../../../utlis/InvalidResponses");
 const { CinActiveServiceResponse } = require("../../GlobalApiserviceResponse/CinServiceResponse");
 const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
+const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
 
 exports.handleCINVerification = async (req, res, next) => {
     const {
@@ -38,7 +39,7 @@ exports.handleCINVerification = async (req, res, next) => {
     }
   
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`pan txn Id ===>> ${tnId}`);
+    companyLogger.info(`pan txn Id ===>> ${tnId}`);
     let maintainanceResponse;
     if (req.environment?.toLowercase() == "test") {
       maintainanceResponse = await creditsToBeDebited(
@@ -75,13 +76,13 @@ exports.handleCINVerification = async (req, res, next) => {
 
   const service = await selectService(categoryId, serviceId);
 
-  logger.info("----active service for cin Verify is ----", service);
+  companyLogger.info("----active service for cin Verify is ----", service);
 
   try {
     let response = await CinActiveServiceResponse(CIN,service,0)
 
     console.log("API Response:", response);
-    logger.info(
+    companyLogger.info(
       "----API Response from active service of cin is ----",
       response
     );

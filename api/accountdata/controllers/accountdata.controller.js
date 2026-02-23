@@ -17,6 +17,9 @@ const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 const { hashIdentifiers } = require("../../../utlis/hashIdentifier");
 const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const checkingRateLimit = require("../../../utlis/checkingRateLimit");
+const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
+const AnalyticsDataUpdate = require("../../../utlis/analyticsStoring");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const {
@@ -40,6 +43,8 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
 
   console.log("All inputs are valid, continue processing...");
 
+    const storingClient = req.clientId || clientId;
+
   const identifierHash = hashIdentifiers({
     accNo: account_no,
     ifscCode: capitalIfsc,
@@ -49,7 +54,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     identifiers: { identifierHash },
     serviceId,
     categoryId,
-    clientId: req.clientId,
+    clientId: storingClient,
   });
 
   if (!accountPennyDropRateLimitResult.allowed) {
@@ -64,14 +69,14 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
   let maintainanceResponse;
   if (req.environment?.toLowercase() == "test") {
     maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
     );
   } else {
     maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
@@ -95,6 +100,18 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     accountNo: encryptedAccountNumber,
     accountIFSCCode: capitalIfsc,
   });
+
+  const analyticsRes = await AnalyticsDataUpdate(
+    storingClient,
+    serviceId,
+    categoryId,
+  );
+  if (!analyticsRes?.success) {
+    return res.status(400).json({
+      response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
+      ...ERROR_CODES?.BAD_REQUEST,
+    });
+  }
 
   if (existingAccountDetails) {
     accountLogger.info(
@@ -255,40 +272,51 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     });
   }
 
-  try {
-    const encryptedAccountNumber = encryptData(account_no);
+  const encryptedAccountNumber = encryptData(account_no);
 
-    const existingAccountDetails = await accountdataModel.findOne({
-      accountNo: encryptedAccountNumber,
-      accountIFSCCode: ifsc,
+  const existingAccountDetails = await accountdataModel.findOne({
+    accountNo: encryptedAccountNumber,
+    accountIFSCCode: ifsc,
+  });
+  const analyticsRes = await AnalyticsDataUpdate(
+    storingClient,
+    serviceId,
+    categoryId,
+  );
+  if (!analyticsRes?.success) {
+    return res.status(400).json({
+      response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
+      ...ERROR_CODES?.BAD_REQUEST,
     });
-    if (existingAccountDetails) {
-      const response = {
-        BeneficiaryName: existingAccountDetails?.accountHolderName,
-        AccountNumber: existingAccountDetails?.accountNo,
-        IFSC: existingAccountDetails?.accountIFSCCode,
-        Message:
-          existingAccountDetails?.responseData?.result?.verification_status,
-      };
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: response,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      return res.status(200).json(createApiResponse(200, response, "Valid"));
-    }
-    const service = await selectService("ACCOUNT_VERIFY_PL");
+  }
+  if (existingAccountDetails) {
+    const response = {
+      BeneficiaryName: existingAccountDetails?.accountHolderName,
+      AccountNumber: existingAccountDetails?.accountNo,
+      IFSC: existingAccountDetails?.accountIFSCCode,
+      Message:
+        existingAccountDetails?.responseData?.result?.verification_status,
+    };
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      result: response,
+      createdTime: new Date().toLocaleTimeString(),
+      createdDate: new Date().toLocaleDateString(),
+    });
+    return res.status(200).json(createApiResponse(200, response, "Valid"));
+  }
+  const service = await selectService(categoryId, serviceId);
 
-    console.log(
-      "----active service for Account penny less Verify is ----",
-      service,
-    );
-    accountLogger.info(
-      `----active service for Account penny less Verify is ----, ${service}`,
-    );
+  console.log(
+    "----active service for Account penny less Verify is ----",
+    service,
+  );
+  accountLogger.info(
+    `----active service for Account penny less Verify is ----, ${service}`,
+  );
+  try {
     if (!service) {
       return res
         .status(404)
@@ -299,20 +327,6 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     accountLogger.info(
       `----active service name for Account --- ${service.serviceFor}`,
     );
-
-    // let response;
-    // switch (service.serviceFor) {
-    //   case "INVINCIBLE":
-    //     console.log("Calling INVINCIBLE API...");
-    //     response = await verifyBankInvincible(data);
-    //     break;
-    //   case "TRUTHSCREEN":
-    //     console.log("Calling TRUTHSCREEN API...");
-    //     response = await verifyBankTruthScreen(data);
-    //     break;
-    //   default:
-    //     throw new Error("Unsupported PAN service");
-    // }
 
     const response = await accountPennyLessSerciveResponse(
       { account_no, ifsc },
@@ -361,6 +375,14 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
       };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       await accountdataModel.create(objectToStoreInDb);
       return res.status(200).json(createApiResponse(200, {}, "InValid"));
     }

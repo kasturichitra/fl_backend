@@ -1,7 +1,11 @@
 const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
+const checkingRateLimit = require("../../../utlis/checkingRateLimit");
+const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
 const { ERROR_CODES } = require("../../../utlis/errorCodes");
+const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
+const { hashIdentifiers } = require("../../../utlis/hashIdentifier");
 const handleValidation = require("../../../utlis/lengthCheck");
-const {kycLogger} = require("../../Logger/logger");
+const { kycLogger } = require("../../Logger/logger");
 const comparingNamesModel = require("../models/compareName.model");
 
 async function checkCompareNames(firstName, secondName) {
@@ -23,17 +27,17 @@ async function checkCompareNames(firstName, secondName) {
   console.log(
     "sortedFirstName === sortedSecondName===>",
     sortedFirstName,
-    sortedSecondName
+    sortedSecondName,
   );
   logger.info(
     "sortedFirstName === sortedSecondName===>",
     sortedFirstName,
-    sortedSecondName
+    sortedSecondName,
   );
   console.log(
     "sortedFirstName === reverseSortedSecondName===>",
     sortedFirstName,
-    jumbleReverseSecondName
+    jumbleReverseSecondName,
   );
   if (sortedFirstName === sortedSecondName) {
     return { similarity: 100, reverseSimilarity: 100 };
@@ -45,7 +49,7 @@ async function checkCompareNames(firstName, secondName) {
   const similarity = await compareNames(sortedFirstName, sortedSecondName);
   const reverseSimilarity = await compareNames(
     sortedFirstName,
-    jumbleReverseSecondName
+    jumbleReverseSecondName,
   );
   console.log("similarity===>", similarity);
   console.log("reverseSimilarity===>", reverseSimilarity);
@@ -82,7 +86,7 @@ function levenshteinDistance(a, b) {
         matrix[i][j] = Math.min(
           matrix[i - 1][j - 1] + 1,
           matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
+          matrix[i - 1][j] + 1,
         );
       }
     }
@@ -97,29 +101,80 @@ function removeTitle(name) {
 
 exports.compareNames = async (req, res, next) => {
   console.log("Compare Name is triggred");
-  kycLogger.info("Compare Name is triggred")
+  kycLogger.info("Compare Name is triggred");
 
-   const tnId = genrateUniqueServiceId("NAME");
-    console.log("NAME txn Id ===>>", tnId);
-    kycLogger.info("NAME txn Id ===>>", tnId);
-    await chargesToBeDebited(req.userClientId, "NAME", tnId);
-  try {
-    const { firstName, secondName } = req.body;
-    console.log("firstName and secondName ===>>", secondName, firstName);
-    const capitalFirstName = firstName?.toUpperCase();
-    const capitalSecondName = secondName?.toUpperCase();
-    const isFirstValid = handleValidation("firstName", capitalFirstName, res);
-    if (!isFirstValid) return;
+  const {
+    firstName,
+    secondName,
+    mobileNumber = "",
+    serviceId = "",
+    categoryId = "",
+  } = req.body;
+  console.log("firstName and secondName ===>>", secondName, firstName);
+  kycLogger.info("firstName and secondName ===>>", secondName, firstName);
+  const capitalFirstName = firstName?.toUpperCase();
+  const capitalSecondName = secondName?.toUpperCase();
+  const isFirstValid = handleValidation("firstName", capitalFirstName, res);
+  if (!isFirstValid) return;
 
-    const isSecondValid = handleValidation("firstName", capitalSecondName, res);
-    if (!isSecondValid) return;
+  const isSecondValid = handleValidation("firstName", capitalSecondName, res);
+  if (!isSecondValid) return;
 
-    const existingDetails = await comparingNamesModel.findOne({
-      firstName: capitalFirstName,
-      secondName: capitalSecondName,
+  const storingClient = req.clientId || clientId;
+
+    const identifierHash = hashIdentifiers({
+    accNo: account_no,
+    ifscCode: capitalIfsc,
+  });
+
+  const nameRateLimitResult = await checkingRateLimit({
+    identifiers: { identifierHash },
+    serviceId,
+    categoryId,
+    clientId: storingClient,
+  });
+
+  if (!nameRateLimitResult.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: nameRateLimitResult.message,
     });
-    console.log("response in existing===>", existingDetails);
+  }
 
+  const tnId = genrateUniqueServiceId();
+  console.log("NAME txn Id ===>>", tnId);
+  kycLogger.info("NAME txn Id ===>>", tnId);
+  let maintainanceResponse;
+  if (req.environment?.toLowercase() == "test") {
+    maintainanceResponse = await creditsToBeDebited(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  } else {
+    maintainanceResponse = await chargesToBeDebited(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  }
+
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
+  }
+  const existingDetails = await comparingNamesModel.findOne({
+    firstName: capitalFirstName,
+    secondName: capitalSecondName,
+  });
+  console.log("response in existing===>", existingDetails);
+
+  try {
     if (existingDetails) {
       return res.status(200).json({
         message: "Valid",
@@ -129,7 +184,7 @@ exports.compareNames = async (req, res, next) => {
     } else {
       const result = await checkCompareNames(
         capitalFirstName,
-        capitalSecondName
+        capitalSecondName,
       );
       console.log("======>>>>>result in compareNames", result);
       logger.info("result from compareNames in name match ===>>", result);
@@ -139,12 +194,12 @@ exports.compareNames = async (req, res, next) => {
       console.log(
         "reverseSimilarity and similarity ===>>",
         similarity,
-        reverseSimilarity
+        reverseSimilarity,
       );
       logger.info(
         "reverseSimilarity and similarity in name match api ===>>",
         similarity,
-        reverseSimilarity
+        reverseSimilarity,
       );
 
       if (result) {
@@ -156,12 +211,12 @@ exports.compareNames = async (req, res, next) => {
         console.log(
           "reverseSimilarity and similarity ===>>",
           similarity,
-          reverseSimilarity
+          reverseSimilarity,
         );
         logger.info(
           "reverseSimilarity and similarity ===>>",
           similarity,
-          reverseSimilarity
+          reverseSimilarity,
         );
         await comparingNamesModel.create({
           firstName: capitalFirstName,
@@ -186,7 +241,7 @@ exports.compareNames = async (req, res, next) => {
   } catch (error) {
     console.log(
       "Error performing comparing Names:",
-      error.response?.data || error.message
+      error.response?.data || error.message,
     );
     let errorMessage = {
       message: "Error performing comparing Names Try again after Some time",

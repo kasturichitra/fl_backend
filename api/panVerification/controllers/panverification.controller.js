@@ -218,6 +218,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
+    clientId = "",
   } = data;
   const capitalNumber = panNumber?.toUpperCase();
   const isValid = handleValidation("pan", capitalNumber, res);
@@ -304,13 +305,13 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         success: true,
       });
     } else {
-        await responseModel.create({
+      await responseModel.create({
         serviceId,
         categoryId,
         clientId: storingClient,
-        result:  {
-        PAN: decryptedPanNumber,
-      },
+        result: {
+          PAN: decryptedPanNumber,
+        },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
@@ -520,6 +521,14 @@ exports.verifyPanToAadhaar = async (req, res) => {
         ...response?.result,
         panNumber: encryptedPan,
       };
+       await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const storingData = {
         panNumber: encryptedPan,
         response: encryptedResponse,
@@ -536,6 +545,17 @@ exports.verifyPanToAadhaar = async (req, res) => {
         .status(200)
         .json(createApiResponse(200, response?.result, "Valid"));
     } else {
+       await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result:    {
+            panNumber: panNumber,
+            ...findingInValidResponses("panToAadhaar"),
+          },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.status(404).json(
         createApiResponse(
           404,

@@ -2,14 +2,20 @@ const axios = require("axios");
 const checkingDetails = require("../../../utlis/authorization");
 const FaceMatchModel = require("../models/facematch.model");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
-const {kycLogger} = require("../../Logger/logger");
+const { kycLogger } = require("../../Logger/logger");
 const ERROR_CODES = require("../../../utlis/errorCodes");
-const { faceMatch } = require("../../service/provider.zoop")
+const { faceMatch } = require("../../service/provider.zoop");
 const zoop = require("../../service/provider.zoop");
 const invincible = require("../../service/provider.invincible");
 const truthscreen = require("../../service/provider.truthscreen");
-const { selectService, updateFailure } = require("../../service/serviceSelector");
-const { callTruth, performFaceVerificationEncrypted } = require("../../truthScreen/callTruthScreen");
+const {
+  selectService,
+  updateFailure,
+} = require("../../service/serviceSelector");
+const {
+  callTruth,
+  performFaceVerificationEncrypted,
+} = require("../../truthScreen/callTruthScreen");
 const { generateTransactionId } = require("../../../utlis/helper");
 
 const convertImageToBase64 = async (url) => {
@@ -94,7 +100,6 @@ const convertImageToBase64 = async (url) => {
 //     return { error: "All fields are required" };
 //   }
 
-
 //   const url = "https://www.truthscreen.com/api/v2.2/faceapi/token";
 //   const username = process.env.TRUTHSCREEN_USERNAME;
 //   const password = process.env.TRUTHSCREEN_TOKEN;
@@ -158,31 +163,83 @@ const convertImageToBase64 = async (url) => {
 // };
 
 exports.faceMatchVerification = async (req, res) => {
-  const { userImage, aadhaarImage } = req.body;
-  const service = await selectService('FACEMATCH');
+  const { userImage, aadhaarImage, categoryId = "", serviceId = "", clientId="" } = req.body;
+  const service = await selectService();
   console.log("----active service for FACEMATCH Verify is ----", service);
   kycLogger.info(`----active service for FACEMATCH Verify is ----, ${service}`);
-  try {
-    if (!userImage || !aadhaarImage) {
-      return res.status(400).json(ERROR_CODES?.BAD_REQUEST)
-    }
 
-    if (!service || service === undefined) {
-      return res.status(503).json({ error: "No service available" });
-    }
-    console.log('FACEMATCH inverify activer service', service?.serviceFor);
+  const storingClient = req.clientId || clientId;
+
+  const identifierHash = hashIdentifiers({
+    user: userImage?.slice(0,10),
+    aadhaar:aadhaarImage?.slice(0,10)
+  });
+
+  const faceRateLimitResult = await checkingRateLimit({
+    identifiers: { identifierHash },
+    serviceId,
+    categoryId,
+    clientId: storingClient,
+  });
+
+  if (!faceRateLimitResult.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: faceRateLimitResult.message,
+    });
+  }
+
+  const tnId = genrateUniqueServiceId();
+  console.log("bin txn Id ===>>", tnId);
+  kycLogger.info("bin txn Id ===>>", tnId);
+  let maintainanceResponse;
+  if (req.environment?.toLowercase() == "test") {
+    kycLogger.info("credits maintainance started===>>", req.environment);
+    maintainanceResponse = await creditsToBeDebited(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  } else {
+    kycLogger.info("charges maintainance started===>>", req.environment);
+    maintainanceResponse = await chargesToBeDebited(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+    );
+  }
+
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "InValid",
+      response: {},
+    });
+  }
+  if (!userImage || !aadhaarImage) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+
+  if (!service || service === undefined) {
+    return res.status(503).json({ error: "No service available" });
+  }
+  try {
+    console.log("FACEMATCH inverify activer service", service?.serviceFor);
     const dataTosend = {
-      userImage, aadhaarImage
-    }
+      userImage,
+      aadhaarImage,
+    };
     let response;
     switch (service?.serviceFor) {
-      case 'ZOOP':
+      case "ZOOP":
         response = await zoop.faceMatch(dataTosend, service);
         break;
-      case 'INVINCIBLE':
+      case "INVINCIBLE":
         response = await invincible.faceMatch(dataTosend, service);
         break;
-      case 'TRUTHSCREEN':
+      case "TRUTHSCREEN":
         response = await truthscreen.faceMatch(dataTosend, service);
         break;
       default:
@@ -190,12 +247,11 @@ exports.faceMatchVerification = async (req, res) => {
     }
     console.log("facematch verify response ===>", JSON.stringify(response));
     // Update in DB
-    return res.status(200).json({ message: 'Success', data: response?.result, success: true });
+    return res
+      .status(200)
+      .json({ message: "Success", data: response?.result, success: true });
   } catch (error) {
-    console.log('Error While FaceMatchVerification', error);
-    return res.status(500).json(ERROR_CODES?.SERVER_ERROR)
+    console.log("Error While FaceMatchVerification", error);
+    return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
-}
-
-
-
+};

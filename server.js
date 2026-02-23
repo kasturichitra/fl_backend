@@ -5,7 +5,6 @@ dotenv.config();
 const cors = require("cors");
 const helmet = require("helmet");
 const bodyParser = require("body-parser");
-
 const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController");
 const mainRoutes = require("./routes/mainRoutes");
 const { decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptPyaload");

@@ -19,13 +19,18 @@ let RapidApiHost = process.env.RAPIDAPI_BIN_HOST;
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST;
 
 exports.getCardDetailsByNumber = async (req, res) => {
-  const { bin, serviceId = "", categoryId = "", mobileNumber = "" } = req.body;
-  const data = req.body;
+  const {
+    bin,
+    serviceId = "",
+    categoryId = "",
+    mobileNumber = "",
+    clientId = "",
+  } = req.body;
 
   console.log("bin detailes=---> ", bin);
-  console.log("RAOPID_API KEY=---> ", RapidApiKey);
-  console.log("RAPID Bin API HOST =---> ", RapidApiHost);
-  console.log("RAPID Bank  API HOST =---> ", RapidApiBankHost);
+  cardLogger.info("bin data to be verified ====>", bin);
+
+  const storingClient = req.clientId || clientId;
 
   const isValid = handleValidation("bin", bin, res);
   if (!isValid) return;
@@ -38,7 +43,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
     identifiers: { identifierHash },
     serviceId,
     categoryId,
-    clientId: req.userClientId,
+    clientId: storingClient,
   });
 
   if (!binRateLimitResult.allowed) {
@@ -53,15 +58,17 @@ exports.getCardDetailsByNumber = async (req, res) => {
   cardLogger.info("bin txn Id ===>>", tnId);
   let maintainanceResponse;
   if (req.environment?.toLowercase() == "test") {
+    cardLogger.info("credits maintainance started===>>", req.environment);
     maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
     );
   } else {
+    cardLogger.info("charges maintainance started===>>", req.environment);
     maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
@@ -82,14 +89,43 @@ exports.getCardDetailsByNumber = async (req, res) => {
     bin: encryptedBin,
   });
 
+  const analyticsRes = await AnalyticsDataUpdate(
+    storingClient,
+    serviceId,
+    categoryId,
+  );
+  if (!analyticsRes?.success) {
+    cardLogger.info("analytics failed ====>>", analyticsRes?.success);
+    return res.status(400).json({
+      response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
+      ...ERROR_CODES?.BAD_REQUEST,
+    });
+  }
+
   if (existingBinNumber) {
     if (existingBinNumber?.status == 1) {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: existingBinNumber?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.status(200).json({
         message: "valid",
         success: true,
         response: existingBinNumber?.response,
       });
     } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: existingBinNumber?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.status(404).json({
         message: "InValid",
         success: false,
@@ -139,9 +175,17 @@ exports.getCardDetailsByNumber = async (req, res) => {
 };
 
 exports.getBankDetailsByIfsc = async (req, res) => {
-  const { ifsc, serviceId = "", categoryId = "", mobileNumber = "" } = req.body;
+  const {
+    ifsc,
+    serviceId = "",
+    categoryId = "",
+    mobileNumber = "",
+    clientId = "",
+  } = req.body;
   const data = req.body;
   console.log("IFSC Code:", ifsc);
+
+  const storingClient = req.clientId || clientId;
 
   const tnId = genrateUniqueServiceId();
   accountLogger.info("IFSC txn Id ===>>", tnId);
@@ -172,33 +216,36 @@ exports.getBankDetailsByIfsc = async (req, res) => {
 
   const existingBankDetails = await RapidApiBankModel.findOne({ Ifsc: ifsc });
 
-    const analyticsRes = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
-  if(!analyticsRes?.success){
-    return res.status(400).json(  {
+  const analyticsRes = await AnalyticsDataUpdate(
+    storingClient,
+    serviceId,
+    categoryId,
+  );
+  if (!analyticsRes?.success) {
+    return res.status(400).json({
       response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
       ...ERROR_CODES?.BAD_REQUEST,
-    })
+    });
   }
 
   if (existingBankDetails) {
-         await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: decryptedResponse,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      result: decryptedResponse,
+      createdTime: new Date().toLocaleTimeString(),
+      createdDate: new Date().toLocaleDateString(),
+    });
     return res.status(200).json({
       message: "valid",
       success: true,
       response: existingBankDetails?.response,
     });
   }
-    const service = await selectService(categoryId, serviceId);
+  const service = await selectService(categoryId, serviceId);
 
   try {
-
     const response = await IfscActiveServiceResponse(data, service, 0);
     console.log("Bank details fetched successfully:", response);
     if (response) {
