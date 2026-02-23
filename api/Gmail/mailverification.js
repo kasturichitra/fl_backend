@@ -1,5 +1,5 @@
 const nodemailer = require("nodemailer");
-const { createApiResponse } = require("../../utlis/ApiResponseHandler");
+const { createApiResponse } = require("../../utils/ApiResponseHandler");
 
 
 // Create a transporter using Ethereal test credentials.
@@ -45,6 +45,7 @@ const sendEmail = async (req, res) => {
 module.exports = {
     sendEmail
 }
+
 
 
 

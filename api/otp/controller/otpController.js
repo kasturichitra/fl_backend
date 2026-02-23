@@ -1,10 +1,10 @@
 const dotenv = require("dotenv");
 const mobileModel = require("../model/otpModel");
 const axios = require("axios");
-const { ERROR_CODES } = require('../../../utlis/errorCodes');
+const { ERROR_CODES } = require('../../../utils/errorCodes');
 const { smsOtpActiveServiceResponse } = require("../../GlobalApiserviceResponse/smsOtpResponse");
 const { selectService } = require("../../service/serviceSelector");
-const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
+const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 // const logger = require("../../logger/logger");
 
 dotenv.config();
@@ -152,3 +152,4 @@ const mobileOtpGeneration = async (req, res, next) => {
 };
 
 module.exports = { mobileOtpGeneration, verifyMobileOtp };
+

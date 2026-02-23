@@ -10,6 +10,7 @@ const chargesToBeDebited = async (clientId, service, category, tnxId) => {
       clientId: clientId,
       transactionId: tnxId,
     };
+    commonLogger.debug(`Charges deduction request for client: ${clientId}, service: ${service}, category: ${category}, txnId: ${tnxId}`);
     let response;
     response = await axios.post(
       `${superAdminUrl}/api/v1/apimodule/calculate-charges`,
@@ -20,15 +21,15 @@ const chargesToBeDebited = async (clientId, service, category, tnxId) => {
         },
       }
     );
-    console.log("response in charges maintainance ====>>", response?.data);
-    commonLogger.info("response in charges maintainance ====>>", response?.data);
+    commonLogger.info(`Charges deduction response: ${JSON.stringify(response?.data)}`);
     if (response?.data?.success) {
       return { result: true }
     } else {
+      commonLogger.warn(`Charges deduction failed for client ${clientId}, txnId: ${tnxId}: ${JSON.stringify(response?.data)}`);
       return { result: false }
     }
   } catch (error) {
-    console.log("error in charges maintainance ===>>", error);
+    commonLogger.error(`Error in charges maintainance for client ${clientId}, txnId: ${tnxId}: ${error.message}`);
     throw error
   }
 };

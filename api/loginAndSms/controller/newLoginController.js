@@ -6,7 +6,7 @@ const registeration = require("../../registeration/model/registerationModel")
 const loginAndSms = require("../model/loginAndSmsModel")
 const axios = require("axios")
 const logger = require("../../Logger/logger")
-const checkingDetails = require("../../../utlis/authorization")
+const checkingDetails = require("../../../utils/authorization")
 const Whitelistapi = require('../../whitelistapi/models/whitelistapi.models')
 
 dotenv.config()

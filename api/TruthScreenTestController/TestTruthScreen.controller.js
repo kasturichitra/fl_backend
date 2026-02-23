@@ -1,8 +1,9 @@
 const { callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { kycLogger } = require("../Logger/logger");
 
 
 const TestTruthScreen = async (req, res) => {
-  console.log("req.body ===>>>", req.body)
+  kycLogger.info(`req.body ===>>> ${JSON.stringify(req.body)}`);
   const payload = req.body;
   const username = process.env.TRUTHSCREEN_USERNAME;
   const token = process.env.TRUTHSCREEN_TOKEN;
@@ -14,9 +15,10 @@ const TestTruthScreen = async (req, res) => {
       username: username,
       password: token,
     });
-    console.log("truthScreenResponse ===>>>", truthScreenResponse);
+    kycLogger.info(`truthScreenResponse ===>>> ${JSON.stringify(truthScreenResponse)}`);
     res.send(truthScreenResponse);
   } catch (error) {
+    kycLogger.error(`Error in TestTruthScreen: ${error.message}`);
     res.send(error);
   }
 }

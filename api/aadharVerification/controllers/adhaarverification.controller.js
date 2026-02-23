@@ -1,13 +1,13 @@
 const adhaarverificationwithotpModel = require("../models/adhaarverificationwithotp.model");
 const adhaarverificattionwithoutoptModel = require("../models/adhaarverificationwithoutotp.model")
 const moment = require("moment")
-const {kycLogger} = require("../../Logger/logger");
-const { mapError, ERROR_CODES } = require("../../../utlis/errorCodes");
+const { kycLogger } = require("../../Logger/logger");
+const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
 const {
   callTruthScreenAPI,
 } = require("../../truthScreen/callTruthScreen");
-const { encryptData, decryptData } = require("../../../utlis/EncryptAndDecrypt");
-const { createApiResponse } = require("../../../utlis/ApiResponseHandler");
+const { encryptData, decryptData } = require("../../../utils/EncryptAndDecrypt");
+const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { selectService } = require("../../service/serviceSelector");
 const { AadhaarActiveServiceResponse } = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
 function generateMerchantId() {
@@ -21,29 +21,82 @@ function generateMerchantId() {
 console.log(generateMerchantId());
 
 exports.handleAadhaarMaskedVerify = async (req, res) => {
-  const { aadharNumber } = req.body;
-  kycLogger.info(" Aadhaar Masked Verification triggered");
+  const { aadharNumber, serviceId = "", categoryId = "" } = req.body;
+  const clientId = req.clientId;
+
   try {
-    console.log('handleAadhaar masked in try block', req.body);
+    kycLogger.info(`Executing Aadhaar Masked Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+
     if (!aadharNumber) {
-      kycLogger.warn("Aadhaar number missing in request");
-      return res.status(ERROR_CODES?.BAD_REQUEST.httpCode).json(createApiResponse(400, [], 'Invalid request parameters'));
+      kycLogger.warn(`Aadhaar number missing in request for client ${clientId}`);
+      return res.status(400).json(createApiResponse(400, [], 'Invalid request parameters'));
     }
+
+    const identifierHash = hashIdentifiers({
+      aadhaarNo: aadharNumber,
+    });
+
+    const rateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId,
+    });
+
+    if (!rateLimitResult.allowed) {
+      kycLogger.warn(`Rate limit exceeded for Aadhaar Masked: client ${clientId}, service ${serviceId}`);
+      return res.status(429).json({
+        success: false,
+        message: rateLimitResult.message,
+      });
+    }
+
+    const tnId = genrateUniqueServiceId();
+    kycLogger.info(`Generated Aadhaar Masked txn Id: ${tnId}`);
+
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment
+    );
+
+    if (!maintainanceResponse?.result) {
+      kycLogger.error(`Credit deduction failed for Aadhaar Masked: client ${clientId}, txnId ${tnId}`);
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
     const encryptedAadhaar = encryptData(aadharNumber);
-    console.log('handle Aadhaar Masked Verify in try block', encryptedAadhaar)
+    kycLogger.debug(`Encrypted Aadhaar number for DB lookup`);
 
     const isExistAadhaar = await adhaarverificattionwithoutoptModel.findOne({ aadhaarNumber: encryptedAadhaar });
-    console.log('handle Aadhaar Masked Verify in try block', isExistAadhaar)
+
+    const analyticsResult = await AnalyticsDataUpdate(clientId, serviceId, categoryId);
+    if (!analyticsResult.success) {
+      kycLogger.warn(`Analytics update failed for Aadhaar Masked: client ${clientId}, service ${serviceId}`);
+    }
+
+    kycLogger.debug(`Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"}`);
     if (isExistAadhaar) {
+      kycLogger.info(`Returning cached Aadhaar response for client: ${clientId}`);
       return res.status(200).json(createApiResponse(200, isExistAadhaar?.response?.result, 'Valid'))
     };
 
-    console.log('handle Aadhaar Masked Verify in try block')
     const Services = await selectService('AADHAARMASKED');
-    kycLogger.info(`Aadhaar encrypted => ${encryptedAadhaar.slice(0, 10)}...`);
+    if (!Services) {
+      kycLogger.warn(`Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`);
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
 
+    kycLogger.info(`Active service selected for Aadhaar Masked: ${Services.serviceFor}`);
     const response = await AadhaarActiveServiceResponse({ aadharNumber }, Services, 0);
-    kycLogger.info(`invincible API Response => ${JSON.stringify(response)}`);
+
+    kycLogger.info(`Response received from active service ${Services.serviceFor}: ${response?.message}`);
 
     await adhaarverificattionwithoutoptModel.create({
       aadhaarNumber: encryptedAadhaar,
@@ -51,19 +104,22 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       message: response?.message || "Aadhaar verification completed",
       success: response?.code === 200 && !!response?.result,
     });
+
     if (response?.code === 200 && response?.result) {
-      kycLogger.info("Aadhaar verified successfully");
-      return res.status(ERROR_CODES?.SUCCESS.httpCode).json(createApiResponse(200, response?.result, 'Valid'));
+      kycLogger.info(`Aadhaar verified successfully for client: ${clientId}`);
+      return res.status(200).json(createApiResponse(200, response?.result, 'Valid'));
     } else {
+      kycLogger.info(`Invalid Aadhaar response received for client: ${clientId}`);
       return res.status(200).json(createApiResponse(200, {}, 'Invalid'));
     }
   } catch (err) {
+    kycLogger.error(`System error in Aadhaar Masked Verification for client ${req.clientId}: ${err.message}`, err);
     const errorObj = mapError(err);
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
 exports.initiateAadhaarDigilocker = async (req, res) => {
-  const { callback_url, redirect_url, mobileNumber="", serviceId="", categoryId="" } = req.body;
+  const { callback_url, redirect_url, mobileNumber = "", serviceId = "", categoryId = "" } = req.body;
   const startTime = new Date();
   kycLogger.info("Aadhaar DigiLocker initiation triggered");
 
@@ -210,5 +266,6 @@ exports.checkAadhaarDigilockerStatus = async (req, res) => {
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
+
 
 

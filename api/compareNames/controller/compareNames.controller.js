@@ -1,6 +1,6 @@
-const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
-const { ERROR_CODES } = require("../../../utlis/errorCodes");
-const handleValidation = require("../../../utlis/lengthCheck");
+const chargesToBeDebited = require("../../../utils/chargesMaintainance");
+const { ERROR_CODES } = require("../../../utils/errorCodes");
+const handleValidation = require("../../../utils/lengthCheck");
 const {kycLogger} = require("../../Logger/logger");
 const comparingNamesModel = require("../models/compareName.model");
 
@@ -195,3 +195,4 @@ exports.compareNames = async (req, res, next) => {
     return next(errorMessage);
   }
 };
+

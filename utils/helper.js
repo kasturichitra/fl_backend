@@ -18,23 +18,25 @@ const servicesProviderId = {
   truthscreenProviderId: 'TRUTHSCREEN',
 }
 
-const GetPanResponse = async (providerId,data) => {
-  let response ;
+const { commonLogger } = require("../api/Logger/logger");
+
+const GetPanResponse = async (providerId, data) => {
+  let response;
   switch (providerId) {
     case servicesProviderId?.invincibleProviderId:
-      console.log("Calling INVINCIBLE API...");
+      commonLogger.info("Calling INVINCIBLE API for PAN verification...");
       response = await verifyPanInvincible(data);
       break;
     case servicesProviderId?.truthscreenProviderId:
-      console.log("Calling TRUTHSCREEN API...");
+      commonLogger.info("Calling TRUTHSCREEN API for PAN verification...");
       response = await verifyPanTruthScreen(data);
       break;
     case servicesProviderId?.zoopProviderId:
-      console.log("Calling ZOOP API...");
+      commonLogger.info("Calling ZOOP API for PAN verification...");
       response = await verifyPanZoop(data);
       break;
     default:
-      console.log("Calling in Default ZOOP API...");
+      commonLogger.info("Calling Default (ZOOP) API for PAN verification...");
       response = await verifyPanZoop(data);
   }
   return response

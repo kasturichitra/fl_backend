@@ -1,16 +1,16 @@
 const axios = require("axios");
-const checkingDetails = require("../../../utlis/authorization");
+const checkingDetails = require("../../../utils/authorization");
 const FaceMatchModel = require("../models/facematch.model");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
 const {kycLogger} = require("../../Logger/logger");
-const ERROR_CODES = require("../../../utlis/errorCodes");
+const ERROR_CODES = require("../../../utils/errorCodes");
 const { faceMatch } = require("../../service/provider.zoop")
 const zoop = require("../../service/provider.zoop");
 const invincible = require("../../service/provider.invincible");
 const truthscreen = require("../../service/provider.truthscreen");
 const { selectService, updateFailure } = require("../../service/serviceSelector");
 const { callTruth, performFaceVerificationEncrypted } = require("../../truthScreen/callTruthScreen");
-const { generateTransactionId } = require("../../../utlis/helper");
+const { generateTransactionId } = require("../../../utils/helper");
 
 const convertImageToBase64 = async (url) => {
   try {
@@ -196,6 +196,7 @@ exports.faceMatchVerification = async (req, res) => {
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR)
   }
 }
+
 
 
 

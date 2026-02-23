@@ -2,8 +2,8 @@ const axios = require("axios");
 require("dotenv").config();
 const RapidApiModel = require("../models/BinApiModels");
 const RapidApiBankModel = require("../models/BinApiBankModel");
-const handleValidation = require("../../../utlis/lengthCheck");
-const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
+const handleValidation = require("../../../utils/lengthCheck");
+const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { cardLogger, accountLogger } = require("../../Logger/logger");
 const {
   BinActiveServiceResponse,
@@ -11,9 +11,14 @@ const {
 const {
   IfscActiveServiceResponse,
 } = require("../../GlobalApiserviceResponse/IfscActiveServiceResponse");
-const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
-const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
+const { deductCredits } = require("../../../services/CreditService");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+const checkingRateLimit = require("../../../utils/checkingRateLimit");
+const { hashIdentifiers } = require("../../../utils/hashIdentifier");
+const { ERROR_CODES } = require("../../../utils/errorCodes");
+const { encryptData } = require("../../../utils/EncryptAndDecrypt");
+
 let RapidApiKey = process.env.RAPIDAPI_KEY;
 let RapidApiHost = process.env.RAPIDAPI_BIN_HOST;
 let RapidApiBankHost = process.env.RAPIDAPI_IFSC_HOST;
@@ -22,145 +27,136 @@ exports.getCardDetailsByNumber = async (req, res) => {
   const { bin, serviceId = "", categoryId = "", mobileNumber = "" } = req.body;
   const data = req.body;
 
-  console.log("bin detailes=---> ", bin);
-  console.log("RAOPID_API KEY=---> ", RapidApiKey);
-  console.log("RAPID Bin API HOST =---> ", RapidApiHost);
-  console.log("RAPID Bank  API HOST =---> ", RapidApiBankHost);
+  cardLogger.debug(`bin detailes=---> ${bin}`);
+  cardLogger.debug(`RAOPID_API KEY=---> ${RapidApiKey}`);
+  cardLogger.debug(`RAPID Bin API HOST =---> ${RapidApiHost}`);
+  cardLogger.debug(`RAPID Bank  API HOST =---> ${RapidApiBankHost}`);
 
   const isValid = handleValidation("bin", bin, res);
   if (!isValid) return;
 
-  const identifierHash = hashIdentifiers({
-    binNumber: bin,
-  });
+  try {
+    const storingClient = req.clientId || req.userClientId;
+    cardLogger.info(`Executing Card BIN check for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`);
 
-  const binRateLimitResult = await checkingRateLimit({
-    identifiers: { identifierHash },
-    serviceId,
-    categoryId,
-    clientId: req.userClientId,
-  });
-
-  if (!binRateLimitResult.allowed) {
-    return res.status(429).json({
-      success: false,
-      message: binRateLimitResult.message,
+    const identifierHash = hashIdentifiers({
+      binNumber: bin,
     });
-  }
 
-  const tnId = genrateUniqueServiceId();
-  console.log("bin txn Id ===>>", tnId);
-  cardLogger.info("bin txn Id ===>>", tnId);
-  let maintainanceResponse;
-  if (req.environment?.toLowercase() == "test") {
-    maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
+    const binRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
-      tnId,
-    );
-  } else {
-    maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  }
-
-  if (!maintainanceResponse?.result) {
-    return res.status(500).json({
-      success: false,
-      message: "InValid",
-      response: {},
+      clientId: storingClient,
     });
-  }
-  const encryptedBin = encryptData(bin);
-  cardLogger.info("bin encrypted response ====>>", encryptedBin);
 
-  const existingBinNumber = await RapidApiModel.findOne({
-    bin: encryptedBin,
-  });
-
-  if (existingBinNumber) {
-    if (existingBinNumber?.status == 1) {
-      return res.status(200).json({
-        message: "valid",
-        success: true,
-        response: existingBinNumber?.response,
-      });
-    } else {
-      return res.status(404).json({
-        message: "InValid",
+    if (!binRateLimitResult.allowed) {
+      cardLogger.warn(`Rate limit exceeded for Card BIN check: client ${storingClient}, service ${serviceId}`);
+      return res.status(429).json({
         success: false,
-        response: existingBinNumber?.response,
+        message: binRateLimitResult.message,
       });
     }
-  }
 
-  const service = await selectService(categoryId, serviceId);
+    const tnId = genrateUniqueServiceId();
+    cardLogger.info(`Generated Card BIN txn Id: ${tnId}`);
 
-  console.log("----active service for bin Verify is ----", service);
-  cardLogger.info("----active service for bin Verify is ----", service);
-  if (!service) {
-    return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-  }
-
-  try {
-    const exsistingDetails = await RapidApiModel.findOne({ bin });
-    console.log(
-      "==============================>>>>>bin existing",
-      exsistingDetails,
+    const maintainanceResponse = await deductCredits(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment
     );
+
+    if (!maintainanceResponse?.result) {
+      cardLogger.error(`Credit deduction failed for Card BIN check: client ${storingClient}, txnId ${tnId}`);
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    const encryptedBin = encryptData(bin);
+
+    const existingBinNumber = await RapidApiModel.findOne({
+      bin: encryptedBin,
+    });
+
+    const analyticsResult = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
+    if (!analyticsResult.success) {
+      cardLogger.warn(`Analytics update failed for Card BIN check: client ${storingClient}, service ${serviceId}`);
+    }
+
+    cardLogger.debug(`Checked for existing Card BIN record in DB: ${existingBinNumber ? "Found" : "Not Found"}`);
+    if (existingBinNumber) {
+      cardLogger.info(`Returning cached Card BIN response for client: ${storingClient}`);
+      if (existingBinNumber?.status == 1) {
+        return res.status(200).json({
+          message: "valid",
+          success: true,
+          response: existingBinNumber?.response,
+        });
+      } else {
+        return res.status(404).json({
+          message: "InValid",
+          success: false,
+          response: existingBinNumber?.response,
+        });
+      }
+    }
+
+    const service = await selectService(categoryId, serviceId);
+
+    if (!service) {
+      cardLogger.warn(`Active service not found for Card BIN category ${categoryId}, service ${serviceId}`);
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    cardLogger.info(`Active service selected for Card BIN check: ${service.serviceFor}`);
     let response = await BinActiveServiceResponse(bin, service, 0);
-    // const response = await verifyBinNumber(data);
+
     if (response) {
-      console.log("response of bin in back end jus===>", response);
+      cardLogger.info(`Response received from active service ${service.serviceFor}`);
       let saveData = await RapidApiModel({
-        bin: bin,
+        bin: encryptData(bin),
         response: response,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
       });
-      let done = await saveData.save();
-      if (done) {
-        console.log("Data save to db successfully ");
-      }
+      await saveData.save();
+      cardLogger.info(`Valid Card BIN response stored and sent to client: ${storingClient}`);
     }
+
     return res.status(200).json({
       message: "valid",
       success: true,
       response: response,
     });
   } catch (error) {
-    console.error("Error fetching BIN info:", error.message);
-    res.status(500).json({ error: "Failed to fetch BIN information" });
+    cardLogger.error(`System error in Card BIN check for client ${req.clientId}: ${error.message}`, error);
+    return res.status(500).json({ error: "Failed to fetch BIN information" });
   }
 };
 
 exports.getBankDetailsByIfsc = async (req, res) => {
   const { ifsc, serviceId = "", categoryId = "", mobileNumber = "" } = req.body;
   const data = req.body;
-  console.log("IFSC Code:", ifsc);
+  accountLogger.info(`IFSC Code: ${ifsc}`);
+
+  const storingClient = req.clientId; // Need to ensure this is defined.
 
   const tnId = genrateUniqueServiceId();
-  accountLogger.info("IFSC txn Id ===>>", tnId);
+  accountLogger.info(`IFSC txn Id ===>> ${tnId}`);
   let maintainanceResponse;
-  if (req.environment?.toLowercase() == "test") {
-    maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  } else {
-    maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  }
+  maintainanceResponse = await deductCredits(
+    req.clientId,
+    serviceId,
+    categoryId,
+    tnId,
+    req.environment
+  );
 
   if (!maintainanceResponse?.result) {
     return res.status(500).json({
@@ -172,35 +168,35 @@ exports.getBankDetailsByIfsc = async (req, res) => {
 
   const existingBankDetails = await RapidApiBankModel.findOne({ Ifsc: ifsc });
 
-    const analyticsRes = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
-  if(!analyticsRes?.success){
-    return res.status(400).json(  {
+  const analyticsRes = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
+  if (!analyticsRes?.success) {
+    return res.status(400).json({
       response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
       ...ERROR_CODES?.BAD_REQUEST,
     })
   }
 
   if (existingBankDetails) {
-         await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: decryptedResponse,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      result: existingBankDetails?.response,
+      createdTime: new Date().toLocaleTimeString(),
+      createdDate: new Date().toLocaleDateString(),
+    });
     return res.status(200).json({
       message: "valid",
       success: true,
       response: existingBankDetails?.response,
     });
   }
-    const service = await selectService(categoryId, serviceId);
+  const service = await selectService(categoryId, serviceId);
 
   try {
 
     const response = await IfscActiveServiceResponse(data, service, 0);
-    console.log("Bank details fetched successfully:", response);
+    accountLogger.info(`Bank details fetched successfully: ${JSON.stringify(response)}`);
     if (response) {
       let saveData = await RapidApiBankModel({
         Ifsc: ifsc,
@@ -210,7 +206,7 @@ exports.getBankDetailsByIfsc = async (req, res) => {
       });
       let done = await saveData.save();
       if (done) {
-        console.log("Bank Data save to db successfully ");
+        accountLogger.info("Bank Data save to db successfully ");
       }
     }
     return res.status(200).json({
@@ -219,7 +215,8 @@ exports.getBankDetailsByIfsc = async (req, res) => {
       response: response,
     });
   } catch (error) {
-    console.error("Error fetching Bank info:", error.message);
+    accountLogger.error(`Error fetching Bank info: ${error.message}`);
     res.status(500).json({ error: "Failed to fetch Bank information" });
   }
 };
+

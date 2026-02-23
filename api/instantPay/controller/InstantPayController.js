@@ -1,5 +1,5 @@
 const { default: axios } = require("axios");
-const { encryptData } = require("../../../utlis/EncryptAndDecrypt");
+const { encryptData } = require("../../../utils/EncryptAndDecrypt");
 const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
 
 const InstantPayPaymentCreation = async (req, res, next) => {
