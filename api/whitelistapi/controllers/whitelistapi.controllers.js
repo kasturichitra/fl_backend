@@ -1,4 +1,5 @@
 const Whitelistapi = require('../models/whitelistapi.models');
+const { commonLogger } = require("../../Logger/logger");
 
 // Helper function to validate IP address format
 const isValidIP = (ip) => {
@@ -7,10 +8,10 @@ const isValidIP = (ip) => {
 };
 
 const addWhitelistApi = async (req, res, next) => {
-    console.log(' Add white List API ===>', req.body)
+    commonLogger.info(`Add white List API ===> ${JSON.stringify(req.body)}`);
     try {
         const { MerchatID, ip_address, comments } = req.body;
-        console.log('merchantid and whitelist', MerchatID, ip_address, comments);
+        commonLogger.debug(`merchantid and whitelist: ${MerchatID}, ${ip_address}, ${comments}`);
         if (!ip_address) {
             return res.status(400).json({ message: "Whitelist IP is required", success: false });
         }
@@ -47,13 +48,13 @@ const addWhitelistApi = async (req, res, next) => {
         // await merchantWhitelist.save();
         return res.status(200).json({ message: "Whitelist API updated successfully", success: true, WhiteListData: WhiteListData?.IP });
     } catch (error) {
-        console.error("Error adding whitelist:", error);
+        commonLogger.error(`Error adding whitelist: ${error.message}`);
         return next({ message: "Failed to add IP to whitelist", statusCode: 500 });
     }
 };
 
 const GetWhitelistApi = async (req, res, next) => {
-    console.log('get white list ip are ==>', req.params);
+    commonLogger.debug(`get white list ip are ==> ${JSON.stringify(req.params)}`);
     try {
         const { MerchatId } = req.params;
         if (!MerchatId) {
@@ -72,7 +73,7 @@ const GetWhitelistApi = async (req, res, next) => {
             whitelistIP: whitelistIP.IP
         });
     } catch (error) {
-        console.error("Error in GetWhitelistApi:", error);
+        commonLogger.error(`Error in GetWhitelistApi: ${error.message}`);
         return res.status(500).json({
             message: "Internal Server Error",
             success: false,
@@ -86,7 +87,7 @@ const DeleteWhitelistApi = async (req, res, next) => {
         const merchantId = req.merchantId;
         const { ipAddress } = req.query;
 
-        console.log('Delete request for whitelist IP:', { merchantId, ipAddress, req });
+        commonLogger.info(`Delete request for whitelist IP: ${JSON.stringify({ merchantId, ipAddress })}`);
 
         if (!ipAddress) {
             return res.status(400).json({ message: 'IP Address is required', success: false });
@@ -106,7 +107,7 @@ const DeleteWhitelistApi = async (req, res, next) => {
 
         return res.status(200).json({ message: 'IP deleted successfully', success: true });
     } catch (error) {
-        console.error("Error in DeleteWhitelistApi:", error);
+        commonLogger.error(`Error in DeleteWhitelistApi: ${error.message}`);
         return next({
             message: "Internal Server Error",
             success: false,
@@ -115,7 +116,5 @@ const DeleteWhitelistApi = async (req, res, next) => {
         });
     }
 };
-
-
 
 module.exports = { addWhitelistApi, GetWhitelistApi, DeleteWhitelistApi };

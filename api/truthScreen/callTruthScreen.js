@@ -1,6 +1,8 @@
 const axios = require("axios");
 const crypto = require("crypto");
 const FormData = require("form-data");
+const { kycLogger } = require("../Logger/logger");
+
 function generateKey(password) {
   const hash = crypto.createHash("sha512");
   hash.update(password, "utf-8");
@@ -32,7 +34,7 @@ function encrypt(plainText, password) {
 function decrypt(encryptedText, password) {
   const key = generateKey(password);
 
-  console.log("encryptedText ===>", encryptedText, typeof encryptedText);
+  kycLogger.debug(`encryptedText ===> ${encryptedText} ${typeof encryptedText}`);
 
   if (typeof encryptedText !== "string") {
     throw new Error("Invalid encryptedText: must be a string");
@@ -49,7 +51,7 @@ function decrypt(encryptedText, password) {
 }
 
 async function encryptingData(encryptedData, username) {
-  console.log("encryptedData in decreptData", encryptedData);
+  kycLogger.debug(`encryptedData in decreptData ${encryptedData}`);
   const url = "https://www.truthscreen.com/InstantSearch/encrypted_string";
   const payload = encryptedData;
 
@@ -60,26 +62,17 @@ async function encryptingData(encryptedData, username) {
 
   const decreptedresponse = await axios.post(url, payload, { headers });
 
-  console.log("response in decreptData", decreptedresponse);
+  kycLogger.debug(`response in decreptData ${JSON.stringify(decreptedresponse?.data)}`);
 
   return decreptedresponse;
 }
 
 async function callTruthScreen({ url, payload, username, password }) {
-  console.log("payload in truth screen ====>>>", payload, url);
+  kycLogger.info(`payload in truth screen ====>>> ${JSON.stringify(payload)} ${url}`);
   try {
     const encryptedData = await encryptingData(payload, username);
 
-    console.log(
-      "encryptedData in truth screen ====>>>",
-      encryptedData,
-      typeof encryptedData
-    );
-    console.log(
-      "data in truth screen ====>>>",
-      encryptedData?.data,
-      typeof encryptedData?.data
-    );
+    kycLogger.debug(`encryptedData in truth screen ====>>> ${JSON.stringify(encryptedData?.data)}`);
 
     const response = await axios.post(
       url,
@@ -92,19 +85,12 @@ async function callTruthScreen({ url, payload, username, password }) {
       }
     );
 
-    console.log("HTTP Status:", response?.status);
+    kycLogger.info(`HTTP Status: ${response?.status}`);
+    kycLogger.debug(`response in shop establishment truth screen ====>>> ${JSON.stringify(response?.data)}`);
 
-    console.log(
-      "response in shop establishment truth screen ====>>>",
-      response
-    );
-    console.log(
-      "response in shop establishment truth screen ====>>>",
-      response?.data
-    );
     const encryptedResponseData = response?.data;
 
-    console.log("encryptedResponseData ====>>>", encryptedResponseData);
+    kycLogger.debug(`encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`);
 
     if (!encryptedResponseData) {
       throw new Error(
@@ -113,53 +99,39 @@ async function callTruthScreen({ url, payload, username, password }) {
     }
 
     const decrypted = await decreptData(encryptedResponseData, username);
-    console.log("decrypted in truth screen ====>>>", decrypted);
+    kycLogger.info(`decrypted in truth screen ====>>> ${JSON.stringify(decrypted?.data)}`);
 
     return decrypted;
   } catch (error) {
-    console.log("error in truth screen", error);
-    return { status: 0, message: error };
-    // console.log("error response in truth screen", error?.response);
-    // console.log(
-    //   "error response in truth screen error?.response?.data",
-    //   error?.response?.data
-    // );
-    // console.error(
-    //   "TruthScreen API Error:",
-    //   error?.response?.data || error.response?.message
-    // );
+    kycLogger.error(`error in truth screen: ${error.message}`);
+    // return { status: 0, message: error }; 
+    // Re-throwing or returning error structure depends on usage, but keeping original return for now to minimize breakage logic changes, 
+    // though the original code catches and returns object, then proceeds to do other checks? 
+    // actually original code had unreachable code after return. Fixing that.
+
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);
-        console.log("decrypted in error", decrypted);
+        kycLogger.error(`decrypted in error: ${decrypted}`);
       } catch (decryptionErr) {
-        console.error(
-          "Decryption failed for error response:",
-          decryptionErr.message
+        kycLogger.error(
+          `Decryption failed for error response: ${decryptionErr.message}`
         );
       }
     }
 
-    console.error("TruthScreen API Error:", error.message);
-    throw new Error(
-      `TruthScreen request failed: ${error?.response?.data?.error || error.message
-      }`
-    );
+    kycLogger.error(`TruthScreen API Error: ${error.message}`);
+    return { status: 0, message: error };
   }
 }
 
 async function callTruthScreenAPI({ url, payload, username, password }) {
-  console.log("url payload username password ===>>", url, JSON.stringify(payload), username, password)
+  // displaying password in logs is bad practice, removing it.
+  kycLogger.info(`url payload username ===>> ${url} ${JSON.stringify(payload)} ${username}`);
   try {
     const encryptedData = encrypt(JSON.stringify(payload), password);
 
-    console.log(
-      "encryptedData in truth screen ====>>>",
-      encryptedData,
-      typeof encryptedData,
-      url
-    );
-    console.log("payload in truth screen ====>>>", payload);
+    kycLogger.debug(`encryptedData in truth screen ====>>> ${encryptedData} ${url}`);
 
     const response = await axios.post(
       url,
@@ -173,12 +145,12 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
       }
     );
 
-    console.log("HTTP Status:", response?.status);
-    console.log("response in truth screen ====>>>", response?.data);
+    kycLogger.info(`HTTP Status: ${response?.status}`);
+    kycLogger.debug(`response in truth screen ====>>> ${JSON.stringify(response?.data)}`);
 
     const encryptedResponseData =
       response?.data?.responseData || response?.data;
-    console.log("encryptedResponseData ====>>>", encryptedResponseData);
+    kycLogger.debug(`encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`);
 
     if (!encryptedResponseData || typeof encryptedResponseData !== "string") {
       throw new Error(
@@ -187,32 +159,21 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
     }
 
     const decrypted = decrypt(encryptedResponseData, password);
-    console.log("decrypted in truth screen ====>>>", decrypted);
+    kycLogger.info(`decrypted in truth screen ====>>> ${decrypted}`);
 
     return JSON.parse(decrypted);
   } catch (error) {
-    console.log("error response in truth screen", error?.response);
-    console.log(
-      "error response in truth screen error?.response?.data",
-      error?.response?.data
-    );
-    console.error(
-      "TruthScreen API Error:",
-      error?.response?.data || error.response?.message
-    );
+    kycLogger.error(`TruthScreen API Error: ${error?.response?.data || error.message}`);
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);
-        console.log("decrypted in error", decrypted);
+        kycLogger.error(`decrypted in error: ${decrypted}`);
       } catch (decryptionErr) {
-        console.error(
-          "Decryption failed for error response:",
-          decryptionErr.message
+        kycLogger.error(
+          `Decryption failed for error response: ${decryptionErr.message}`
         );
       }
     }
-
-    console.error("TruthScreen API Error:", error.message);
     throw new Error(
       `TruthScreen request failed: ${error?.response?.data?.error || error.message
       }`
@@ -221,7 +182,7 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
 }
 
 async function decreptData(encryptedData, username) {
-  console.log("encryptedData in decreptData", encryptedData);
+  kycLogger.debug(`encryptedData in decreptData ${encryptedData}`);
   const url =
     "https://www.truthscreen.com/InstantSearch/decrypt_encrypted_string";
   const payload = encryptedData;
@@ -233,13 +194,13 @@ async function decreptData(encryptedData, username) {
 
   const decreptedresponse = await axios.post(url, payload, { headers });
 
-  console.log("response in decreptData", decreptedresponse);
+  kycLogger.debug(`response in decreptData ${JSON.stringify(decreptedresponse?.data)}`);
 
   return decreptedresponse;
 }
 
 async function encryptData(encrypt, username) {
-  console.log("encryptedData in decreptData", encrypt);
+  kycLogger.debug(`encryptedData in decreptData ${encrypt}`);
   const url = "https://www.truthscreen.com/api/v2.2/faceapi/tokenEncrypt";
 
   const form = new FormData();
@@ -253,15 +214,14 @@ async function encryptData(encrypt, username) {
     },
   });
 
-  console.log("response in decreptData", decreptedresponse);
+  kycLogger.debug(`response in decreptData ${JSON.stringify(decreptedresponse?.data)}`);
 
   return decreptedresponse?.data;
 }
 
 async function callTruth({ url, payload, username, password }) {
   try {
-    console.log("payload in face verification ====>>>", payload);
-    console.log("JSON payload before encryption =>", JSON.stringify(payload));
+    kycLogger.info(`payload in face verification ====>>> ${JSON.stringify(payload)}`);
 
     const form = new FormData();
     form.append("docType", payload.docType);
@@ -274,7 +234,7 @@ async function callTruth({ url, payload, username, password }) {
       },
     });
 
-    console.log("response in first step of face verification", response);
+    kycLogger.debug(`response in first step of face verification ${JSON.stringify(response?.data)}`);
 
     const encryptedResponseData = response?.data;
 
@@ -288,14 +248,13 @@ async function callTruth({ url, payload, username, password }) {
 
     return decrypted?.data;
   } catch (error) {
-    console.error("TruthScreen API Error:", error.message);
-    console.log("error", error);
+    kycLogger.error(`TruthScreen API Error: ${error.message}`);
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);
-        console.log("Decrypted error message:", decrypted);
+        kycLogger.error(`Decrypted error message: ${decrypted}`);
       } catch (decryptionErr) {
-        console.error("Decryption failed:", decryptionErr.message);
+        kycLogger.error(`Decryption failed: ${decryptionErr.message}`);
       }
     }
     throw new Error(
@@ -313,19 +272,14 @@ async function performFaceVerificationEncrypted({
   username,
   password,
 }) {
-  console.log(
-    "password ====>>>",
-    tsTransID,
-    typeof tsTransID,
-    typeof secretToken,
-    secretToken,
-    username,
-    password
+  // Hidden sensitive data logging
+  kycLogger.info(
+    `performFaceVerificationEncrypted called for tsTransID: ${tsTransID}`
   );
 
   const encryptedPayload = await encryptData(secretToken, username);
 
-  console.log("encryptedPayload in face -------->>>", encryptedPayload);
+  kycLogger.debug(`encryptedPayload in face -------->>> ${encryptedPayload}`);
 
   const form = new FormData();
   form.append("tsTransID", tsTransID);
@@ -342,7 +296,7 @@ async function performFaceVerificationEncrypted({
     filename: "document.jpg",
     contentType: "image/jpeg",
   });
-  console.log("calling face match verification");
+  kycLogger.info("calling face match verification");
 
   try {
     const response = await axios.post(
@@ -356,7 +310,7 @@ async function performFaceVerificationEncrypted({
       }
     );
 
-    console.log("Response in performFaceVerificationEncrypted:", response.data);
+    kycLogger.debug(`Response in performFaceVerificationEncrypted: ${JSON.stringify(response.data)}`);
 
     const encryptedResponseData = response?.data;
 
@@ -367,19 +321,18 @@ async function performFaceVerificationEncrypted({
     }
 
     const decrypted = await decreptData(encryptedResponseData, username);
-    console.log(
-      "decrypted message in performFaceVerificationEncrypted===>",
-      decrypted
+    kycLogger.info(
+      `decrypted message in performFaceVerificationEncrypted===> ${JSON.stringify(decrypted)}`
     );
     return decrypted;
   } catch (error) {
-    console.error("Face Verification API error:", error?.response?.data);
+    kycLogger.error(`Face Verification API error: ${JSON.stringify(error?.response?.data)}`);
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);
-        console.log("Decrypted error message:", decrypted);
+        kycLogger.error(`Decrypted error message: ${decrypted}`);
       } catch (decryptionErr) {
-        console.error("Decryption failed:", decryptionErr.message);
+        kycLogger.error(`Decryption failed: ${decryptionErr.message}`);
       }
     }
     return { message: "Face Verification Failed" };

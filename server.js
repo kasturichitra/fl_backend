@@ -8,7 +8,7 @@ const bodyParser = require("body-parser");
 const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController");
 const mainRoutes = require("./routes/mainRoutes");
 const { decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptPyaload");
-const checkWhitelist = require("./middleware/IPAddresswhitelist.middleware");
+const checkWhitelist = require("./middleware/ClientValidation.middleware");
 const { keysApiroutes } = require("./api/Keysapi/keysapi.routes");
 const { callTruthScreenAPI } = require("./api/truthScreen/callTruthScreen");
 
@@ -71,7 +71,7 @@ app.use("/kyc/api/v1/inhouse", mainRoutes);
 
 // For Testing
 const { TestTruthScreen } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
-app.post("/kyc/api/v1/test",TestTruthScreen);
+app.post("/kyc/api/v1/test", TestTruthScreen);
 
 app.use(exeptionHandling.GlobalExceptionHandling);
 

@@ -2,7 +2,7 @@ const express = require("express");
 const mainRouter = express.Router();
 
 // Middlewares
-const checkWhitelist = require("../middleware/IPAddresswhitelist.middleware");
+const checkWhitelist = require("../middleware/ClientValidation.middleware");
 const {
     decryptMiddleware,
     enceryptMiddleware,
@@ -26,28 +26,14 @@ const instantPayRouter = require("../api/instantPay/routes/InstantPayRoutes");
 const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoutes");
 const { sendEmail } = require("../api/Gmail/mailverification");
 const VoterIdRouter = require("../api/VoterId/voter.routes");
-const AuthValidation = require("../middleware/keyValidation.middleware");
-const analyticdataRouter = require("../api/analytics/routes/analyticdata.route");
 
 // ================== Public/Utils Routes ==================
 mainRouter.get('/health', (req, res) => {
     res.status(200).json({ status: 'UP', timestamp: new Date(), message: 'MicroService Health check' });
 });
 
-// ================== API Keys (Unprotected) ==================
-// "get apikeys (without middlware fornow)"
-mainRouter.use("/testkey", testingApiRouter);
-mainRouter.use("/livekey", LiveApiKeysRouter);
-
-
-// ================== Protected Routes (KYC) ==================
-// Common Middleware Stack for Protected Routes
-// Order: IP Check -> Key Check -> Decrypt Request -> Setup Encrypt Response -> Router
-// Note: enceryptMiddleware must be BEFORE the router to intercept res.json
-
 const protectedMiddleware = [
     checkWhitelist,
-    // AuthValidation, // Need to remove
     decryptMiddleware,
     enceryptMiddleware
 ];

@@ -1,10 +1,10 @@
-const chargesToBeDebited = require("../../../utlis/chargesMaintainance");
-const checkingRateLimit = require("../../../utlis/checkingRateLimit");
-const creditsToBeDebited = require("../../../utlis/creditsMaintainance");
-const { ERROR_CODES } = require("../../../utlis/errorCodes");
-const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
-const { hashIdentifiers } = require("../../../utlis/hashIdentifier");
-const handleValidation = require("../../../utlis/lengthCheck");
+const chargesToBeDebited = require("../../../utils/chargesMaintainance");
+const checkingRateLimit = require("../../../utils/checkingRateLimit");
+const creditsToBeDebited = require("../../../utils/creditsMaintainance");
+const { ERROR_CODES } = require("../../../utils/errorCodes");
+const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
+const { hashIdentifiers } = require("../../../utils/hashIdentifier");
+const handleValidation = require("../../../utils/lengthCheck");
 const { kycLogger } = require("../../Logger/logger");
 const comparingNamesModel = require("../models/compareName.model");
 
@@ -250,3 +250,4 @@ exports.compareNames = async (req, res, next) => {
     return next(errorMessage);
   }
 };
+

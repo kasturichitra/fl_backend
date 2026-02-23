@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { findingInValidResponses } = require("../../utlis/InvalidResponses");
+const { findingInValidResponses } = require("../../utils/InvalidResponses");
 
 const fullNumberServiceResponse = async (data, services, index = 0) => {
   console.log('fullNumberServiceResponse called');
@@ -164,3 +164,4 @@ const invalidResponse = (service, raw) => ({
 module.exports = {
   fullNumberServiceResponse,
 };
+

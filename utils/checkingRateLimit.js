@@ -12,9 +12,7 @@ const checkingRateLimit = async ({
   clientId,
 }) => {
   try {
-    if (!identifiers || typeof identifiers !== "object") {
-      throw new Error("Identifiers must be an object");
-    }
+    commonLogger.info(`Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`);
 
     const rateLimitResponse = await axios.post(RATE_LIMIT_URL, {
       serviceId,
@@ -22,20 +20,16 @@ const checkingRateLimit = async ({
       clientId,
     });
 
-    console.log(
-      "rateLimitResponse from super admin ====>>>",
-      rateLimitResponse?.data,
-    );
+    commonLogger.debug(`Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)}`);
 
     const dayLimit = rateLimitResponse.data?.data?.rateLimit;
 
     commonLogger.info(
-      `rate limit of category and service: ${categoryId}, ${serviceId} is ${dayLimit}`,
+      `Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit}`,
     );
-    console.log("serviceId and dayLimit ===>>", dayLimit, serviceId);
 
     if (!dayLimit) {
-      throw new Error("Rate limit not configured for service");
+      throw new Error(`Rate limit not configured for service ${serviceId} in category ${categoryId}`);
     }
 
     const today = new Date();
@@ -51,7 +45,8 @@ const checkingRateLimit = async ({
 
     const apiHitCount = await apiHitCountModel.findOne(query);
 
-    if (apiHitCount?.dayHitCount > dayLimit) {
+    if (apiHitCount?.dayHitCount >= dayLimit) {
+      commonLogger.warn(`Rate limit exceeded for client ${clientId}, service ${serviceId}`);
       return {
         allowed: false,
         message: "Daily rate limit exceeded",
@@ -69,15 +64,18 @@ const checkingRateLimit = async ({
       },
     );
 
+    commonLogger.info(`Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount}`);
+
     return {
       allowed: true,
       remaining: dayLimit - apiHit.dayHitCount,
     };
   } catch (error) {
-    console.error("Rate limit error:", error.message);
+    commonLogger.error(`Rate limit system error for client ${clientId}, service ${serviceId}: ${error.message}`);
     return {
       allowed: false,
-      message: "Daily rate limit exceeded",
+      message: "Rate limit verification failed. Please try again later.",
+      error: true
     };
   }
 };
