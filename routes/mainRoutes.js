@@ -9,7 +9,7 @@ const {
 } = require("../middleware/decryptPyaload");
 
 // Routes Imports
-const panRouter = require("../api/panVerification/routes/panverification.route");
+const panRouter = require("../api/panServices/routes/panServices.route");
 const aadhaarRouter = require("../api/aadharVerification/routes/adhaarverification.route");
 const otpRouter = require("../api/otp/routes/otpRoutes");
 const shopRouter = require("../api/shopEstablishment/routes/shopestablishment.route");
@@ -75,7 +75,9 @@ mainRouter.use("/bin", ...conditionalMiddleware, binRouter);
 mainRouter.use("/card", ...conditionalMiddleware, fullCardRouter);
 mainRouter.use("/IP", ...conditionalMiddleware, ipRouter);
 // mainRouter.use("/voterId", ...conditionalMiddleware, VoterIdRouter);
-mainRouter.use("/analytics", ...conditionalMiddleware, analyticdataRouter);
+
+// no middleware checking for this
+mainRouter.use("/analytics", analyticdataRouter);
 
 
 module.exports = mainRouter;

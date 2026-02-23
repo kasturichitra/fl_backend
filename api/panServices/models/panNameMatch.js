@@ -1,8 +1,11 @@
 const mongoose = require("mongoose");
 
-const panDetails = new mongoose.Schema({
+const panNameMatch = new mongoose.Schema({
   panNumber: {
     type: String,
+  },
+  nameToMatch:{
+    type:String
   },
   response: {
     type: Object,
@@ -19,10 +22,6 @@ const panDetails = new mongoose.Schema({
   serviceName:{
     type: String
   },
-  gstNumber: {
-    type: String,
-    required: false
-  },
   createdTime: {
     type: String,
     default: Date.now,
@@ -37,4 +36,4 @@ const panDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panDetails", panDetails);
+module.exports = mongoose.model("panNameMatch", panNameMatch);
