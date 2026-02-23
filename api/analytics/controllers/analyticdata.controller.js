@@ -1,6 +1,6 @@
 require("dotenv").config();
-const { ERROR_CODES, mapError } = require("../../../utlis/errorCodes");
-const handleValidation = require("../../../utlis/lengthCheck");
+const { ERROR_CODES, mapError } = require("../../../utils/errorCodes");
+const handleValidation = require("../../../utils/lengthCheck");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const analyticsModel = require("../model/analyticsModel");
 const { response } = require("express");

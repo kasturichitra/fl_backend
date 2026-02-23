@@ -26,6 +26,7 @@ const instantPayRouter = require("../api/instantPay/routes/InstantPayRoutes");
 const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoutes");
 const { sendEmail } = require("../api/Gmail/mailverification");
 const VoterIdRouter = require("../api/VoterId/voter.routes");
+const analyticdataRouter = require("../api/analytics/routes/analyticdata.route");
 
 // ================== Public/Utils Routes ==================
 mainRouter.get('/health', (req, res) => {

@@ -16,9 +16,9 @@ const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { deductCredits } = require("../../../services/CreditService");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
-const checkingRateLimit = require("../../../utlis/checkingRateLimit");
-const genrateUniqueServiceId = require("../../../utlis/genrateUniqueId");
-const AnalyticsDataUpdate = require("../../../utlis/analyticsStoring");
+const checkingRateLimit = require("../../../utils/checkingRateLimit");
+const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
+const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const {
