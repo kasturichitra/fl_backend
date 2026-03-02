@@ -1,4 +1,5 @@
 const { commonLogger } = require("../api/Logger/logger");
+const analyticsModel = require("../api/analytics/model/analyticsModel")
 
 const AnalyticsDataUpdate = async (client, serviceId, categoryId) => {
   if (!client || !serviceId || !categoryId) {

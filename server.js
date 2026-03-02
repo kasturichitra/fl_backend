@@ -5,12 +5,9 @@ dotenv.config();
 const cors = require("cors");
 const helmet = require("helmet");
 const bodyParser = require("body-parser");
-const exeptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController");
+const exceptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController");
 const mainRoutes = require("./routes/mainRoutes");
-const { decryptMiddleware, enceryptMiddleware } = require("./middleware/decryptPyaload");
-const checkWhitelist = require("./middleware/ClientValidation.middleware");
 const { keysApiroutes } = require("./api/Keysapi/keysapi.routes");
-const { callTruthScreenAPI } = require("./api/truthScreen/callTruthScreen");
 
 const app = express();
 
@@ -39,6 +36,13 @@ uatdatabase = {
   user: process.env.MONGODB_USERNAME_UAT,
   pass: process.env.MONGODB_PASSWORD_UAT,
 };
+const database = {
+  host: process.env.MONGODB_HOST,
+  port: process.env.MONGODB_PORT,
+  db: process.env.MONGODB_DB,
+  user: process.env.MONGODB_USERNAME,
+  pass: process.env.MONGODB_PASSWORD,
+};
 let mongoURI;
 if (process.env.NODE_ENV == "production") {
   mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
@@ -58,8 +62,10 @@ mongoose
     console.log("DB Connection Failed", err);
   });
 
-// Middleware definitions removed - moved to local scopes or mainRoutes
-
+// ================== Check Server is running ==================
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'UP', timestamp: new Date(), message: 'MicroService Health check' });
+});
 
 // ================== Public/Open Routes ==================
 // These routes do NOT need encryption, key validation, or whitelisting
@@ -70,10 +76,11 @@ app.use("/kyc/api/v1", mainRoutes);
 app.use("/kyc/api/v1/inhouse", mainRoutes);
 
 // For Testing
-const { TestTruthScreen } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
-app.post("/kyc/api/v1/test", TestTruthScreen);
+const { encryptresponseData, DecryptTruthScreenResponse } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
+app.post("/kyc/api/v1/TruthScreen/Encryption", encryptresponseData);
+app.post("/kyc/api/v1/TruthScreen/Decryption", DecryptTruthScreenResponse);
 
-app.use(exeptionHandling.GlobalExceptionHandling);
+app.use(exceptionHandling.GlobalExceptionHandling);
 
 app.listen(port, (err) => {
   if (err) {

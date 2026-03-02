@@ -32,7 +32,6 @@ const clientValidation = async (req, res, next) => {
             commonLogger.warn("Invalid token structure.")
             return res.status(400).json({ message: "Invalid token structure." });
         }
-        console.log('Accesstoken decode value  ---->',clientId,'   ****     ',clientSecret)
 
         const redisKey = `client:${clientId}`;
 
@@ -40,7 +39,6 @@ const clientValidation = async (req, res, next) => {
         let isWhitelisted = false;
         try {
             const cachedData = await redisClient.get(redisKey);
-            console.log('cachedDataObj', cachedData)
             if (cachedData) {
                 const cachedDataObj = JSON.parse(cachedData);
                 const ips = Array.isArray(cachedDataObj) ? cachedDataObj : (cachedDataObj.allIps || []);
@@ -71,11 +69,14 @@ const clientValidation = async (req, res, next) => {
 
         try {
             const response = await axios.post(`${SUPERADMIN_URL}/api/v1/client/authorize-ip`,
-        {
-                client_id: clientId,
-                client_secret: clientSecret,
-                ip
-            });
+                {
+                    ip
+                },{
+                    headers:{
+                        'client_id':clientId,
+                        'client_secret':clientSecret
+                    }
+                });
             console.log('response data ==>', response.data.data)
 
             if (response.data?.success) {

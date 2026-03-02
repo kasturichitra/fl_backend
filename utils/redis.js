@@ -2,7 +2,7 @@ const IORedis = require("ioredis");
 
 // Load environment variables
 const redisConfig = {
-    host: process.env.REDIS_HOST || "10.1.1.61",
+    host: process.env.REDIS_HOST,
     port: Number(process.env.REDIS_PORT) || 6379,
     password: process.env.REDIS_PASSWORD || undefined,
     db: Number(process.env.REDIS_DB) || 0,

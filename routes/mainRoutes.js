@@ -2,11 +2,11 @@ const express = require("express");
 const mainRouter = express.Router();
 
 // Middlewares
-const checkWhitelist = require("../middleware/ClientValidation.middleware");
+const clientValidation = require("../middleware/ClientValidation.middleware");
 const {
     decryptMiddleware,
-    enceryptMiddleware,
-} = require("../middleware/decryptPyaload");
+    encryptMiddleware,
+} = require("../middleware/decryptPayload");
 
 // Routes Imports
 const panRouter = require("../api/panServices/routes/panServices.route");
@@ -28,15 +28,10 @@ const { sendEmail } = require("../api/Gmail/mailverification");
 const VoterIdRouter = require("../api/VoterId/voter.routes");
 const analyticdataRouter = require("../api/analytics/routes/analyticdata.route");
 
-// ================== Public/Utils Routes ==================
-mainRouter.get('/health', (req, res) => {
-    res.status(200).json({ status: 'UP', timestamp: new Date(), message: 'MicroService Health check' });
-});
-
 const protectedMiddleware = [
-    checkWhitelist,
+    clientValidation,
     decryptMiddleware,
-    enceryptMiddleware
+    encryptMiddleware
 ];
 
 // Helper to bypass middleware for "In House" routes (mounted at /inhouse)

@@ -1,23 +1,23 @@
 const axios = require("axios");
 const apiHitCountModel = require("../api/apiHitCount/model/apiHitCountModel");
 const { commonLogger } = require("../api/Logger/logger");
-const superAdminUrl = process.env.SUPERADMIN_URL;
 
+const superAdminUrl = process.env.SUPERADMIN_URL;
 const RATE_LIMIT_URL = `${superAdminUrl}/api/v1/apimodule/get-service-rate-limit`;
 
 const checkingRateLimit = async ({
   identifiers,
   serviceId,
   categoryId,
-  clientId,
+  client_Id,
 }) => {
   try {
-    commonLogger.info(`Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`);
+    commonLogger.info(`Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${client_Id}`);
 
     const rateLimitResponse = await axios.post(RATE_LIMIT_URL, {
       serviceId,
       categoryId,
-      clientId,
+      client_Id,
     });
 
     commonLogger.debug(`Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)}`);
@@ -39,14 +39,14 @@ const checkingRateLimit = async ({
       identifiers,
       service: serviceId,
       category: categoryId,
-      clientId,
+      clientId:client_Id,
       createdAt: { $gte: today },
     };
 
     const apiHitCount = await apiHitCountModel.findOne(query);
 
     if (apiHitCount?.dayHitCount >= dayLimit) {
-      commonLogger.warn(`Rate limit exceeded for client ${clientId}, service ${serviceId}`);
+      commonLogger.warn(`Rate limit exceeded for client ${client_Id}, service ${serviceId}`);
       return {
         allowed: false,
         message: "Daily rate limit exceeded",
@@ -71,7 +71,7 @@ const checkingRateLimit = async ({
       remaining: dayLimit - apiHit.dayHitCount,
     };
   } catch (error) {
-    commonLogger.error(`Rate limit system error for client ${clientId}, service ${serviceId}: ${error.message}`);
+    commonLogger.error(`Rate limit system error for client ${client_Id}, service ${serviceId}: ${error.message}`);
     return {
       allowed: false,
       message: "Rate limit verification failed. Please try again later.",

@@ -9,10 +9,14 @@ const {
 const { encryptData, decryptData } = require("../../../utils/EncryptAndDecrypt");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { selectService } = require("../../service/serviceSelector");
-const {
-  AadhaarActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
+const { AadhaarActiveServiceResponse} = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const {hashIdentifiers} = require("../../../utils/hashIdentifier");
+const checkingRateLimit = require('../../../utils/checkingRateLimit');
+const genrateUniqueServiceId = require('../../../utils/genrateUniqueId');
+const {deductCredits} = require('../../../services/CreditService');
+const AnalyticsDataUpdate  = require('../../../utils/analyticsStoring');
+
 function generateMerchantId() {
   const now = moment();
   const datePart = now.format("DDMMYYYY");

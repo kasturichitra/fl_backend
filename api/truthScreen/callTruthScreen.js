@@ -125,6 +125,8 @@ async function callTruthScreen({ url, payload, username, password }) {
   }
 }
 
+
+// Truth Screen actual api call happen hear
 async function callTruthScreenAPI({ url, payload, username, password }) {
   // displaying password in logs is bad practice, removing it.
   kycLogger.info(`url payload username ===>> ${url} ${JSON.stringify(payload)} ${username}`);
@@ -180,6 +182,8 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
     );
   }
 }
+
+
 
 async function decreptData(encryptedData, username) {
   kycLogger.debug(`encryptedData in decreptData ${encryptedData}`);

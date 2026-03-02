@@ -92,7 +92,7 @@ async function decryptMiddleware(req, res, next) {
 /**
  * Middleware to intercept response.json and encrypt the outgoing body.
  */
-async function enceryptMiddleware(req, res, next) {
+async function encryptMiddleware(req, res, next) {
     try {
         const publicKey = req.publicKey;
         // Bind original json method to use later
@@ -128,7 +128,7 @@ async function enceryptMiddleware(req, res, next) {
         next();
 
     } catch (error) {
-        commonLogger.error(`Error in enceryptMiddleware setup: ${error.message}`);
+        commonLogger.error(`Error in encryptMiddleware setup: ${error.message}`);
         res.status(500).json({
             error: "Internal server error during encryption setup",
             success: false
@@ -176,5 +176,5 @@ function encryptForClient(responseObj, clientPublicKeyPem) {
 module.exports = {
     decryptMiddleware,
     encryptForClient,
-    enceryptMiddleware
+    encryptMiddleware
 };
