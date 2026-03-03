@@ -1,21 +1,24 @@
 const adhaarverificationwithotpModel = require("../models/adhaarverificationwithotp.model");
-const adhaarverificattionwithoutoptModel = require("../models/adhaarverificationwithoutotp.model")
-const moment = require("moment")
+const adhaarverificattionwithoutoptModel = require("../models/adhaarverificationwithoutotp.model");
+const moment = require("moment");
 const { kycLogger } = require("../../Logger/logger");
 const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
+const { callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const {
-  callTruthScreenAPI,
-} = require("../../truthScreen/callTruthScreen");
-const { encryptData, decryptData } = require("../../../utils/EncryptAndDecrypt");
+  encryptData,
+  decryptData,
+} = require("../../../utils/EncryptAndDecrypt");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { selectService } = require("../../service/serviceSelector");
-const { AadhaarActiveServiceResponse} = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
+const {
+  AadhaarActiveServiceResponse,
+} = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
-const {hashIdentifiers} = require("../../../utils/hashIdentifier");
-const checkingRateLimit = require('../../../utils/checkingRateLimit');
-const genrateUniqueServiceId = require('../../../utils/genrateUniqueId');
-const {deductCredits} = require('../../../services/CreditService');
-const AnalyticsDataUpdate  = require('../../../utils/analyticsStoring');
+const { hashIdentifiers } = require("../../../utils/hashIdentifier");
+const checkingRateLimit = require("../../../utils/checkingRateLimit");
+const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
+const { deductCredits } = require("../../../services/CreditService");
+const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 
 function generateMerchantId() {
   const now = moment();
@@ -28,21 +31,28 @@ function generateMerchantId() {
 console.log(generateMerchantId());
 
 exports.handleAadhaarMaskedVerify = async (req, res) => {
-  const { aadharNumber,
+  const {
+    aadharNumber,
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
     clientId = "",
-   } = req.body;
+  } = req.body;
 
   const client_Id = req.clientId || clientId;
 
   try {
-    kycLogger.info(`Executing Aadhaar Masked Verification for client: ${client_Id}, service: ${serviceId}, category: ${categoryId}`);
+    kycLogger.info(
+      `Executing Aadhaar Masked Verification for client: ${client_Id}, service: ${serviceId}, category: ${categoryId}`,
+    );
 
     if (!aadharNumber) {
-      kycLogger.warn(`Aadhaar number missing in request for client ${client_Id}`);
-      return res.status(400).json(createApiResponse(400, [], 'Invalid request parameters'));
+      kycLogger.warn(
+        `Aadhaar number missing in request for client ${client_Id}`,
+      );
+      return res
+        .status(400)
+        .json(createApiResponse(400, [], "Invalid request parameters"));
     }
 
     const identifierHash = hashIdentifiers({
@@ -57,7 +67,9 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     });
 
     if (!rateLimitResult.allowed) {
-      kycLogger.warn(`Rate limit exceeded for Aadhaar Masked: client ${client_Id}, service ${serviceId}`);
+      kycLogger.warn(
+        `Rate limit exceeded for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
+      );
       return res.status(429).json({
         success: false,
         message: rateLimitResult.message,
@@ -72,11 +84,13 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment
+      req.environment,
     );
 
     if (!maintainanceResponse?.result) {
-      kycLogger.error(`Credit deduction failed for Aadhaar Masked: client ${client_Id}, txnId ${tnId}`);
+      kycLogger.error(
+        `Credit deduction failed for Aadhaar Masked: client ${client_Id}, txnId ${tnId}`,
+      );
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -87,29 +101,55 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     const encryptedAadhaar = encryptData(aadharNumber);
     kycLogger.debug(`Encrypted Aadhaar number for DB lookup`);
 
-    const isExistAadhaar = await adhaarverificattionwithoutoptModel.findOne({ aadhaarNumber: encryptedAadhaar });
+    const isExistAadhaar = await adhaarverificattionwithoutoptModel.findOne({
+      aadhaarNumber: encryptedAadhaar,
+    });
 
-    const analyticsResult = await AnalyticsDataUpdate(client_Id, serviceId, categoryId);
+    const analyticsResult = await AnalyticsDataUpdate(
+      client_Id,
+      serviceId,
+      categoryId,
+    );
     if (!analyticsResult.success) {
-      kycLogger.warn(`Analytics update failed for Aadhaar Masked: client ${client_Id}, service ${serviceId}`);
+      kycLogger.warn(
+        `Analytics update failed for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
+      );
     }
 
-    kycLogger.debug(`Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"}`);
+    kycLogger.debug(
+      `Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"}`,
+    );
     if (isExistAadhaar) {
-      kycLogger.info(`Returning cached Aadhaar response for client: ${client_Id}`);
-      return res.status(200).json(createApiResponse(200, isExistAadhaar?.response?.result, 'Valid'))
-    };
+      kycLogger.info(
+        `Returning cached Aadhaar response for client: ${client_Id}`,
+      );
+      return res
+        .status(200)
+        .json(
+          createApiResponse(200, isExistAadhaar?.response?.result, "Valid"),
+        );
+    }
 
-    const Services = await selectService('AADHAARMASKED');
+    const Services = await selectService("AADHAARMASKED");
     if (!Services) {
-      kycLogger.warn(`Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`);
+      kycLogger.warn(
+        `Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`,
+      );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    kycLogger.info(`Active service selected for Aadhaar Masked: ${Services.serviceFor}`);
-    const response = await AadhaarActiveServiceResponse({ aadharNumber }, Services, 0);
+    kycLogger.info(
+      `Active service selected for Aadhaar Masked: ${Services.serviceFor}`,
+    );
+    const response = await AadhaarActiveServiceResponse(
+      { aadharNumber },
+      Services,
+      0,
+    );
 
-    kycLogger.info(`Response received from active service ${Services.serviceFor}: ${response?.message}`);
+    kycLogger.info(
+      `Response received from active service ${Services.serviceFor}: ${response?.message}`,
+    );
 
     await adhaarverificattionwithoutoptModel.create({
       aadhaarNumber: encryptedAadhaar,
@@ -120,13 +160,20 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
 
     if (response?.code === 200 && response?.result) {
       kycLogger.info(`Aadhaar verified successfully for client: ${client_Id}`);
-      return res.status(200).json(createApiResponse(200, response?.result, 'Valid'));
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Valid"));
     } else {
-      kycLogger.info(`Invalid Aadhaar response received for client: ${client_Id}`);
-      return res.status(200).json(createApiResponse(200, {}, 'Invalid'));
+      kycLogger.info(
+        `Invalid Aadhaar response received for client: ${client_Id}`,
+      );
+      return res.status(200).json(createApiResponse(200, {}, "Invalid"));
     }
   } catch (err) {
-    kycLogger.error(`System error in Aadhaar Masked Verification for client ${req.client_Id}: ${err.message}`, err);
+    kycLogger.error(
+      `System error in Aadhaar Masked Verification for client ${req.client_Id}: ${err.message}`,
+      err,
+    );
     const errorObj = mapError(err);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -144,6 +191,28 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
   kycLogger.info("Aadhaar DigiLocker initiation triggered");
 
   const storingClient = req.clientId || clientId;
+  const isInhouse = req?.baseUrl?.includes("/inhouse");
+  const tnId = genrateUniqueServiceId();
+  const maintainanceResponse = isInhouse
+    ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
+    : await deductCredits(
+        storingClient,
+        serviceId,
+        categoryId,
+        tnId,
+        req.environment,
+      );
+
+  if (!maintainanceResponse?.result) {
+    kycLogger.error(
+      `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
+    );
+    return res.status(500).json({
+      success: false,
+      message: maintainanceResponse?.message || "InValid",
+      response: {},
+    });
+  }
 
   try {
     const transId = "TS-" + Date.now();
@@ -211,6 +280,29 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
 exports.checkAadhaarDigilockerStatus = async (req, res) => {
   const startTime = new Date();
   kycLogger.info("Entered checkAadhaarDigilockerStatus controller");
+
+    const isInhouse = req?.baseUrl?.includes("/inhouse");
+  const tnId = genrateUniqueServiceId();
+  const maintainanceResponse = isInhouse
+    ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
+    : await deductCredits(
+        storingClient,
+        serviceId,
+        categoryId,
+        tnId,
+        req.environment,
+      );
+
+  if (!maintainanceResponse?.result) {
+    kycLogger.error(
+      `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
+    );
+    return res.status(500).json({
+      success: false,
+      message: maintainanceResponse?.message || "InValid",
+      response: {},
+    });
+  }
 
   try {
     const { tsTransId } = req.body;

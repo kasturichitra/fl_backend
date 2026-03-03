@@ -1,7 +1,7 @@
 const { commonLogger } = require("../api/Logger/logger");
 const analyticsModel = require("../api/analytics/model/analyticsModel")
 
-const AnalyticsDataUpdate = async (client, serviceId, categoryId) => {
+const AnalyticsDataUpdate = async (client, serviceId, categoryId, scenario="") => {
   if (!client || !serviceId || !categoryId) {
     commonLogger.warn(`Invalid parameters for AnalyticsDataUpdate: client=${client}, serviceId=${serviceId}, categoryId=${categoryId}`);
     return { success: false }

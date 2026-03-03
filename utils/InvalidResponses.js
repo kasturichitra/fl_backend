@@ -50,6 +50,26 @@ const inValidResponses = [
       },
     },
   },
+    {
+    service: "panNameMatch",
+    InValidResponse: {
+      code: "",
+      message: "",
+      result: {
+        aadhaar: ""
+      },
+    },
+  },
+    {
+    service: "panNameDob",
+    InValidResponse: {
+      code: "",
+      message: "",
+      result: {
+        aadhaar: ""
+      },
+    },
+  },
   {
     service: "cin",
     InValidResponse: {

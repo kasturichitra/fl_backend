@@ -1,56 +1,57 @@
 const IncorporationCertificateModel = require("../models/IncorporationCertificateModel");
 const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utils/errorCodes");
-const {companyLogger} = require("../../Logger/logger");
+const { companyLogger } = require("../../Logger/logger");
 const handleValidation = require("../../../utils/lengthCheck");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
-const { CinActiveServiceResponse } = require("../../GlobalApiserviceResponse/CinServiceResponse");
+const {
+  CinActiveServiceResponse,
+} = require("../../GlobalApiserviceResponse/CinServiceResponse");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
+const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 
 exports.handleCINVerification = async (req, res, next) => {
-  const {
-    CIN,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-  } = req.body;
+  const { CIN, mobileNumber = "", serviceId = "", categoryId = "" } = req.body;
   const isCinValid = handleValidation("cin", CIN, res);
   if (!isCinValid) return;
 
   console.log("All inputs are valid, continue processing...");
 
+  const storingClient = req.clientId || clientId;
+
   const identifierHash = hashIdentifiers({
     panNo: capitalPanNumber,
   });
 
-  const panRateLimitResult = await checkingRateLimit({
+  const cinRateLimitResult = await checkingRateLimit({
     identifiers: { identifierHash },
     serviceId,
     categoryId,
-    clientId: req.clientId,
+    clientId: storingClient,
   });
 
-  if (!panRateLimitResult.allowed) {
+  if (!cinRateLimitResult.allowed) {
     return res.status(429).json({
       success: false,
-      message: panRateLimitResult.message,
+      message: cinRateLimitResult.message,
     });
   }
 
   const tnId = genrateUniqueServiceId();
-  kycLogger.info(`pan txn Id ===>> ${tnId}`);
+  companyLogger.info(`pan txn Id ===>> ${tnId}`);
   let maintainanceResponse;
   if (req.environment?.toLowerCase() == "test") {
     maintainanceResponse = await creditsToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
     );
   } else {
     maintainanceResponse = await chargesToBeDebited(
-      req.clientId,
+      storingClient,
       serviceId,
       categoryId,
       tnId,
@@ -68,10 +69,31 @@ exports.handleCINVerification = async (req, res, next) => {
   const cinDetails = await IncorporationCertificateModel.findOne({
     cinNumber: CIN,
   });
-  console.log('is cin details is present', cinDetails)
+  console.log("is cin details is present", cinDetails);
+
+  const analyticsResult = await AnalyticsDataUpdate(
+    storingClient,
+    serviceId,
+    categoryId,
+  );
+  if (!analyticsResult.success) {
+    accountLogger.warn(
+      `Analytics update failed for Penny Drop: client ${storingClient}, service ${serviceId}`,
+    );
+  }
 
   if (cinDetails) {
-    return res.status(200).json(createApiResponse(200, cinDetails?.response?.result, 'Valid'));
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      result: cinDetails?.response?.result,
+      createdTime: new Date().toLocaleTimeString(),
+      createdDate: new Date().toLocaleDateString(),
+    });
+    return res
+      .status(200)
+      .json(createApiResponse(200, cinDetails?.response?.result, "Valid"));
   }
 
   const service = await selectService(categoryId, serviceId);
@@ -79,12 +101,12 @@ exports.handleCINVerification = async (req, res, next) => {
   companyLogger.info("----active service for cin Verify is ----", service);
 
   try {
-    let response = await CinActiveServiceResponse(CIN, service, 0)
+    let response = await CinActiveServiceResponse(CIN, service, 0);
 
     console.log("API Response:", response);
     companyLogger.info(
       "----API Response from active service of cin is ----",
-      response
+      response,
     );
 
     if (response?.message?.toUpperCase() == "VALID") {
@@ -97,6 +119,14 @@ exports.handleCINVerification = async (req, res, next) => {
         };
         return next(errorMessage);
       }
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: companyDetails,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const newCinVerification = await IncorporationCertificateModel.create({
         response: companyDetails,
         status: 1,
@@ -106,8 +136,18 @@ exports.handleCINVerification = async (req, res, next) => {
       });
 
       console.log("Data saved to MongoDB:", newCinVerification);
-      res.status(200).json({ message: "Valid", data: response?.result, success: true });
+      res
+        .status(200)
+        .json({ message: "Valid", data: response?.result, success: true });
     } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: {},
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const newCinVerification = await IncorporationCertificateModel.create({
         response: {},
         status: 2,
@@ -136,4 +176,3 @@ exports.handleCINVerification = async (req, res, next) => {
     return next(errorMessage);
   }
 };
-

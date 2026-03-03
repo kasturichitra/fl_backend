@@ -11,7 +11,9 @@ const analyticsSchema = new mongoose.Schema({
     {
       service: { type: String, required: true },
       category: { type: String, required: true },
-      count: { type: Number, default: 0 }
+      totalCount: { type: Number, default: 0 },
+      successCount: { type: Number, default: 0 },
+      failedCount: { type: Number, default: 0 }
     }
   ]
 }, { timestamps: true });

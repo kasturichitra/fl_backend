@@ -147,7 +147,6 @@ const verifyFullCardNumber = async (req, res, next) => {
       service,
       0,
     );
-    // const cardNumberResponse = await verifyCreditCardNumber(data);
     cardLogger.debug(`cardNumberResponse ===>> ${JSON.stringify(cardNumberResponse)}`);
     const encryptedNumber = encryptData(creditCardNumber);
     if (cardNumberResponse?.message?.toLowerCase() == "valid") {

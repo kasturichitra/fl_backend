@@ -12,7 +12,7 @@ const creditsToBeDebited = async (clientId, service, categoryId) => {
 
     commonLogger.debug(`Credits deduction request for client: ${clientId}, service: ${service}, category: ${categoryId}`);
     const response = await axios.post(
-      `${superAdminUrl}/api/v1/apimodule/calculate-charges`,
+      `${superAdminUrl}/api/v1/apimodule/deduct-credit`,
       objectToSent,
       {
         headers: {

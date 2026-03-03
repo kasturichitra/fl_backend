@@ -1,6 +1,5 @@
-const chargesToBeDebited = require("../../../utils/chargesMaintainance");
+const { deductCredits } = require("../../../services/CreditService");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
-const creditsToBeDebited = require("../../../utils/creditsMaintainance");
 const { ERROR_CODES } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
@@ -122,7 +121,7 @@ exports.compareNames = async (req, res, next) => {
 
   const storingClient = req.clientId || clientId;
 
-    const identifierHash = hashIdentifiers({
+  const identifierHash = hashIdentifiers({
     accNo: account_no,
     ifscCode: capitalIfsc,
   });
@@ -144,27 +143,21 @@ exports.compareNames = async (req, res, next) => {
   const tnId = genrateUniqueServiceId();
   console.log("NAME txn Id ===>>", tnId);
   kycLogger.info("NAME txn Id ===>>", tnId);
-  let maintainanceResponse;
-  if (req.environment?.toLowercase() == "test") {
-    maintainanceResponse = await creditsToBeDebited(
-      storingClient,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  } else {
-    maintainanceResponse = await chargesToBeDebited(
-      storingClient,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  }
+  const maintainanceResponse = await deductCredits(
+    storingClient,
+    serviceId,
+    categoryId,
+    tnId,
+    req.environment,
+  );
 
   if (!maintainanceResponse?.result) {
+    cardLogger.error(
+      `Credit deduction failed for Card BIN check: client ${storingClient}, txnId ${tnId}`,
+    );
     return res.status(500).json({
       success: false,
-      message: "InValid",
+      message: maintainanceResponse?.message || "InValid",
       response: {},
     });
   }
@@ -250,4 +243,3 @@ exports.compareNames = async (req, res, next) => {
     return next(errorMessage);
   }
 };
-

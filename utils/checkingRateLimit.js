@@ -56,7 +56,7 @@ const checkingRateLimit = async ({
     const apiHit = await apiHitCountModel.findOneAndUpdate(
       query,
       {
-        $inc: { dayHitCount: 1, monthHitCount: 1 },
+        $inc: { dayHitCount: 1 },
       },
       {
         new: true,
