@@ -2,7 +2,7 @@ const axios = require("axios");
 const checkingDetails = require("../../../utils/authorization");
 const FaceMatchModel = require("../models/facematch.model");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
-const {kycLogger} = require("../../Logger/logger");
+const {faceServiceLogger} = require("../../Logger/logger");
 const ERROR_CODES = require("../../../utils/errorCodes");
 const { faceMatch } = require("../../service/provider.zoop")
 const zoop = require("../../service/provider.zoop");
@@ -160,7 +160,7 @@ exports.faceMatchVerification = async (req, res) => {
   const { userImage, aadhaarImage, categoryId = "", serviceId = "", clientId="" } = req.body;
   const service = await selectService();
   console.log("----active service for FACEMATCH Verify is ----", service);
-  kycLogger.info(`----active service for FACEMATCH Verify is ----, ${service}`);
+  faceServiceLogger.info(`----active service for FACEMATCH Verify is ----, ${service}`);
 
   const storingClient = req.clientId || clientId;
 
@@ -185,10 +185,10 @@ exports.faceMatchVerification = async (req, res) => {
 
   const tnId = genrateUniqueServiceId();
   console.log("bin txn Id ===>>", tnId);
-  kycLogger.info("bin txn Id ===>>", tnId);
+  faceServiceLogger.info("bin txn Id ===>>", tnId);
   let maintainanceResponse;
   if (req.environment?.toLowercase() == "test") {
-    kycLogger.info("credits maintainance started===>>", req.environment);
+    faceServiceLogger.info("credits maintainance started===>>", req.environment);
     maintainanceResponse = await creditsToBeDebited(
       storingClient,
       serviceId,
@@ -196,7 +196,7 @@ exports.faceMatchVerification = async (req, res) => {
       tnId,
     );
   } else {
-    kycLogger.info("charges maintainance started===>>", req.environment);
+    faceServiceLogger.info("charges maintainance started===>>", req.environment);
     maintainanceResponse = await chargesToBeDebited(
       storingClient,
       serviceId,

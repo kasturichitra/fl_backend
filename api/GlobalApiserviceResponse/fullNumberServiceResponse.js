@@ -1,8 +1,14 @@
 const axios = require("axios");
 const { findingInValidResponses } = require("../../utils/InvalidResponses");
+const { bankServiceLogger } = require("../Logger/logger");
 
-const fullNumberServiceResponse = async (data, services, index = 0) => {
-  console.log('fullNumberServiceResponse called');
+const fullNumberServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  clientId,
+) => {
+  console.log("fullNumberServiceResponse called");
   if (index >= services.length) {
     return { success: false, message: "All services failed" };
   }
@@ -10,24 +16,52 @@ const fullNumberServiceResponse = async (data, services, index = 0) => {
   const newService = services.find((ser) => ser.priority === index + 1);
 
   if (!newService) {
-    console.log(`No service with priority ${index + 1}, trying next`);
+    console.log(
+      `No service with priority ${index + 1}, trying next for this client: ${clientId}`,
+    );
+    bankServiceLogger.info(
+      `No service with priority ${index + 1}, trying next for this client: ${clientId}`,
+    );
     return fullNumberServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
-  console.log(`[fullNumberServiceResponse] Trying service with priority ${index + 1}:`, newService);
+  console.log(
+    `[fullNumberServiceResponse] Trying service with priority ${index + 1}: ${newService} for this client: ${clientId}`,
+  );
+  console.log(
+    `[fullNumberServiceResponse] Trying service with priority ${index + 1}: ${newService} for this client: ${clientId}`,
+  );
 
   try {
     const res = await FullNumberApiCall(data, serviceName);
 
-    if (res?.success) {
+    bankServiceLogger.info(
+      `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${clientId}`,
+    );
+    console.log(
+      `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${clientId}`,
+    );
+
+    if (res?.data) {
       return res.data;
     }
 
-    console.log(`[fullNumberServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+    console.log(
+      `[fullNumberServiceResponse] ${serviceName} responded failure. for this client: ${clientId} Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    bankServiceLogger.info(
+      `[fullNumberServiceResponse] ${serviceName} responded failure. for this client: ${clientId} Data: ${JSON.stringify(res)} → trying next service`,
+    );
     return fullNumberServiceResponse(data, services, index + 1);
   } catch (err) {
-    console.log(`[fullNumberServiceResponse] Error from ${serviceName}:`, err.message);
+    console.log(
+      `[fullNumberServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    bankServiceLogger.info(
+      `[fullNumberServiceResponse] Error from ${serviceName}: ${err.message} and whole error ${JSON.stringify(err)} for this client: ${clientId}`,
+    );
     return fullNumberServiceResponse(data, services, index + 1);
   }
 };
@@ -96,7 +130,10 @@ const FullNumberApiCall = async (data, service) => {
   }
 
   const obj = ApiResponse?.data || ApiResponse;
-  console.log(`[FullNumberApiCall] ${service} Response Object:`, JSON.stringify(obj));
+  console.log(
+    `[FullNumberApiCall] ${service} Response Object:`,
+    JSON.stringify(obj),
+  );
 
   // ===============================
   //  Conditional invalid handling
@@ -164,4 +201,3 @@ const invalidResponse = (service, raw) => ({
 module.exports = {
   fullNumberServiceResponse,
 };
-

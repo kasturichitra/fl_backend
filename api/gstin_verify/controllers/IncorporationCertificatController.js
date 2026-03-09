@@ -1,7 +1,7 @@
 const IncorporationCertificateModel = require("../models/IncorporationCertificateModel");
 const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES } = require("../../../utils/errorCodes");
-const { companyLogger } = require("../../Logger/logger");
+const { businessServiceLogger } = require("../../Logger/logger");
 const handleValidation = require("../../../utils/lengthCheck");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
 const {
@@ -40,7 +40,7 @@ exports.handleCINVerification = async (req, res, next) => {
   }
 
   const tnId = genrateUniqueServiceId();
-  companyLogger.info(`pan txn Id ===>> ${tnId}`);
+  businessServiceLogger.info(`pan txn Id ===>> ${tnId}`);
   let maintainanceResponse;
   if (req.environment?.toLowerCase() == "test") {
     maintainanceResponse = await creditsToBeDebited(
@@ -77,7 +77,7 @@ exports.handleCINVerification = async (req, res, next) => {
     categoryId,
   );
   if (!analyticsResult.success) {
-    accountLogger.warn(
+    businessServiceLogger.info(
       `Analytics update failed for Penny Drop: client ${storingClient}, service ${serviceId}`,
     );
   }
@@ -98,13 +98,13 @@ exports.handleCINVerification = async (req, res, next) => {
 
   const service = await selectService(categoryId, serviceId);
 
-  companyLogger.info("----active service for cin Verify is ----", service);
+  businessServiceLogger.info("----active service for cin Verify is ----", service);
 
   try {
     let response = await CinActiveServiceResponse(CIN, service, 0);
 
     console.log("API Response:", response);
-    companyLogger.info(
+    businessServiceLogger.info(
       "----API Response from active service of cin is ----",
       response,
     );

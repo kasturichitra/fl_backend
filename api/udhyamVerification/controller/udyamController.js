@@ -7,7 +7,7 @@ const handleValidation = require("../../../utils/lengthCheck");
 const {
   udyamActiveServiceResponse,
 } = require("../../GlobalApiserviceResponse/UdyamServiceResponse");
-const { companyLogger, kycLogger } = require("../../Logger/logger");
+const { businessServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const udhyamVerify = require("../model/udyamModel");
@@ -24,19 +24,19 @@ const udyamNumberVerfication = async (req, res, next) => {
     clientId = "",
   } = req.body;
 
-  companyLogger.debug(`udyamNumber ==>> ${udyamNumber}`);
-  companyLogger.info(`udyamNumber from request ===> ${udyamNumber}`);
+  businessServiceLogger.debug(`udyamNumber ==>> ${udyamNumber}`);
+  businessServiceLogger.info(`udyamNumber from request ===> ${udyamNumber}`);
 
   const capitalUdyamNumber = udyamNumber?.toUpperCase();
   const isValid = handleValidation("udyam", capitalUdyamNumber, res);
   if (!isValid) return;
 
-  kycLogger.info("All inputs in udyam are valid, continue processing...");
+  businessServiceLogger.info("All inputs in udyam are valid, continue processing...");
 
   const storingClient = req.clientId || clientId;
 
   try {
-    companyLogger.info(`Executing Udyam verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`);
+    businessServiceLogger.info(`Executing Udyam verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`);
 
     const identifierHash = hashIdentifiers({
       udyamNo: capitalUdyamNumber,
@@ -50,7 +50,7 @@ const udyamNumberVerfication = async (req, res, next) => {
     });
 
     if (!udyamRateLimitResult.allowed) {
-      companyLogger.warn(`Rate limit exceeded for Udyam verification: client ${storingClient}, service ${serviceId}`);
+      businessServiceLogger.warn(`Rate limit exceeded for Udyam verification: client ${storingClient}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: udyamRateLimitResult.message,
@@ -58,7 +58,7 @@ const udyamNumberVerfication = async (req, res, next) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    companyLogger.info(`Generated Udyam txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated Udyam txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       storingClient,
@@ -69,7 +69,7 @@ const udyamNumberVerfication = async (req, res, next) => {
     );
 
     if (!maintainanceResponse?.result) {
-      companyLogger.error(`Credit deduction failed for Udyam verification: client ${storingClient}, txnId ${tnId}`);
+      businessServiceLogger.error(`Credit deduction failed for Udyam verification: client ${storingClient}, txnId ${tnId}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -78,7 +78,7 @@ const udyamNumberVerfication = async (req, res, next) => {
     }
 
     const encryptedUdhyam = encryptData(capitalUdyamNumber);
-    companyLogger.debug(`Encrypted Udyam number for DB lookup`);
+    businessServiceLogger.debug(`Encrypted Udyam number for DB lookup`);
 
     const existingUdhyamNumber = await udhyamVerify.findOne({
       udyamNumber: encryptedUdhyam,
@@ -88,10 +88,10 @@ const udyamNumberVerfication = async (req, res, next) => {
     const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
     const analyticsResult = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
     if (!analyticsResult.success) {
-      companyLogger.warn(`Analytics update failed for Udyam verification: client ${storingClient}, service ${serviceId}`);
+      businessServiceLogger.warn(`Analytics update failed for Udyam verification: client ${storingClient}, service ${serviceId}`);
     }
 
-    companyLogger.debug(`Checked for existing Udyam record in DB: ${existingUdhyamNumber ? "Found" : "Not Found"}`);
+    businessServiceLogger.debug(`Checked for existing Udyam record in DB: ${existingUdhyamNumber ? "Found" : "Not Found"}`);
 
     if (existingUdhyamNumber) {
       if (existingUdhyamNumber?.status == 1) {
@@ -103,7 +103,7 @@ const udyamNumberVerfication = async (req, res, next) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        companyLogger.info(`Returning cached valid Udyam response for client: ${storingClient}`);
+        businessServiceLogger.info(`Returning cached valid Udyam response for client: ${storingClient}`);
         return res
           .status(200)
           .json(createApiResponse(200, existingUdhyamNumber?.response, "Valid"));
@@ -119,7 +119,7 @@ const udyamNumberVerfication = async (req, res, next) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        companyLogger.info(`Returning cached invalid Udyam response for client: ${storingClient}`);
+        businessServiceLogger.info(`Returning cached invalid Udyam response for client: ${storingClient}`);
         return res.status(200).json(
           createApiResponse(
             200,
@@ -135,14 +135,14 @@ const udyamNumberVerfication = async (req, res, next) => {
 
     const service = await selectService(categoryId, serviceId);
     if (!service) {
-      companyLogger.warn(`Active service not found for Udyam category ${categoryId}, service ${serviceId}`);
+      businessServiceLogger.warn(`Active service not found for Udyam category ${categoryId}, service ${serviceId}`);
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    companyLogger.info(`Active service selected for Udyam verification: ${service.serviceFor}`);
+    businessServiceLogger.info(`Active service selected for Udyam verification: ${service.serviceFor}`);
     let response = await udyamActiveServiceResponse(udyamNumber, service);
 
-    companyLogger.info(
+    businessServiceLogger.info(
       `Response received from active service ${service.serviceFor}: ${response?.message}`,
     );
 
@@ -166,7 +166,7 @@ const udyamNumberVerfication = async (req, res, next) => {
         { $setOnInsert: storingData },
         { upsert: true, new: true },
       );
-      companyLogger.info(`Valid Udyam response stored and sent to client: ${storingClient}`);
+      businessServiceLogger.info(`Valid Udyam response stored and sent to client: ${storingClient}`);
       return res
         .status(200)
         .json(createApiResponse(200, existingOrNew.response, "Valid"));
@@ -186,7 +186,7 @@ const udyamNumberVerfication = async (req, res, next) => {
         { upsert: true, new: true },
       );
 
-      companyLogger.info(`Invalid Udyam response received and sent to client: ${storingClient}`);
+      businessServiceLogger.info(`Invalid Udyam response received and sent to client: ${storingClient}`);
       return res.status(404).json(
         createApiResponse(
           404,
@@ -199,7 +199,7 @@ const udyamNumberVerfication = async (req, res, next) => {
       );
     }
   } catch (error) {
-    companyLogger.error(`System error in Udyam verification for client ${storingClient}: ${error.message}`, error);
+    businessServiceLogger.error(`System error in Udyam verification for client ${storingClient}: ${error.message}`, error);
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }

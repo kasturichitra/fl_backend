@@ -1,5 +1,5 @@
 const { callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
-const { kycLogger } = require("../Logger/logger");
+const { commonLogger } = require("../Logger/logger");
 const crypto = require("crypto");
 const FormData = require("form-data")
 
@@ -33,15 +33,15 @@ function encrypt(plainText, password) {
 }
 
 const encryptresponseData = async (req, res) => {
-  kycLogger.info(`req.body ===>>> ${JSON.stringify(req.body)}`);
+  commonLogger.info(`req.body ===>>> ${JSON.stringify(req.body)}`);
   const payload = req.body;
   const password = req.headers.password;
   try {
     const encryptedData = encrypt(JSON.stringify(payload), password);
-    kycLogger.info(`truthScreenResponse ===>>> ${JSON.stringify(encryptedData)}`);
+    commonLogger.info(`truthScreenResponse ===>>> ${JSON.stringify(encryptedData)}`);
     return res.status(200).json(encryptedData)
   } catch (error) {
-    kycLogger.error(`Error in TestTruthScreen: ${error.message}`);
+    commonLogger.error(`Error in TestTruthScreen: ${error.message}`);
     res.send(error);
   }
 }

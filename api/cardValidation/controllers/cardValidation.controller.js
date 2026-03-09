@@ -1,5 +1,5 @@
 const cardValidationModel = require("../models/cardValidationModel");
-const { cardLogger } = require("../../Logger/logger");
+const { bankServiceLogger } = require("../../Logger/logger");
 const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
 const {
   encryptData,
@@ -32,9 +32,9 @@ const verifyFullCardNumber = async (req, res, next) => {
   const isValid = handleValidation("creditCard", creditCardNumber, res);
   if (!isValid) return;
 
-  cardLogger.info("All inputs are valid, continue processing...");
+  bankServiceLogger.info("All inputs are valid, continue processing...");
 
-  cardLogger.debug(`clientId in card ===>> ${clientId}`);
+  bankServiceLogger.info(`clientId in card ===>> ${clientId}`);
 
   const storingClient = req.clientId || clientId;
 
@@ -57,7 +57,7 @@ const verifyFullCardNumber = async (req, res, next) => {
   // }
 
   // const tnId = genrateUniqueServiceId();
-  // cardLogger.info("full card verify txn Id ===>>", tnId)
+  // bankServiceLogger.info("full card verify txn Id ===>>", tnId)
   // let maintainanceResponse;
   // if (req.environment?.toLowerCase() == "test") {
   //   maintainanceResponse = await creditsToBeDebited(
@@ -83,15 +83,15 @@ const verifyFullCardNumber = async (req, res, next) => {
   //   });
   // }
   const encryptedCreditCardNumber = encryptData(creditCardNumber);
-  cardLogger.debug(`encryptedCreditCardNumber ====>>> ${encryptedCreditCardNumber}`);
-  cardLogger.info(
+  bankServiceLogger.debug(`encryptedCreditCardNumber ====>>> ${encryptedCreditCardNumber}`);
+  bankServiceLogger.info(
     `encryptedCreditCardNumber ====>> ${encryptedCreditCardNumber}`,
   );
   const existingCreditCardNumber = await cardValidationModel.findOne({
     cardNumber: encryptedCreditCardNumber,
   });
-  cardLogger.debug(`existingCreditCardNumber===> ${JSON.stringify(existingCreditCardNumber)}`);
-  cardLogger.info(
+  bankServiceLogger.debug(`existingCreditCardNumber===> ${JSON.stringify(existingCreditCardNumber)}`);
+  bankServiceLogger.info(
     `Existing Credit Card Number Found ${JSON.stringify(existingCreditCardNumber)} for client ${storingClient}`,
   );
   const analyticsRes = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
@@ -135,9 +135,9 @@ const verifyFullCardNumber = async (req, res, next) => {
 
   const service = await selectService(categoryId, serviceId);
 
-  cardLogger.info(`----active service for full card Verify is ---- ${JSON.stringify(service)}`);
+  bankServiceLogger.info(`----active service for full card Verify is ---- ${JSON.stringify(service)}`);
   if (!service) {
-    cardLogger.info("no service in full card verify ===>>>");
+    bankServiceLogger.info("no service in full card verify ===>>>");
     return res.status(404).json(ERROR_CODES?.NOT_FOUND);
   }
 
@@ -146,8 +146,9 @@ const verifyFullCardNumber = async (req, res, next) => {
       creditCardNumber,
       service,
       0,
+      storingClient
     );
-    cardLogger.debug(`cardNumberResponse ===>> ${JSON.stringify(cardNumberResponse)}`);
+    bankServiceLogger.debug(`cardNumberResponse ===>> ${JSON.stringify(cardNumberResponse)}`);
     const encryptedNumber = encryptData(creditCardNumber);
     if (cardNumberResponse?.message?.toLowerCase() == "valid") {
       await responseModel.create({
@@ -201,7 +202,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       });
     }
   } catch (error) {
-    cardLogger.error(`error in while fetching Credit Card Response ===>> ${error.message}`);
+    bankServiceLogger.error(`error in while fetching Credit Card Response ===>> ${error.message}`);
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }

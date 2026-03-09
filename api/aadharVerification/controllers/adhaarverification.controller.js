@@ -1,7 +1,7 @@
 const adhaarverificationwithotpModel = require("../models/adhaarverificationwithotp.model");
 const adhaarverificattionwithoutoptModel = require("../models/adhaarverificationwithoutotp.model");
 const moment = require("moment");
-const { kycLogger } = require("../../Logger/logger");
+const { aadhaarServiceLogger } = require("../../Logger/logger");
 const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
 const { callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const {
@@ -19,6 +19,7 @@ const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+const chargesToBeDebited = require("../../../utils/chargesMaintainance");
 
 function generateMerchantId() {
   const now = moment();
@@ -42,12 +43,12 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
   const client_Id = req.clientId || clientId;
 
   try {
-    kycLogger.info(
+    aadhaarServiceLogger.info(
       `Executing Aadhaar Masked Verification for client: ${client_Id}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     if (!aadharNumber) {
-      kycLogger.warn(
+      aadhaarServiceLogger.warn(
         `Aadhaar number missing in request for client ${client_Id}`,
       );
       return res
@@ -67,7 +68,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     });
 
     if (!rateLimitResult.allowed) {
-      kycLogger.warn(
+      aadhaarServiceLogger.warn(
         `Rate limit exceeded for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
       );
       return res.status(429).json({
@@ -77,7 +78,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`Generated Aadhaar Masked txn Id: ${tnId}`);
+    aadhaarServiceLogger.info(`Generated Aadhaar Masked txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       client_Id,
@@ -88,7 +89,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     );
 
     if (!maintainanceResponse?.result) {
-      kycLogger.error(
+      aadhaarServiceLogger.error(
         `Credit deduction failed for Aadhaar Masked: client ${client_Id}, txnId ${tnId}`,
       );
       return res.status(500).json({
@@ -99,7 +100,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     }
 
     const encryptedAadhaar = encryptData(aadharNumber);
-    kycLogger.debug(`Encrypted Aadhaar number for DB lookup`);
+    aadhaarServiceLogger.debug(`Encrypted Aadhaar number for DB lookup`);
 
     const isExistAadhaar = await adhaarverificattionwithoutoptModel.findOne({
       aadhaarNumber: encryptedAadhaar,
@@ -111,16 +112,16 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       categoryId,
     );
     if (!analyticsResult.success) {
-      kycLogger.warn(
+      aadhaarServiceLogger.warn(
         `Analytics update failed for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
       );
     }
 
-    kycLogger.debug(
+    aadhaarServiceLogger.debug(
       `Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"}`,
     );
     if (isExistAadhaar) {
-      kycLogger.info(
+      aadhaarServiceLogger.info(
         `Returning cached Aadhaar response for client: ${client_Id}`,
       );
       return res
@@ -132,13 +133,13 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
 
     const Services = await selectService("AADHAARMASKED");
     if (!Services) {
-      kycLogger.warn(
+      aadhaarServiceLogger.warn(
         `Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    kycLogger.info(
+    aadhaarServiceLogger.info(
       `Active service selected for Aadhaar Masked: ${Services.serviceFor}`,
     );
     const response = await AadhaarActiveServiceResponse(
@@ -147,7 +148,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       0,
     );
 
-    kycLogger.info(
+    aadhaarServiceLogger.info(
       `Response received from active service ${Services.serviceFor}: ${response?.message}`,
     );
 
@@ -159,18 +160,18 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     });
 
     if (response?.code === 200 && response?.result) {
-      kycLogger.info(`Aadhaar verified successfully for client: ${client_Id}`);
+      aadhaarServiceLogger.info(`Aadhaar verified successfully for client: ${client_Id}`);
       return res
         .status(200)
         .json(createApiResponse(200, response?.result, "Valid"));
     } else {
-      kycLogger.info(
+      aadhaarServiceLogger.info(
         `Invalid Aadhaar response received for client: ${client_Id}`,
       );
       return res.status(200).json(createApiResponse(200, {}, "Invalid"));
     }
   } catch (err) {
-    kycLogger.error(
+    aadhaarServiceLogger.error(
       `System error in Aadhaar Masked Verification for client ${req.client_Id}: ${err.message}`,
       err,
     );
@@ -178,231 +179,416 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
+// exports.initiateAadhaarDigilocker = async (req, res) => {
+//   const {
+//     callback_url,
+//     redirect_url,
+//     mobileNumber = "",
+//     serviceId = "",
+//     categoryId = "",
+//     clientId = "",
+//   } = req.body;
+//   const startTime = new Date();
+//   aadhaarServiceLogger.info("Aadhaar DigiLocker initiation triggered");
+
+//   const storingClient = req.clientId || clientId;
+//   const isInhouse = req?.baseUrl?.includes("/inhouse");
+//   const tnId = genrateUniqueServiceId();
+//   // const maintainanceResponse = isInhouse
+//   //   ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
+//   //   : await deductCredits(
+//   //       storingClient,
+//   //       serviceId,
+//   //       categoryId,
+//   //       tnId,
+//   //       req.environment,
+//   //     );
+
+//   // if (!maintainanceResponse?.result) {
+//   //   aadhaarServiceLogger.error(
+//   //     `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
+//   //   );
+//   //   return res.status(500).json({
+//   //     success: false,
+//   //     message: maintainanceResponse?.message || "InValid",
+//   //     response: {},
+//   //   });
+//   // }
+
+//   try {
+//     const transId = "TS-" + Date.now();
+//     const username = process.env.TRUTHSCREEN_USERNAME;
+//     const password = process.env.TRUTHSCREEN_TOKEN;
+//     const finalCallback = callback_url || process.env.DEFAULT_CALLBACK_URL;
+//     const finalRedirect = redirect_url || process.env.DEFAULT_REDIRECT_URL;
+
+//     const payload = {
+//       trans_id: transId,
+//       doc_type: "472",
+//       action: "LINK",
+//       callback_url: finalCallback,
+//       redirect_url: finalRedirect,
+//     };
+
+//     aadhaarServiceLogger.info(`Payload for DigiLocker: ${JSON.stringify(payload)}`);
+
+//     const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+//     const response = await callTruthScreenAPI({
+//       url,
+//       payload,
+//       username,
+//       password,
+//     });
+
+//     const kycData = {
+//       trans_id: transId,
+//       ts_trans_id: response?.ts_trans_id || null,
+//       link: response?.data?.url || null,
+//       status: response?.status === 1 ? "initiated" : "failed",
+//       response: response || null,
+//       callback_url: finalCallback,
+//       redirect_url: finalRedirect,
+//     };
+
+//     await adhaarverificationwithotpModel.create(kycData);
+
+//     if (response?.status === 1) {
+//       const duration = (new Date() - startTime) / 1000;
+//       aadhaarServiceLogger.info(`DigiLocker link generated successfully in ${duration}s`);
+//       return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+//         message: "Valid",
+//         success: true,
+//         response: {
+//           transId,
+//           ts_trans_id: response?.ts_trans_id,
+//           link: response?.data?.url,
+//           callback_url: finalCallback,
+//           redirect_url: finalRedirect,
+//         },
+//       });
+//     }
+
+//     aadhaarServiceLogger.error(`DigiLocker link generation failed => ${response?.msg}`);
+//     return res
+//       .status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode)
+//       .json(ERROR_CODES.THIRD_PARTY_ERROR);
+//   } catch (err) {
+//     aadhaarServiceLogger.error(`Error in initiateAadhaarDigilocker => ${err.message}`);
+//     const errorObj = mapError(err);
+//     return res.status(errorObj.httpCode).json(errorObj);
+//   }
+// };
+// exports.checkAadhaarDigilockerStatus = async (req, res) => {
+//   const startTime = new Date();
+//   aadhaarServiceLogger.info("Entered checkAadhaarDigilockerStatus controller");
+
+//     const isInhouse = req?.baseUrl?.includes("/inhouse");
+//   const tnId = genrateUniqueServiceId();
+//   // const maintainanceResponse = isInhouse
+//   //   ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
+//   //   : await deductCredits(
+//   //       storingClient,
+//   //       serviceId,
+//   //       categoryId,
+//   //       tnId,
+//   //       req.environment,
+//   //     );
+
+//   // if (!maintainanceResponse?.result) {
+//   //   aadhaarServiceLogger.error(
+//   //     `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
+//   //   );
+//   //   return res.status(500).json({
+//   //     success: false,
+//   //     message: maintainanceResponse?.message || "InValid",
+//   //     response: {},
+//   //   });
+//   // }
+
+//   try {
+//     const { tsTransId } = req.body;
+
+//     if (!tsTransId) {
+//       aadhaarServiceLogger.warn("Missing tsTransId in request body");
+//       return res
+//         .status(ERROR_CODES.BAD_REQUEST.httpCode)
+//         .json(ERROR_CODES.BAD_REQUEST);
+//     }
+
+//     const username = process.env.TRUTHSCREEN_USERNAME;
+//     const password = process.env.TRUTHSCREEN_TOKEN;
+
+//     const payload = {
+//       ts_trans_id: tsTransId,
+//       doc_type: "472",
+//       action: "STATUS",
+//     };
+
+//     const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+//     aadhaarServiceLogger.info(
+//       `Calling TruthScreen Aadhaar DigiLocker STATUS API => ${url}`,
+//     );
+//     aadhaarServiceLogger.info(`Payload: ${JSON.stringify(payload)}`);
+
+//     const response = await callTruthScreenAPI({
+//       url,
+//       payload,
+//       username,
+//       password,
+//     });
+//     aadhaarServiceLogger.info(
+//       `Response received from TruthScreen => ${JSON.stringify(response)}`,
+//     );
+
+//     const outerKey = Object.keys(response.data || {})[0];
+//     const msg = response.data?.[outerKey]?.msg?.[0] || {};
+//     const addressData = msg?.data?.address || "";
+//     const formattedAddress =
+//       typeof addressData === "object"
+//         ? Object.values(addressData).filter(Boolean).join(", ")
+//         : addressData;
+
+//     const aadhaarDetails = {
+//       name: msg?.data?.name || "",
+//       fatherName: msg?.data?.["Father Name"] || "",
+//       dob: msg?.data?.dob || "",
+//       aadhar_number: msg?.data?.aadhar_number || "",
+//       gender: msg?.data?.gender || "",
+//       address: formattedAddress,
+//       co: msg?.data?.co || "",
+//       photo: msg?.data?.photo || "",
+//     };
+
+//     aadhaarServiceLogger.info(
+//       `Extracted Aadhaar Details: ${JSON.stringify(aadhaarDetails)}`,
+//     );
+//     const MerchantId = generateMerchantId();
+//     console.log("Generated Merchant ID:", MerchantId);
+
+//     if (response?.status === 1) {
+//       const updatedRecord =
+//         await adhaarverificationwithotpModel.findOneAndUpdate(
+//           { ts_trans_id: tsTransId },
+//           {
+//             aadhaarDetails,
+//             status: "verified",
+//             response,
+//             MerchantId,
+//           },
+//           { new: true },
+//         );
+//       console.log("detailsstores in adhar", updatedRecord);
+//       aadhaarServiceLogger.info(
+//         `Aadhaar KYC updated successfully for tsTransId: ${tsTransId}`,
+//       );
+//       aadhaarServiceLogger.debug(`Updated Record: ${JSON.stringify(updatedRecord)}`);
+
+//       const duration = (new Date() - startTime) / 1000;
+//       aadhaarServiceLogger.info(
+//         `[${ERROR_CODES.SUCCESS.httpCode}] Aadhaar retrieved successfully | Duration: ${duration}s`,
+//       );
+
+//       return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+//         message: "Valid",
+//         response: response,
+//         success: true,
+//       });
+//     }
+
+//     aadhaarServiceLogger.error(
+//       `[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] Aadhaar DigiLocker STATUS failed => ${response?.msg}`,
+//     );
+//     return res
+//       .status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode)
+//       .json(ERROR_CODES.THIRD_PARTY_ERROR);
+//   } catch (err) {
+//     aadhaarServiceLogger.error(`Error in checkAadhaarDigilockerStatus => ${err.message}`);
+//     const errorObj = mapError(err);
+//     return res.status(errorObj.httpCode).json(errorObj);
+//   }
+// };
+
+
 exports.initiateAadhaarDigilocker = async (req, res) => {
-  const {
-    callback_url,
-    redirect_url,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-  } = req.body;
-  const startTime = new Date();
-  kycLogger.info("Aadhaar DigiLocker initiation triggered");
+  const {
+    callback_url,
+    redirect_url,
+    mobileNumber = "",
+    serviceId = "",
+    categoryId = "",
+    clientId = "",
+  } = req.body;
+  const startTime = new Date();
+  aadhaarServiceLogger.info("Aadhaar DigiLocker initiation triggered");
 
-  const storingClient = req.clientId || clientId;
-  const isInhouse = req?.baseUrl?.includes("/inhouse");
-  const tnId = genrateUniqueServiceId();
-  const maintainanceResponse = isInhouse
-    ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
-    : await deductCredits(
-        storingClient,
-        serviceId,
-        categoryId,
-        tnId,
-        req.environment,
-      );
+  const storingClient = req.clientId || clientId;
 
-  if (!maintainanceResponse?.result) {
-    kycLogger.error(
-      `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
-    );
-    return res.status(500).json({
-      success: false,
-      message: maintainanceResponse?.message || "InValid",
-      response: {},
-    });
-  }
+  try {
+    const transId = "TS-" + Date.now();
+    const username = process.env.TRUTHSCREEN_NTAR_USERNAME;
+    const password = process.env.TRUTHSCREEN_NTAR_TOKEN;
+    const finalCallback = callback_url || process.env.DEFAULT_CALLBACK_URL;
+    const finalRedirect = redirect_url || process.env.DEFAULT_REDIRECT_URL;
 
-  try {
-    const transId = "TS-" + Date.now();
-    const username = process.env.TRUTHSCREEN_USERNAME;
-    const password = process.env.TRUTHSCREEN_TOKEN;
-    const finalCallback = callback_url || process.env.DEFAULT_CALLBACK_URL;
-    const finalRedirect = redirect_url || process.env.DEFAULT_REDIRECT_URL;
+    const payload = {
+      trans_id: transId,
+      doc_type: "472",
+      action: "LINK",
+      callback_url: finalCallback,
+      redirect_url: finalRedirect,
+    };
 
-    const payload = {
-      trans_id: transId,
-      doc_type: "472",
-      action: "LINK",
-      callback_url: finalCallback,
-      redirect_url: finalRedirect,
-    };
+    aadhaarServiceLogger.info(`Payload for DigiLocker: ${JSON.stringify(payload)}`);
 
-    kycLogger.info(`Payload for DigiLocker: ${JSON.stringify(payload)}`);
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    const response = await callTruthScreenAPI({
+      url,
+      payload,
+      username,
+      password,
+    });
 
-    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
-    const response = await callTruthScreenAPI({
-      url,
-      payload,
-      username,
-      password,
-    });
+    const kycData = {
+      trans_id: transId,
+      ts_trans_id: response?.ts_trans_id || null,
+      link: response?.data?.url || null,
+      status: response?.status === 1 ? "initiated" : "failed",
+      response: response || null,
+      callback_url: finalCallback,
+      redirect_url: finalRedirect,
+    };
 
-    const kycData = {
-      trans_id: transId,
-      ts_trans_id: response?.ts_trans_id || null,
-      link: response?.data?.url || null,
-      status: response?.status === 1 ? "initiated" : "failed",
-      response: response || null,
-      callback_url: finalCallback,
-      redirect_url: finalRedirect,
-    };
+    await adhaarverificationwithotpModel.create(kycData);
 
-    await adhaarverificationwithotpModel.create(kycData);
+    if (response?.status === 1) {
+      const duration = (new Date() - startTime) / 1000;
+      aadhaarServiceLogger.info(`DigiLocker link generated successfully in ${duration}s`);
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        success: true,
+        response: {
+          transId,
+          ts_trans_id: response?.ts_trans_id,
+          link: response?.data?.url,
+          callback_url: finalCallback,
+          redirect_url: finalRedirect,
+        },
+      });
+    }
 
-    if (response?.status === 1) {
-      const duration = (new Date() - startTime) / 1000;
-      kycLogger.info(`DigiLocker link generated successfully in ${duration}s`);
-      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
-        message: "Valid",
-        success: true,
-        response: {
-          transId,
-          ts_trans_id: response?.ts_trans_id,
-          link: response?.data?.url,
-          callback_url: finalCallback,
-          redirect_url: finalRedirect,
-        },
-      });
-    }
-
-    kycLogger.error(`DigiLocker link generation failed => ${response?.msg}`);
-    return res
-      .status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode)
-      .json(ERROR_CODES.THIRD_PARTY_ERROR);
-  } catch (err) {
-    kycLogger.error(`Error in initiateAadhaarDigilocker => ${err.message}`);
-    const errorObj = mapError(err);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
+    aadhaarServiceLogger.error(`DigiLocker link generation failed => ${response?.msg}`);
+    return res
+      .status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode)
+      .json(ERROR_CODES.THIRD_PARTY_ERROR);
+  } catch (err) {
+    aadhaarServiceLogger.error(`Error in initiateAadhaarDigilocker => ${err.message}`);
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 exports.checkAadhaarDigilockerStatus = async (req, res) => {
-  const startTime = new Date();
-  kycLogger.info("Entered checkAadhaarDigilockerStatus controller");
+  const startTime = new Date();
+  aadhaarServiceLogger.info("Entered checkAadhaarDigilockerStatus controller");
 
-    const isInhouse = req?.baseUrl?.includes("/inhouse");
-  const tnId = genrateUniqueServiceId();
-  const maintainanceResponse = isInhouse
-    ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
-    : await deductCredits(
-        storingClient,
-        serviceId,
-        categoryId,
-        tnId,
-        req.environment,
-      );
+  try {
+    const { tsTransId } = req.body;
 
-  if (!maintainanceResponse?.result) {
-    kycLogger.error(
-      `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
-    );
-    return res.status(500).json({
-      success: false,
-      message: maintainanceResponse?.message || "InValid",
-      response: {},
-    });
-  }
+    if (!tsTransId) {
+      aadhaarServiceLogger.warn("Missing tsTransId in request body");
+      return res
+        .status(ERROR_CODES.BAD_REQUEST.httpCode)
+        .json(ERROR_CODES.BAD_REQUEST);
+    }
 
-  try {
-    const { tsTransId } = req.body;
+    const username = process.env.TRUTHSCREEN_NTAR_USERNAME;
+    const password = process.env.TRUTHSCREEN_NTAR_TOKEN;
 
-    if (!tsTransId) {
-      kycLogger.warn("Missing tsTransId in request body");
-      return res
-        .status(ERROR_CODES.BAD_REQUEST.httpCode)
-        .json(ERROR_CODES.BAD_REQUEST);
-    }
+    const payload = {
+      ts_trans_id: tsTransId,
+      doc_type: "472",
+      action: "STATUS",
+    };
 
-    const username = process.env.TRUTHSCREEN_USERNAME;
-    const password = process.env.TRUTHSCREEN_TOKEN;
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    aadhaarServiceLogger.info(
+      `Calling TruthScreen Aadhaar DigiLocker STATUS API => ${url}`,
+    );
+    aadhaarServiceLogger.info(`Payload: ${JSON.stringify(payload)}`);
 
-    const payload = {
-      ts_trans_id: tsTransId,
-      doc_type: "472",
-      action: "STATUS",
-    };
+    const response = await callTruthScreenAPI({
+      url,
+      payload,
+      username,
+      password,
+    });
+    aadhaarServiceLogger.info(
+      `Response received from TruthScreen => ${JSON.stringify(response)}`,
+    );
 
-    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
-    kycLogger.info(
-      `Calling TruthScreen Aadhaar DigiLocker STATUS API => ${url}`,
-    );
-    kycLogger.info(`Payload: ${JSON.stringify(payload)}`);
+    const outerKey = Object.keys(response.data || {})[0];
+    const msg = response.data?.[outerKey]?.msg?.[0] || {};
+    const addressData = msg?.data?.address || "";
+    const formattedAddress =
+      typeof addressData === "object"
+        ? Object.values(addressData).filter(Boolean).join(", ")
+        : addressData;
 
-    const response = await callTruthScreenAPI({
-      url,
-      payload,
-      username,
-      password,
-    });
-    kycLogger.info(
-      `Response received from TruthScreen => ${JSON.stringify(response)}`,
-    );
+    const aadhaarDetails = {
+      name: msg?.data?.name || "",
+      fatherName: msg?.data?.["Father Name"] || "",
+      dob: msg?.data?.dob || "",
+      aadhar_number: msg?.data?.aadhar_number || "",
+      gender: msg?.data?.gender || "",
+      address: formattedAddress,
+      co: msg?.data?.co || "",
+      photo: msg?.data?.photo || "",
+    };
 
-    const outerKey = Object.keys(response.data || {})[0];
-    const msg = response.data?.[outerKey]?.msg?.[0] || {};
-    const addressData = msg?.data?.address || "";
-    const formattedAddress =
-      typeof addressData === "object"
-        ? Object.values(addressData).filter(Boolean).join(", ")
-        : addressData;
+    aadhaarServiceLogger.info(
+      `Extracted Aadhaar Details: ${JSON.stringify(aadhaarDetails)}`,
+    );
+    const MerchantId = generateMerchantId();
+    console.log("Generated Merchant ID:", MerchantId);
 
-    const aadhaarDetails = {
-      name: msg?.data?.name || "",
-      fatherName: msg?.data?.["Father Name"] || "",
-      dob: msg?.data?.dob || "",
-      aadhar_number: msg?.data?.aadhar_number || "",
-      gender: msg?.data?.gender || "",
-      address: formattedAddress,
-      co: msg?.data?.co || "",
-      photo: msg?.data?.photo || "",
-    };
+    if (response?.status === 1) {
+      const updatedRecord =
+        await adhaarverificationwithotpModel.findOneAndUpdate(
+          { ts_trans_id: tsTransId },
+          {
+            aadhaarDetails,
+            status: "verified",
+            response,
+            MerchantId,
+          },
+          { new: true },
+        );
+      console.log("detailsstores in adhar", updatedRecord);
+      aadhaarServiceLogger.info(
+        `Aadhaar KYC updated successfully for tsTransId: ${tsTransId}`,
+      );
+      aadhaarServiceLogger.debug(`Updated Record: ${JSON.stringify(updatedRecord)}`);
 
-    kycLogger.info(
-      `Extracted Aadhaar Details: ${JSON.stringify(aadhaarDetails)}`,
-    );
-    const MerchantId = generateMerchantId();
-    console.log("Generated Merchant ID:", MerchantId);
+      const duration = (new Date() - startTime) / 1000;
+      aadhaarServiceLogger.info(
+        `[${ERROR_CODES.SUCCESS.httpCode}] Aadhaar retrieved successfully | Duration: ${duration}s`,
+      );
 
-    if (response?.status === 1) {
-      const updatedRecord =
-        await adhaarverificationwithotpModel.findOneAndUpdate(
-          { ts_trans_id: tsTransId },
-          {
-            aadhaarDetails,
-            status: "verified",
-            response,
-            MerchantId,
-          },
-          { new: true },
-        );
-      console.log("detailsstores in adhar", updatedRecord);
-      kycLogger.info(
-        `Aadhaar KYC updated successfully for tsTransId: ${tsTransId}`,
-      );
-      kycLogger.debug(`Updated Record: ${JSON.stringify(updatedRecord)}`);
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        response: response,
+        success: true,
+      });
+    }
 
-      const duration = (new Date() - startTime) / 1000;
-      kycLogger.info(
-        `[${ERROR_CODES.SUCCESS.httpCode}] Aadhaar retrieved successfully | Duration: ${duration}s`,
-      );
-
-      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
-        message: "Valid",
-        response: response,
-        success: true,
-      });
-    }
-
-    kycLogger.error(
-      `[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] Aadhaar DigiLocker STATUS failed => ${response?.msg}`,
-    );
-    return res
-      .status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode)
-      .json(ERROR_CODES.THIRD_PARTY_ERROR);
-  } catch (err) {
-    kycLogger.error(`Error in checkAadhaarDigilockerStatus => ${err.message}`);
-    const errorObj = mapError(err);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
+    aadhaarServiceLogger.error(
+      `[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] Aadhaar DigiLocker STATUS failed => ${response?.msg}`,
+    );
+    return res
+      .status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode)
+      .json(ERROR_CODES.THIRD_PARTY_ERROR);
+  } catch (err) {
+    aadhaarServiceLogger.error(`Error in checkAadhaarDigilockerStatus => ${err.message}`);
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };

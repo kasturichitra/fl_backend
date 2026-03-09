@@ -20,12 +20,12 @@ const checkingRateLimit = async ({
       client_Id,
     });
 
-    commonLogger.debug(`Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)}`);
+    commonLogger.debug(`Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)} for this client: ${client_Id}`);
 
     const dayLimit = rateLimitResponse.data?.data?.rateLimit;
 
     commonLogger.info(
-      `Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit}`,
+      `Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit} for this client: ${client_Id}`,
     );
 
     if (!dayLimit) {
@@ -46,7 +46,7 @@ const checkingRateLimit = async ({
     const apiHitCount = await apiHitCountModel.findOne(query);
 
     if (apiHitCount?.dayHitCount >= dayLimit) {
-      commonLogger.warn(`Rate limit exceeded for client ${client_Id}, service ${serviceId}`);
+      commonLogger.warn(`Rate limit exceeded for client ${client_Id} of service ${serviceId} and category: ${categoryId}`);
       return {
         allowed: false,
         message: "Daily rate limit exceeded",
@@ -64,7 +64,7 @@ const checkingRateLimit = async ({
       },
     );
 
-    commonLogger.info(`Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount}`);
+    commonLogger.info(`Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount} for this client: ${client_Id}`);
 
     return {
       allowed: true,

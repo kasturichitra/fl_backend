@@ -1,7 +1,7 @@
 const gstin_verifyModel = require("../models/gstin_verify.model");
 const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES, mapError } = require("../../../utils/errorCodes");
-const { companyLogger, kycLogger } = require("../../Logger/logger");
+const { businessServiceLogger } = require("../../Logger/logger");
 const {
   GSTActiveServiceResponse,
 } = require("../../GlobalApiserviceResponse/GstServiceResponse");
@@ -40,14 +40,14 @@ exports.gstinverify = async (req, res, next) => {
   const clientId = req.clientId;
   const environment = req.environment;
 
-  companyLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
+  businessServiceLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
 
   try {
     const capitalGstNumber = gstinNumber?.toUpperCase();
     const isValid = handleValidation("gstin", capitalGstNumber, res);
     if (!isValid) return;
 
-    companyLogger.info(`Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+    businessServiceLogger.info(`Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
     const identifierHash = hashIdentifiers({
       gstNo: capitalGstNumber,
@@ -61,7 +61,7 @@ exports.gstinverify = async (req, res, next) => {
     });
 
     if (!gstRateLimitResult.allowed) {
-      companyLogger.warn(`Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.warn(`Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: gstRateLimitResult.message,
@@ -69,7 +69,7 @@ exports.gstinverify = async (req, res, next) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    companyLogger.info(`Generated GSTIN txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated GSTIN txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       clientId,
@@ -80,7 +80,7 @@ exports.gstinverify = async (req, res, next) => {
     );
 
     if (!maintainanceResponse?.result) {
-      companyLogger.error(`Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.error(`Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -99,12 +99,12 @@ exports.gstinverify = async (req, res, next) => {
     const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
     const analyticsResult = await AnalyticsDataUpdate(clientId, serviceId, categoryId);
     if (!analyticsResult.success) {
-      companyLogger.warn(`Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.warn(`Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`);
     }
 
-    companyLogger.debug(`Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`);
+    businessServiceLogger.debug(`Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`);
     if (existingGstin) {
-      companyLogger.info(`Returning cached GSTIN response for client: ${clientId}`);
+      businessServiceLogger.info(`Returning cached GSTIN response for client: ${clientId}`);
       const dataToShow = existingGstin?.response;
       return res.status(200).json(createApiResponse(200, dataToShow, "Valid"));
     }
@@ -112,15 +112,15 @@ exports.gstinverify = async (req, res, next) => {
     // Get All Active Services
     const service = await selectService(categoryId, serviceId);
     if (!service) {
-      companyLogger.warn(`Active service not found for GSTIN category ${categoryId}, service ${serviceId}`);
+      businessServiceLogger.warn(`Active service not found for GSTIN category ${categoryId}, service ${serviceId}`);
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    companyLogger.info(`Active service selected for GSTIN verification: ${service.serviceFor}`);
+    businessServiceLogger.info(`Active service selected for GSTIN verification: ${service.serviceFor}`);
 
     //  get Acitve Service Response
     let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
-    companyLogger.info(
+    businessServiceLogger.info(
       `Response received from active service ${service.serviceFor}: ${response?.message}`,
     );
 
@@ -142,18 +142,18 @@ exports.gstinverify = async (req, res, next) => {
       };
 
       await gstin_verifyModel.create(storingData);
-      companyLogger.info(`Valid GSTIN response stored and sent to client: ${clientId}`);
+      businessServiceLogger.info(`Valid GSTIN response stored and sent to client: ${clientId}`);
       return res
         .status(200)
         .json(createApiResponse(200, response?.result, "Success"));
     } else {
-      companyLogger.info(`Invalid GSTIN response received and sent to client: ${clientId}`);
+      businessServiceLogger.info(`Invalid GSTIN response received and sent to client: ${clientId}`);
       return res
         .status(404)
         .json(createApiResponse(404, { gstinNumber }, "Failed"));
     }
   } catch (error) {
-    companyLogger.error(`System error in GSTIN verification for client ${clientId}: ${error.message}`, error);
+    businessServiceLogger.error(`System error in GSTIN verification for client ${clientId}: ${error.message}`, error);
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -169,7 +169,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
   const clientId = req.clientId;
   const isClient = req.role;
 
-  companyLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
+  businessServiceLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
   try {
     if (!gstinNumber) {
       return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
@@ -198,7 +198,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`pan txn Id ===>> ${tnId}`);
+    businessServiceLogger.info(`pan txn Id ===>> ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       req.clientId,
@@ -225,7 +225,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
 
     const service = await selectService(categoryId, serviceId);
 
-    companyLogger.info(
+    businessServiceLogger.info(
       `gst inverify activer service ${JSON.stringify(service)}`,
     );
 
@@ -290,7 +290,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         .json(createApiResponse(404, { gstinNumber }, "Failed"));
     }
   } catch (error) {
-    companyLogger.error(`Error performing GSTIN verification:${error}`);
+    businessServiceLogger.error(`Error performing GSTIN verification:${error}`);
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };

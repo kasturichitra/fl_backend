@@ -2,7 +2,7 @@ const panverificationModel = require("../models/panBasic.model");
 const panToAadhaarModel = require("../models/panToAadhaarModel");
 const axios = require("axios");
 require("dotenv").config();
-const { kycLogger } = require("../../Logger/logger");
+const { panServiceLogger } = require("../../Logger/logger");
 const {
   encryptData,
   decryptData,
@@ -49,66 +49,64 @@ exports.verifyPanNumber = async (req, res) => {
   const isValid = handleValidation("pan", capitalPanNumber, res);
   if (!isValid) return;
 
-  kycLogger.info("All inputs in pan are valid, continue processing...");
+  panServiceLogger.info("All inputs in pan are valid, continue processing...");
 
   const storingClient = req.clientId || clientId;
 
   try {
-    kycLogger.info(
+    panServiceLogger.info(
       `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     const isInhouse = req?.baseUrl?.includes("/inhouse");
-    kycLogger.info(`checking inhouse Client: ${isInhouse}`);
+    panServiceLogger.info(`checking inhouse Client: ${isInhouse}`);
 
     // Always generate txnId
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`Generated PAN txn Id: ${tnId} for the client: ${storingClient}`);
+    panServiceLogger.info(`Generated PAN txn Id: ${tnId} for the client: ${storingClient}`);
 
     // Common: hash identifier
-    const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
-    });
+    // const identifierHash = hashIdentifiers({
+    //   panNo: capitalPanNumber,
+    // });
 
-    // Common: rate limit check
-    const panRateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      clientId: storingClient,
-    });
+    // const panRateLimitResult = await checkingRateLimit({
+    //   identifiers: { identifierHash },
+    //   serviceId,
+    //   categoryId,
+    //   clientId: storingClient,
+    // });
 
-    if (!panRateLimitResult.allowed) {
-      kycLogger.warn(
-        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
-      );
-      return res.status(429).json({
-        success: false,
-        message: panRateLimitResult.message,
-      });
-    }
+    // if (!panRateLimitResult.allowed) {
+    //   panServiceLogger.warn(
+    //     `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+    //   );
+    //   return res.status(429).json({
+    //     success: false,
+    //     message: panRateLimitResult.message,
+    //   });
+    // }
 
-    // Only difference: credit function
-    const maintainanceResponse = isInhouse
-      ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
-      : await deductCredits(
-          storingClient,
-          serviceId,
-          categoryId,
-          tnId,
-          req.environment,
-        );
+    // const maintainanceResponse = isInhouse
+    //   ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
+    //   : await deductCredits(
+    //       storingClient,
+    //       serviceId,
+    //       categoryId,
+    //       tnId,
+    //       req.environment,
+    //     );
 
-    if (!maintainanceResponse?.result) {
-      kycLogger.error(
-        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
-      );
-      return res.status(500).json({
-        success: false,
-        message: maintainanceResponse?.message || "InValid",
-        response: {},
-      });
-    }
+    // if (!maintainanceResponse?.result) {
+    //   panServiceLogger.error(
+    //     `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+    //   );
+    //   return res.status(500).json({
+    //     success: false,
+    //     message: maintainanceResponse?.message || "InValid",
+    //     response: {},
+    //   });
+    // }
 
     const encryptedPan = encryptData(capitalPanNumber);
 
@@ -122,12 +120,12 @@ exports.verifyPanNumber = async (req, res) => {
       categoryId,
     );
     if (!analyticsResult.success) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Analytics update failed for PAN verification: client ${storingClient}, service ${serviceId}`,
       );
     }
 
-    kycLogger.debug(
+    panServiceLogger.debug(
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
@@ -147,7 +145,7 @@ exports.verifyPanNumber = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached valid PAN response for client: ${storingClient}`,
         );
         return res.json({
@@ -164,7 +162,7 @@ exports.verifyPanNumber = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
         return res.json({
@@ -178,18 +176,18 @@ exports.verifyPanNumber = async (req, res) => {
     const service = await selectService(categoryId, serviceId);
 
     if (!service) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Active service selected for PAN verification: ${service.serviceFor}`,
     );
     let response = await PanActiveServiceResponse(panNumber, service, 0);
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Response received from active service ${service.serviceFor}: ${response?.message}`,
     );
 
@@ -209,7 +207,7 @@ exports.verifyPanNumber = async (req, res) => {
       };
 
       await panverificationModel.create(storingData);
-      kycLogger.info(
+      panServiceLogger.info(
         `Valid PAN response stored and sent to client: ${storingClient}`,
       );
 
@@ -223,7 +221,7 @@ exports.verifyPanNumber = async (req, res) => {
         PAN_Status: "",
         PAN_Holder_Type: "",
       };
-      kycLogger.info(
+      panServiceLogger.info(
         `Invalid PAN response received and sent to client: ${storingClient}`,
       );
       return res
@@ -231,7 +229,7 @@ exports.verifyPanNumber = async (req, res) => {
         .json(createApiResponse(404, invalidResponse, "Failed"));
     }
   } catch (error) {
-    kycLogger.error(
+    panServiceLogger.error(
       `System error in PAN verification for client ${storingClient}: ${error.message}`,
       error,
     );
@@ -255,10 +253,10 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
 
   const storingClient = req.clientId || clientId;
 
-  kycLogger.info("All inputs in pan are valid, continue processing...");
+  panServiceLogger.info("All inputs in pan are valid, continue processing...");
 
   try {
-    kycLogger.info(
+    panServiceLogger.info(
       `Executing PAN to GST verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
@@ -274,7 +272,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
     });
 
     if (!panRateLimitResult.allowed) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Rate limit exceeded for PAN to GST verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
@@ -284,7 +282,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`Generated PAN to GST txn Id: ${tnId}`);
+    panServiceLogger.info(`Generated PAN to GST txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       storingClient,
@@ -295,7 +293,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
     );
 
     if (!maintainanceResponse?.result) {
-      kycLogger.error(
+      panServiceLogger.error(
         `Credit deduction failed for PAN to GST verification: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
@@ -317,12 +315,12 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
       categoryId,
     );
     if (!analyticsResult.success) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Analytics update failed for PAN to GST verification: client ${storingClient}, service ${serviceId}`,
       );
     }
 
-    kycLogger.debug(
+    panServiceLogger.debug(
       `Checked for existing PAN to GST record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
@@ -342,7 +340,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached valid PAN to GST response for client: ${storingClient}`,
         );
         return res.json({
@@ -361,7 +359,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached invalid PAN to GST response for client: ${storingClient}`,
         );
         return res.json({
@@ -375,18 +373,18 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
     const service = await selectService(categoryId, serviceId);
 
     if (!service) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Active service not found for PAN to GST category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Active service selected for PAN to GST verification: ${service.serviceFor}`,
     );
     let response = await PANtoGSTActiveServiceResponse(panNumber, service, 0);
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Response received from active service ${service.serviceFor} for PAN to GST: ${response?.message}`,
     );
 
@@ -406,7 +404,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
       };
 
       await panverificationModel.create(storingData);
-      kycLogger.info(
+      panServiceLogger.info(
         `Valid PAN to GST response stored and sent to client: ${storingClient}`,
       );
 
@@ -426,7 +424,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
       };
 
       await panverificationModel.create(storingData);
-      kycLogger.info(
+      panServiceLogger.info(
         `Invalid PAN to GST response stored and sent to client: ${storingClient}`,
       );
 
@@ -441,7 +439,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         .json(createApiResponse(404, invalidResponse, "Failed"));
     }
   } catch (error) {
-    kycLogger.error(
+    panServiceLogger.error(
       `System error in PAN to GST verification for client ${storingClient}: ${error.message}`,
       error,
     );
@@ -463,12 +461,12 @@ exports.verifyPanToAadhaar = async (req, res) => {
   const isValid = handleValidation("pan", capitalPanNumber, res);
   if (!isValid) return;
 
-  kycLogger.info("All inputs in pan are valid, continue processing...");
+  panServiceLogger.info("All inputs in pan are valid, continue processing...");
 
   const storingClient = req.clientId || clientId;
 
   try {
-    kycLogger.info(
+    panServiceLogger.info(
       `Executing PAN to Aadhaar verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
@@ -484,7 +482,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
     });
 
     if (!panRateLimitResult.allowed) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Rate limit exceeded for PAN to Aadhaar verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
@@ -494,7 +492,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`Generated PAN to Aadhaar txn Id: ${tnId}`);
+    panServiceLogger.info(`Generated PAN to Aadhaar txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       storingClient,
@@ -505,7 +503,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
     );
 
     if (!maintainanceResponse?.result) {
-      kycLogger.error(
+      panServiceLogger.error(
         `Credit deduction failed for PAN to Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
@@ -527,12 +525,12 @@ exports.verifyPanToAadhaar = async (req, res) => {
       categoryId,
     );
     if (!analyticsResult.success) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Analytics update failed for PAN to Aadhaar verification: client ${storingClient}, service ${serviceId}`,
       );
     }
 
-    kycLogger.debug(
+    panServiceLogger.debug(
       `Checked for existing PAN to Aadhaar record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
@@ -545,7 +543,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached valid PAN to Aadhaar response for client: ${storingClient}`,
         );
         return res.json({
@@ -565,7 +563,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached invalid PAN to Aadhaar response for client: ${storingClient}`,
         );
         return res.json({
@@ -582,13 +580,13 @@ exports.verifyPanToAadhaar = async (req, res) => {
     const service = await selectService(categoryId, serviceId);
 
     if (!service) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Active service not found for PAN to Aadhaar category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Active service selected for PAN to Aadhaar verification: ${service.serviceFor}`,
     );
     const response = await PantoAadhaarActiveServiceResponse(
@@ -597,7 +595,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
       0,
     );
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Response received from active service ${service.serviceFor} for PAN to Aadhaar: ${response?.message}`,
     );
 
@@ -626,7 +624,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await panToAadhaarModel.create(storingData);
-      kycLogger.info(
+      panServiceLogger.info(
         `Valid PAN to Aadhaar response stored and sent to client: ${storingClient}`,
       );
       return res
@@ -656,7 +654,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
       );
     }
   } catch (error) {
-    kycLogger.error(
+    panServiceLogger.error(
       `System error in PAN to Aadhaar verification for client ${storingClient}: ${error.message}`,
       error,
     );
@@ -680,11 +678,11 @@ exports.verifyPanNameMatch = async (req, res) => {
   const isValid = handleValidation("pan", capitalPanNumber, res);
   if (!isValid) return;
 
-  kycLogger.info("All inputs in pan are valid, continue processing...");
+  panServiceLogger.info("All inputs in pan are valid, continue processing...");
 
   const storingClient = req.clientId || clientId;
   try {
-    kycLogger.info(
+    panServiceLogger.info(
       `Executing PAN to NameMatch verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
@@ -700,7 +698,7 @@ exports.verifyPanNameMatch = async (req, res) => {
     });
 
     if (!panRateLimitResult.allowed) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Rate limit exceeded for PAN NameMatch verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
@@ -710,7 +708,7 @@ exports.verifyPanNameMatch = async (req, res) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`Generated PAN to Namematch txn Id: ${tnId}`);
+    panServiceLogger.info(`Generated PAN to Namematch txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       storingClient,
@@ -721,7 +719,7 @@ exports.verifyPanNameMatch = async (req, res) => {
     );
 
     if (!maintainanceResponse?.result) {
-      kycLogger.error(
+      panServiceLogger.error(
         `Credit deduction failed for PAN NameMatch verification: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
@@ -736,7 +734,7 @@ exports.verifyPanNameMatch = async (req, res) => {
       panNumber: encryptedPan,
     });
 
-    kycLogger.debug(
+    panServiceLogger.debug(
       `Checked for existing PAN NameMatch record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
 
@@ -746,7 +744,7 @@ exports.verifyPanNameMatch = async (req, res) => {
       categoryId,
     );
     if (!analyticsResult.success) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Analytics update failed for PAN NameMatch verification: client ${storingClient}, service ${serviceId}`,
       );
     }
@@ -761,7 +759,7 @@ exports.verifyPanNameMatch = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached valid PAN NameMatch response for client: ${storingClient}`,
         );
         return res.json({
@@ -781,7 +779,7 @@ exports.verifyPanNameMatch = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached invalid PAN NameMatch response for client: ${storingClient}`,
         );
         return res.json({
@@ -798,13 +796,13 @@ exports.verifyPanNameMatch = async (req, res) => {
     const service = await selectService(categoryId, serviceId);
 
     if (!service) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Active service not found for PAN NameMatch category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Active service selected for PAN NameMatch verification: ${service.serviceFor}`,
     );
     const response = await PANNameMatchActiveServiceResponse(
@@ -813,7 +811,7 @@ exports.verifyPanNameMatch = async (req, res) => {
       0,
     );
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Response received from active service ${service.serviceFor} for PAN NameMatch: ${response?.message}`,
     );
 
@@ -842,7 +840,7 @@ exports.verifyPanNameMatch = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await panNameMatch.create(storingData);
-      kycLogger.info(
+      panServiceLogger.info(
         `Valid PAN NameMatch response stored and sent to client: ${storingClient}`,
       );
       return res
@@ -860,7 +858,7 @@ exports.verifyPanNameMatch = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
-      kycLogger.info(
+      panServiceLogger.info(
         `Invalid PAN NameMatch response received and sent to client: ${storingClient}`,
       );
       return res.status(404).json(
@@ -875,7 +873,7 @@ exports.verifyPanNameMatch = async (req, res) => {
       );
     }
   } catch (error) {
-    kycLogger.error(
+    panServiceLogger.error(
       `System error in PAN NameMatch verification for client ${storingClient}: ${error.message}`,
       error,
     );
@@ -898,12 +896,12 @@ exports.verifyPanNameDob = async (req, res) => {
   const isValid = handleValidation("pan", capitalPanNumber, res);
   if (!isValid) return;
 
-  kycLogger.info("All inputs in pan are valid, continue processing...");
+  panServiceLogger.info("All inputs in pan are valid, continue processing...");
 
   const storingClient = req.clientId || clientId;
 
   try {
-    kycLogger.info(
+    panServiceLogger.info(
       `Executing PAN NameDob verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
@@ -919,7 +917,7 @@ exports.verifyPanNameDob = async (req, res) => {
     });
 
     if (!panRateLimitResult.allowed) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Rate limit exceeded for PAN NameDob verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
@@ -929,7 +927,7 @@ exports.verifyPanNameDob = async (req, res) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    kycLogger.info(`Generated PAN NameDob txn Id: ${tnId}`);
+    panServiceLogger.info(`Generated PAN NameDob txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       storingClient,
@@ -940,7 +938,7 @@ exports.verifyPanNameDob = async (req, res) => {
     );
 
     if (!maintainanceResponse?.result) {
-      kycLogger.error(
+      panServiceLogger.error(
         `Credit deduction failed for PAN NameDob verification: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
@@ -955,7 +953,7 @@ exports.verifyPanNameDob = async (req, res) => {
       panNumber: encryptedPan,
     });
 
-    kycLogger.debug(
+    panServiceLogger.debug(
       `Checked for existing PAN NameDob record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
 
@@ -965,7 +963,7 @@ exports.verifyPanNameDob = async (req, res) => {
       categoryId,
     );
     if (!analyticsResult.success) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Analytics update failed for PAN NameDob verification: client ${storingClient}, service ${serviceId}`,
       );
     }
@@ -980,7 +978,7 @@ exports.verifyPanNameDob = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached valid PAN NameDob response for client: ${storingClient}`,
         );
         return res.json({
@@ -1000,7 +998,7 @@ exports.verifyPanNameDob = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        kycLogger.info(
+        panServiceLogger.info(
           `Returning cached invalid PAN NameDob response for client: ${storingClient}`,
         );
         return res.json({
@@ -1017,13 +1015,13 @@ exports.verifyPanNameDob = async (req, res) => {
     const service = await selectService(categoryId, serviceId);
 
     if (!service) {
-      kycLogger.warn(
+      panServiceLogger.warn(
         `Active service not found for PAN NameDob category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Active service selected for PAN NameDob verification: ${service.serviceFor}`,
     );
     const response = await PANNameMatchActiveServiceResponse(
@@ -1032,7 +1030,7 @@ exports.verifyPanNameDob = async (req, res) => {
       0,
     );
 
-    kycLogger.info(
+    panServiceLogger.info(
       `Response received from active service ${service.serviceFor} for PAN NameDob: ${response?.message}`,
     );
 
@@ -1061,7 +1059,7 @@ exports.verifyPanNameDob = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await panToAadhaarModel.create(storingData);
-      kycLogger.info(
+      panServiceLogger.info(
         `Valid PAN NameDob response stored and sent to client: ${storingClient}`,
       );
       return res
@@ -1079,7 +1077,7 @@ exports.verifyPanNameDob = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
-      kycLogger.info(
+      panServiceLogger.info(
         `Invalid PAN NameDob response received and sent to client: ${storingClient}`,
       );
       return res.status(404).json(
@@ -1094,7 +1092,7 @@ exports.verifyPanNameDob = async (req, res) => {
       );
     }
   } catch (error) {
-    kycLogger.error(
+    panServiceLogger.error(
       `System error in PAN NameDob verification for client ${storingClient}: ${error.message}`,
       error,
     );

@@ -62,15 +62,20 @@ const createSectionLogger = (section) => {
 };
 
 module.exports = {
-  kycLogger: createSectionLogger('kyc'),
-  accountLogger: createSectionLogger('account'),
-  cardLogger: createSectionLogger('card'),
-  companyLogger: createSectionLogger('company'),
+  panServiceLogger: createSectionLogger('panService'),
+  aadhaarServiceLogger: createSectionLogger('aadhaarService'),
+  bankServiceLogger: createSectionLogger('bankService'),
+  gstServiceLogger: createSectionLogger('gstService'),
+  businessServiceLogger: createSectionLogger('businessService'),
+  contactServiceLogger: createSectionLogger('contactService'),
+  faceServiceLogger: createSectionLogger('faceService'),
+  employmentServiceLogger: createSectionLogger('employmentService'),
+  locationServiceLogger: createSectionLogger('locationService'),
+  governmentServiceLogger: createSectionLogger('governmentService'),
+  ocrServiceLogger: createSectionLogger('ocrService'),
+  vehicleServiceLogger: createSectionLogger('vehicleService'),
+  riskServiceLogger: createSectionLogger('riskService'),
+  otherServiceLogger: createSectionLogger('otherService'),
   commonLogger: createSectionLogger('common'),
 };
-
-
-
-
-
 

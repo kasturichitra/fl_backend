@@ -1,6 +1,7 @@
 const axios = require("axios");
+const { bankServiceLogger } = require("../Logger/logger");
 
-const BinActiveServiceResponse = async (data, services, index = 0) => {
+const BinActiveServiceResponse = async (data, services=[], index = 0, clientId) => {
   console.log('BinActiveServiceResponse called');
   if (index >= services.length) {
     return { success: false, message: "All services failed" };
@@ -10,23 +11,30 @@ const BinActiveServiceResponse = async (data, services, index = 0) => {
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
+    bankServiceLogger.info(`No service with priority ${index + 1}, trying next for this client: ${clientId}`);
     return BinActiveServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(`[BinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+  bankServiceLogger.info(`[BinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
   try {
     const res = await BinApiCall(data, serviceName);
 
-    if (res?.success) {
+    bankServiceLogger.info(`[Bin Active Service Response] response from active priority service ${res}`)
+    console.log(`[Bin Active Service Response] response from active priority service ${res}`)
+
+    if (res?.data) {
       return res.data;
     }
 
     console.log(`[BinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+    bankServiceLogger.info(`[BinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
     return BinActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(`[BinActiveServiceResponse] Error from ${serviceName}:`, err.message);
+    bankServiceLogger.info(`[BinActiveServiceResponse] Error from ${serviceName}:`, err.message);
     return BinActiveServiceResponse(data, services, index + 1);
   }
 };

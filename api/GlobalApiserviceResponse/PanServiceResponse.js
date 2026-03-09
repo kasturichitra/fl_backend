@@ -1,4 +1,4 @@
-const { kycLogger } = require("../Logger/logger");
+const { panServiceLogger } = require("../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
 
@@ -9,7 +9,7 @@ const PanActiveServiceResponse = async (data, services=[], index = 0) => {
 
     const newService = services?.find((ser) => ser.priority === index + 1);
     console.log("[PanActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    kycLogger.info("[PanActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    panServiceLogger.info("[PanActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
@@ -18,7 +18,7 @@ const PanActiveServiceResponse = async (data, services=[], index = 0) => {
 
     const serviceName = newService.providerId || "";
     console.log(`[PanActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-    kycLogger.info(`[PanActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    panServiceLogger.info(`[PanActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await PanApiCall(data, serviceName);

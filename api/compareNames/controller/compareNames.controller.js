@@ -4,7 +4,7 @@ const { ERROR_CODES } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const handleValidation = require("../../../utils/lengthCheck");
-const { kycLogger } = require("../../Logger/logger");
+const { otherServiceLogger } = require("../../Logger/logger");
 const comparingNamesModel = require("../models/compareName.model");
 
 async function checkCompareNames(firstName, secondName) {
@@ -100,7 +100,7 @@ function removeTitle(name) {
 
 exports.compareNames = async (req, res, next) => {
   console.log("Compare Name is triggred");
-  kycLogger.info("Compare Name is triggred");
+  otherServiceLogger.info("Compare Name is triggred");
 
   const {
     firstName,
@@ -110,7 +110,7 @@ exports.compareNames = async (req, res, next) => {
     categoryId = "",
   } = req.body;
   console.log("firstName and secondName ===>>", secondName, firstName);
-  kycLogger.info("firstName and secondName ===>>", secondName, firstName);
+  otherServiceLogger.info("firstName and secondName ===>>", secondName, firstName);
   const capitalFirstName = firstName?.toUpperCase();
   const capitalSecondName = secondName?.toUpperCase();
   const isFirstValid = handleValidation("firstName", capitalFirstName, res);
@@ -142,7 +142,7 @@ exports.compareNames = async (req, res, next) => {
 
   const tnId = genrateUniqueServiceId();
   console.log("NAME txn Id ===>>", tnId);
-  kycLogger.info("NAME txn Id ===>>", tnId);
+  otherServiceLogger.info("NAME txn Id ===>>", tnId);
   const maintainanceResponse = await deductCredits(
     storingClient,
     serviceId,
@@ -152,7 +152,7 @@ exports.compareNames = async (req, res, next) => {
   );
 
   if (!maintainanceResponse?.result) {
-    cardLogger.error(
+    otherServiceLogger.error(
       `Credit deduction failed for Card BIN check: client ${storingClient}, txnId ${tnId}`,
     );
     return res.status(500).json({
