@@ -37,7 +37,7 @@ exports.gstinverify = async (req, res, next) => {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
 
-  const clientId = req.clientId;
+  const clientId = req.clientId || categoryId;
   const environment = req.environment;
 
   companyLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
@@ -53,40 +53,40 @@ exports.gstinverify = async (req, res, next) => {
       gstNo: capitalGstNumber,
     });
 
-    const gstRateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      clientId: clientId,
-    });
+    // const gstRateLimitResult = await checkingRateLimit({
+    //   identifiers: { identifierHash },
+    //   serviceId,
+    //   categoryId,
+    //   clientId: clientId,
+    // });
 
-    if (!gstRateLimitResult.allowed) {
-      companyLogger.warn(`Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`);
-      return res.status(429).json({
-        success: false,
-        message: gstRateLimitResult.message,
-      });
-    }
+    // if (!gstRateLimitResult.allowed) {
+    //   companyLogger.warn(`Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`);
+    //   return res.status(429).json({
+    //     success: false,
+    //     message: gstRateLimitResult.message,
+    //   });
+    // }
 
     const tnId = genrateUniqueServiceId();
     companyLogger.info(`Generated GSTIN txn Id: ${tnId}`);
 
-    const maintainanceResponse = await deductCredits(
-      clientId,
-      serviceId,
-      categoryId,
-      tnId,
-      req.environment
-    );
+    // const maintainanceResponse = await deductCredits(
+    //   clientId,
+    //   serviceId,
+    //   categoryId,
+    //   tnId,
+    //   req.environment
+    // );
 
-    if (!maintainanceResponse?.result) {
-      companyLogger.error(`Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`);
-      return res.status(500).json({
-        success: false,
-        message: maintainanceResponse?.message || "InValid",
-        response: {},
-      });
-    }
+    // if (!maintainanceResponse?.result) {
+    //   companyLogger.error(`Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`);
+    //   return res.status(500).json({
+    //     success: false,
+    //     message: maintainanceResponse?.message || "InValid",
+    //     response: {},
+    //   });
+    // }
 
     const encryptedGst = encryptData(gstinNumber);
 

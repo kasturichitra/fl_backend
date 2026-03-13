@@ -29,7 +29,7 @@ const chargesToBeDebited = async (clientId, service, category, tnxId) => {
       return { result: false }
     }
   } catch (error) {
-    commonLogger.error(`Error in charges maintainance for client ${clientId}, txnId: ${tnxId}: ${error.message}`);
+    commonLogger.error(`Error in charges maintainance for client ${clientId}, txnId: ${tnxId}: ${error?.response?.data.message || error.message} `);
     throw error
   }
 };

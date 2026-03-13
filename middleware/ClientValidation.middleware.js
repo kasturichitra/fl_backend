@@ -24,7 +24,7 @@ const clientValidation = async (req, res, next) => {
 
         // Decode token to get clientId
         const decodedToken = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
-        const { clientId, clientSecret,
+        const { clientId, clientSecret,VersionKey
             //  environment 
         } = decodedToken;
 
@@ -58,8 +58,6 @@ const clientValidation = async (req, res, next) => {
             commonLogger.error(`Redis Cache Error: ${cacheErr.message}`);
         }
 
-        console.log('req.clientId',req.clientId)
-
         if (isWhitelisted) {
             return next();
         }
@@ -70,14 +68,14 @@ const clientValidation = async (req, res, next) => {
         try {
             const response = await axios.post(`${SUPERADMIN_URL}/api/v1/client/authorize-ip`,
                 {
-                    ip
+                    ip:ip
                 },{
                     headers:{
                         'client_id':clientId,
-                        'client_secret':clientSecret
+                        'client_secret':clientSecret,
+                        "VersionKey":VersionKey
                     }
                 });
-            console.log('response data ==>', response.data.data)
 
             if (response.data?.success) {
                 const data = response.data.data;

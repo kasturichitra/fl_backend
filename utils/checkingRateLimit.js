@@ -9,15 +9,15 @@ const checkingRateLimit = async ({
   identifiers,
   serviceId,
   categoryId,
-  client_Id,
+  clientId,
 }) => {
   try {
-    commonLogger.info(`Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${client_Id}`);
+    commonLogger.info(`Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`);
 
     const rateLimitResponse = await axios.post(RATE_LIMIT_URL, {
       serviceId,
       categoryId,
-      client_Id,
+      clientId,
     });
 
     commonLogger.debug(`Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)}`);
@@ -39,14 +39,14 @@ const checkingRateLimit = async ({
       identifiers,
       service: serviceId,
       category: categoryId,
-      clientId:client_Id,
+      clientId:clientId,
       createdAt: { $gte: today },
     };
 
     const apiHitCount = await apiHitCountModel.findOne(query);
 
     if (apiHitCount?.dayHitCount >= dayLimit) {
-      commonLogger.warn(`Rate limit exceeded for client ${client_Id}, service ${serviceId}`);
+      commonLogger.warn(`Rate limit exceeded for client ${clientId}, service ${serviceId}`);
       return {
         allowed: false,
         message: "Daily rate limit exceeded",
@@ -71,7 +71,7 @@ const checkingRateLimit = async ({
       remaining: dayLimit - apiHit.dayHitCount,
     };
   } catch (error) {
-    commonLogger.error(`Rate limit system error for client ${client_Id}, service ${serviceId}: ${error.message}`);
+    commonLogger.error(`Rate limit system error for client ${clientId}, service ${serviceId}: ${error.message}`);
     return {
       allowed: false,
       message: "Rate limit verification failed. Please try again later.",

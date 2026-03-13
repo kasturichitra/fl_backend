@@ -34,7 +34,7 @@ const deductCredits = async (clientId, serviceId, categoryId, tnId, environment)
         commonLogger.error(`Error in deductCredits service for client ${clientId}: ${error.message}`, error);
         return {
             result: false,
-            message: "Credit deduction failed",
+            message: error?.response?.data.message || "Credit deduction failed",
             error: error.message
         };
     }
