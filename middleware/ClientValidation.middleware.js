@@ -24,7 +24,7 @@ const clientValidation = async (req, res, next) => {
 
         // Decode token to get clientId
         const decodedToken = jwt.verify(accessToken, process.env.JWT_SECRET_KEY);
-        const { clientId, clientSecret,VersionKey
+        const { clientId, clientSecret, VersionKey
             //  environment 
         } = decodedToken;
 
@@ -42,13 +42,13 @@ const clientValidation = async (req, res, next) => {
             if (cachedData) {
                 const cachedDataObj = JSON.parse(cachedData);
                 const ips = Array.isArray(cachedDataObj) ? cachedDataObj : (cachedDataObj.allIps || []);
-                if (cachedDataObj?.allIps?.includes(ip)) {
+                if (cachedDataObj?.allIps?.includes(ip) && cachedDataObj?.version_key == VersionKey) {
                     isWhitelisted = true;
                     if (!Array.isArray(cachedDataObj)) {
                         req.isKycCompleted = cachedDataObj.isKycCompleted;
                         req.isKycApproved = cachedDataObj.isKycApproved;
                         req.environment = cachedDataObj.environment;
-                        if (cachedDataObj.client_id) {
+                        if (cachedDataObj.client_id) {  
                             req.clientId = cachedDataObj.client_id; // Billing/Parent ID
                         }
                     }
@@ -68,14 +68,14 @@ const clientValidation = async (req, res, next) => {
         try {
             const response = await axios.post(`${SUPERADMIN_URL}/api/v1/client/authorize-ip`,
                 {
-                    ip:ip
-                },{
-                    headers:{
-                        'client_id':clientId,
-                        'client_secret':clientSecret,
-                        "VersionKey":VersionKey
-                    }
-                });
+                    ip: ip
+                }, {
+                headers: {
+                    'client_id': clientId,
+                    'client_secret': clientSecret,
+                    "VersionKey": VersionKey
+                }
+            });
 
             if (response.data?.success) {
                 const data = response.data.data;
