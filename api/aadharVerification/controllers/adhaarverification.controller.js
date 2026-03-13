@@ -3,16 +3,13 @@ const adhaarverificattionwithoutoptModel = require("../models/adhaarverification
 const moment = require("moment");
 const { aadhaarServiceLogger } = require("../../Logger/logger");
 const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
-const { callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const {
-  encryptData,
-  decryptData,
-} = require("../../../utils/EncryptAndDecrypt");
+  callTruthScreenAPI,
+} = require("../../truthScreen/callTruthScreen");
+const { encryptData, decryptData } = require("../../../utils/EncryptAndDecrypt");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { selectService } = require("../../service/serviceSelector");
-const {
-  AadhaarActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
+const { AadhaarActiveServiceResponse } = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
@@ -32,8 +29,7 @@ function generateMerchantId() {
 console.log(generateMerchantId());
 
 exports.handleAadhaarMaskedVerify = async (req, res) => {
-  const {
-    aadharNumber,
+  const { aadharNumber,
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
@@ -60,12 +56,12 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       aadhaarNo: aadharNumber,
     });
 
-    const rateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      client_Id,
-    });
+    // const rateLimitResult = await checkingRateLimit({
+    //   identifiers: { identifierHash },
+    //   serviceId,
+    //   categoryId,
+    //   client_Id,
+    // });
 
     if (!rateLimitResult.allowed) {
       aadhaarServiceLogger.warn(
@@ -85,7 +81,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req.environment
     );
 
     if (!maintainanceResponse?.result) {
@@ -102,15 +98,9 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     const encryptedAadhaar = encryptData(aadharNumber);
     aadhaarServiceLogger.debug(`Encrypted Aadhaar number for DB lookup`);
 
-    const isExistAadhaar = await adhaarverificattionwithoutoptModel.findOne({
-      aadhaarNumber: encryptedAadhaar,
-    });
+    const isExistAadhaar = await adhaarverificattionwithoutoptModel.findOne({ aadhaarNumber: encryptedAadhaar });
 
-    const analyticsResult = await AnalyticsDataUpdate(
-      client_Id,
-      serviceId,
-      categoryId,
-    );
+    const analyticsResult = await AnalyticsDataUpdate(client_Id, serviceId, categoryId);
     if (!analyticsResult.success) {
       aadhaarServiceLogger.warn(
         `Analytics update failed for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
@@ -131,7 +121,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
         );
     }
 
-    const Services = await selectService("AADHAARMASKED");
+    const Services = await selectService('AADHAARMASKED');
     if (!Services) {
       aadhaarServiceLogger.warn(
         `Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`,
@@ -423,28 +413,6 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
   aadhaarServiceLogger.info("Aadhaar DigiLocker initiation triggered");
 
   const storingClient = req.clientId || clientId;
-
-  const tnId = genrateUniqueServiceId();
-  const maintainanceResponse = isInhouse
-    ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
-    : await deductCredits(
-        storingClient,
-        serviceId,
-        categoryId,
-        tnId,
-        req.environment,
-      );
-
-  if (!maintainanceResponse?.result) {
-    aadhaarServiceLogger.error(
-      `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
-    );
-    return res.status(500).json({
-      success: false,
-      message: maintainanceResponse?.message || "InValid",
-      response: {},
-    });
-  }
 
   try {
     const transId = "TS-" + Date.now();

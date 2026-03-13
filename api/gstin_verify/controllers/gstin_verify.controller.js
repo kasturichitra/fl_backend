@@ -35,7 +35,8 @@ exports.gstinverify = async (req, res, next) => {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
 
-  const clientId = req.clientId;
+  const clientId = req.clientId || categoryId;
+  const environment = req.environment;
 
   businessServiceLogger.info(
     `gstinNumber Details ===>> gstinNumber: ${gstinNumber}`,
@@ -54,12 +55,12 @@ exports.gstinverify = async (req, res, next) => {
       gstNo: capitalGstNumber,
     });
 
-    const gstRateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      clientId: clientId,
-    });
+    // const gstRateLimitResult = await checkingRateLimit({
+    //   identifiers: { identifierHash },
+    //   serviceId,
+    //   categoryId,
+    //   clientId: clientId,
+    // });
 
     if (!gstRateLimitResult.allowed) {
       businessServiceLogger.warn(`Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`);
@@ -72,13 +73,13 @@ exports.gstinverify = async (req, res, next) => {
     const tnId = genrateUniqueServiceId();
     businessServiceLogger.info(`Generated GSTIN txn Id: ${tnId}`);
 
-    const maintainanceResponse = await deductCredits(
-      clientId,
-      serviceId,
-      categoryId,
-      tnId,
-      req.environment
-    );
+    // const maintainanceResponse = await deductCredits(
+    //   clientId,
+    //   serviceId,
+    //   categoryId,
+    //   tnId,
+    //   req.environment
+    // );
 
     if (!maintainanceResponse?.result) {
       businessServiceLogger.error(`Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`);

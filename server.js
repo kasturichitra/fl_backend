@@ -75,7 +75,7 @@ app.use("/kyc/api/v1/ApiModuels", keysApiroutes);
 app.use("/kyc/api/v1", mainRoutes);
 app.use("/kyc/api/v1/inhouse", mainRoutes);
 
-// For Testing
+// ================== FOR TruthScreen Testing ==================
 const { encryptresponseData, DecryptTruthScreenResponse } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
 app.post("/kyc/api/v1/TruthScreen/Encryption", encryptresponseData);
 app.post("/kyc/api/v1/TruthScreen/Decryption", DecryptTruthScreenResponse);
