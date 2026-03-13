@@ -18,7 +18,7 @@ const clientValidation = async (req, res, next) => {
         if (ip === "::1") ip = "127.0.0.1";
 
         if (!accessToken) {
-            commonLogger.warn(`IP Check: Missing secret_token for IP ${ip}`);
+            commonLogger.info(`Missing secret_token for client validation`);
             return res.status(400).json({ message: "Missing secret_token header." });
         }
 

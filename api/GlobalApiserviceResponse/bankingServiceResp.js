@@ -1,12 +1,11 @@
 const { generateTransactionId } = require("../truthScreen/callTruthScreen");
-const { default: axios } = require("axios");
 
-const PANtoGSTActiveServiceResponse = async (
+const BSAiaNBActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
 ) => {
-  console.log("PANtoGSTActiveServiceResponse called");
+  console.log("BSAiaNBActiveServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -15,46 +14,46 @@ const PANtoGSTActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return PANtoGSTActiveServiceResponse(data, services, index + 1);
+    return BSAiaNBActiveServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(
-    `[PANtoGSTActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    `[BSAiaNBActiveServiceResponse] Trying service with priority ${index + 1}:`,
     newService,
   );
 
   try {
-    const res = await GSTApiCall(data, serviceName, 0);
+    const res = await BSAViaNBApiCall(data, serviceName, 0);
 
     if (res?.success) {
       return res.data;
     }
 
     console.log(
-      `[PANtoGSTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+      `[BSAiaNBActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return PANtoGSTActiveServiceResponse(data, services, index + 1);
+    return BSAiaNBActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(
-      `[PANtoGSTActiveServiceResponse] Error from ${serviceName}:`,
+      `[BSAiaNBActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return PANtoGSTActiveServiceResponse(data, services, index + 1);
+    return BSAiaNBActiveServiceResponse(data, services, index + 1);
   }
 };
 
-const GSTApiCall = async (data, service) => {
+const BSAViaNBApiCall = async (data, service) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "64",
+        docType: "526",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -131,5 +130,5 @@ const GSTApiCall = async (data, service) => {
 };
 
 module.exports = {
-  PANtoGSTActiveServiceResponse,
+  BSAiaNBActiveServiceResponse,
 };

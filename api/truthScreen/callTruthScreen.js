@@ -133,7 +133,7 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
   try {
     const encryptedData = encrypt(JSON.stringify(payload), password);
 
-    commonLogger.debug(`encryptedData in truth screen ====>>> ${encryptedData} ${url}`);
+    commonLogger.info(`encryptedData in truth screen ====>>> ${encryptedData} ${url}`);
 
     const response = await axios.post(
       url,
@@ -165,7 +165,10 @@ async function callTruthScreenAPI({ url, payload, username, password }) {
 
     return JSON.parse(decrypted);
   } catch (error) {
-    commonLogger.error(`TruthScreen API Error: ${error?.response?.data || error.message}`);
+    console.log("error in truthscreen error?.message===>>", error?.message)
+    console.log("error in truthscreen error?.response?.data===>>", error?.response?.data)
+    console.log("error in truthscreen error?.response===>>", error?.response)
+    commonLogger.error(`TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`);
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);

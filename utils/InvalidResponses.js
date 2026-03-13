@@ -32,7 +32,7 @@ const inValidResponses = [
     },
   },
   {
-    service: "pan",
+    service: "panBasic",
     InValidResponse: {
       PAN: "",
       Name: "",
@@ -46,27 +46,27 @@ const inValidResponses = [
       code: "",
       message: "",
       result: {
-        aadhaar: ""
+        aadhaar: "",
       },
     },
   },
-    {
+  {
     service: "panNameMatch",
     InValidResponse: {
       code: "",
       message: "",
       result: {
-        aadhaar: ""
+        aadhaar: "",
       },
     },
   },
-    {
+  {
     service: "panNameDob",
     InValidResponse: {
       code: "",
       message: "",
       result: {
-        aadhaar: ""
+        aadhaar: "",
       },
     },
   },
@@ -89,6 +89,51 @@ const inValidResponses = [
       Category: "",
       CountryName: "",
       Issuer: "",
+    },
+  },
+  {
+    service: "license",
+    InValidResponse: {
+      Address: "",
+      "Blood group": "",
+      CovDetails: [
+        {
+          "COV Issue Date": "",
+          "Vehicle Class": "",
+          "Vehicle Type": "",
+        },
+      ],
+      "Date of Birth": "",
+      "Driving License Number": "",
+      "Father's Name": "",
+      Gender: "",
+      LicenseDetails: [
+        {
+          "Issue Date From": "",
+          "Issue Date To": "",
+          "License Type": "",
+        },
+        {
+          "Issue Date From": "",
+          "Issue Date To": "",
+          "License Type": "",
+        },
+        {
+          "Issue Date From": "",
+          "Issue Date To": "",
+          "License Type": "",
+        },
+        {
+          "Issue Date From": "",
+          "Issue Date To": "",
+          "License Type": "",
+        },
+      ],
+      "Owner's Name": "",
+      "RTO (Issued At)": "",
+      State: "",
+      Status: "",
+      imgurl: ""
     },
   },
 ];

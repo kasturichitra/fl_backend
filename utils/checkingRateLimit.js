@@ -9,23 +9,23 @@ const checkingRateLimit = async ({
   identifiers,
   serviceId,
   categoryId,
-  client_Id,
+  clientId,
 }) => {
   try {
-    commonLogger.info(`Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${client_Id}`);
+    commonLogger.info(`Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`);
 
     const rateLimitResponse = await axios.post(RATE_LIMIT_URL, {
       serviceId,
       categoryId,
-      client_Id,
+      clientId,
     });
 
-    commonLogger.debug(`Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)} for this client: ${client_Id}`);
+    commonLogger.debug(`Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)} for this client: ${clientId}`);
 
     const dayLimit = rateLimitResponse.data?.data?.rateLimit;
 
     commonLogger.info(
-      `Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit} for this client: ${client_Id}`,
+      `Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit} for this client: ${clientId}`,
     );
 
     if (!dayLimit) {
@@ -39,14 +39,14 @@ const checkingRateLimit = async ({
       identifiers,
       service: serviceId,
       category: categoryId,
-      clientId:client_Id,
+      clientId:clientId,
       createdAt: { $gte: today },
     };
 
     const apiHitCount = await apiHitCountModel.findOne(query);
 
     if (apiHitCount?.dayHitCount >= dayLimit) {
-      commonLogger.warn(`Rate limit exceeded for client ${client_Id} of service ${serviceId} and category: ${categoryId}`);
+      commonLogger.warn(`Rate limit exceeded for client ${clientId} of service ${serviceId} and category: ${categoryId}`);
       return {
         allowed: false,
         message: "Daily rate limit exceeded",
@@ -64,14 +64,14 @@ const checkingRateLimit = async ({
       },
     );
 
-    commonLogger.info(`Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount} for this client: ${client_Id}`);
+    commonLogger.info(`Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount} for this client: ${clientId}`);
 
     return {
       allowed: true,
       remaining: dayLimit - apiHit.dayHitCount,
     };
   } catch (error) {
-    commonLogger.error(`Rate limit system error for client ${client_Id}, service ${serviceId}: ${error.message}`);
+    commonLogger.error(`Rate limit system error for client ${clientId}, service ${serviceId}: ${error.message}`);
     return {
       allowed: false,
       message: "Rate limit verification failed. Please try again later.",

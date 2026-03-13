@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const panDetails = new mongoose.Schema({
+const panNameDob = new mongoose.Schema({
   panNumber: {
     type: String,
   },
@@ -22,10 +22,6 @@ const panDetails = new mongoose.Schema({
   serviceName:{
     type: String
   },
-  userName: {
-    type: String,
-    required: false
-  },
   createdTime: {
     type: String,
     default: Date.now,
@@ -40,4 +36,4 @@ const panDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panDetails", panDetails);
+module.exports = mongoose.model("panNameDob", panNameDob);

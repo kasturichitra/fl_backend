@@ -1,12 +1,12 @@
 const { generateTransactionId } = require("../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
-const PANNameMatchActiveServiceResponse = async (
+const mobileToUanActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
 ) => {
-  console.log("PANNameMatchActiveServiceResponse called");
+  console.log("mobileToUanActiveServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -15,46 +15,46 @@ const PANNameMatchActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return PANNameMatchActiveServiceResponse(data, services, index + 1);
+    return mobileToUanActiveServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(
-    `[PANNameMatchActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    `[mobileToUanActiveServiceResponse] Trying service with priority ${index + 1}:`,
     newService,
   );
 
   try {
-    const res = await panNameApiCall(data, serviceName, 0);
+    const res = await mobileToUanApiCall(data, serviceName, 0);
 
     if (res?.success) {
       return res.data;
     }
 
     console.log(
-      `[PANtoGSTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+      `[mobileToUanActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return PANtoGSTActiveServiceResponse(data, services, index + 1);
+    return mobileToUanActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(
-      `[PANtoGSTActiveServiceResponse] Error from ${serviceName}:`,
+      `[mobileToUanActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return PANtoGSTActiveServiceResponse(data, services, index + 1);
+    return mobileToUanActiveServiceResponse(data, services, index + 1);
   }
 };
 
-const panNameApiCall = async (data, service) => {
+const mobileToUanApiCall = async (data, service) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "357",
+        docType: "526",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_NAMEMATCH_URL,
+      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -131,5 +131,5 @@ const panNameApiCall = async (data, service) => {
 };
 
 module.exports = {
-  PANNameMatchActiveServiceResponse,
+  mobileToUanActiveServiceResponse,
 };

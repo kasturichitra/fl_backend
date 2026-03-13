@@ -16,8 +16,6 @@ const { encryptData } = require("../../../utils/EncryptAndDecrypt");
 const {
   handleValidateActiveProducts,
 } = require("../../../utils/ValidateActiveProducts");
-const chargesToBeDebited = require("../../../utils/chargesMaintainance");
-const creditsToBeDebited = require("../../../utils/creditsMaintainance");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
@@ -38,16 +36,19 @@ exports.gstinverify = async (req, res, next) => {
   }
 
   const clientId = req.clientId;
-  const environment = req.environment;
 
-  businessServiceLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
+  businessServiceLogger.info(
+    `gstinNumber Details ===>> gstinNumber: ${gstinNumber}`,
+  );
 
   try {
     const capitalGstNumber = gstinNumber?.toUpperCase();
     const isValid = handleValidation("gstin", capitalGstNumber, res);
     if (!isValid) return;
 
-    businessServiceLogger.info(`Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+    businessServiceLogger.info(
+      `Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+    );
 
     const identifierHash = hashIdentifiers({
       gstNo: capitalGstNumber,
@@ -97,26 +98,73 @@ exports.gstinverify = async (req, res, next) => {
 
     // Note: AnalyticsDataUpdate was missing, adding it for consistency
     const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
-    const analyticsResult = await AnalyticsDataUpdate(clientId, serviceId, categoryId);
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+    );
     if (!analyticsResult.success) {
-      businessServiceLogger.warn(`Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.warn(
+        `Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`,
+      );
     }
 
-    businessServiceLogger.debug(`Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`);
+    businessServiceLogger.debug(
+      `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+    );
     if (existingGstin) {
-      businessServiceLogger.info(`Returning cached GSTIN response for client: ${clientId}`);
-      const dataToShow = existingGstin?.response;
-      return res.status(200).json(createApiResponse(200, dataToShow, "Valid"));
+      if (existingGstin?.status == 1) {
+        businessServiceLogger.info(
+          `Returning cached GSTIN response for client: ${clientId}`,
+        );
+
+        const decrypted = {
+          ...existingGstin?.response,
+          gstinNumber: gstinNumber,
+        };
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        businessServiceLogger.info(
+          `Returning cached GSTIN response for client: ${clientId}`,
+        );
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingGstin?.response;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      }
     }
 
     // Get All Active Services
     const service = await selectService(categoryId, serviceId);
     if (!service) {
-      businessServiceLogger.warn(`Active service not found for GSTIN category ${categoryId}, service ${serviceId}`);
+      businessServiceLogger.warn(
+        `Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
+      );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    businessServiceLogger.info(`Active service selected for GSTIN verification: ${service.serviceFor}`);
+    businessServiceLogger.info(
+      `Active service selected for GSTIN verification: ${service.serviceFor}`,
+    );
 
     //  get Acitve Service Response
     let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
@@ -130,6 +178,14 @@ exports.gstinverify = async (req, res, next) => {
         ...response?.result,
         gstinNumber: encryptedGst,
       };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const storingData = {
         status: 1,
         gstinNumber: encryptedGst,
@@ -137,23 +193,58 @@ exports.gstinverify = async (req, res, next) => {
         serviceResponse: response?.responseOfService,
         serviceName: response?.service,
         message: response?.message,
+        mobileNumber,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
       };
 
       await gstin_verifyModel.create(storingData);
-      businessServiceLogger.info(`Valid GSTIN response stored and sent to client: ${clientId}`);
+      businessServiceLogger.info(
+        `Valid GSTIN response stored and sent to client: ${clientId}`,
+      );
       return res
         .status(200)
         .json(createApiResponse(200, response?.result, "Success"));
     } else {
-      businessServiceLogger.info(`Invalid GSTIN response received and sent to client: ${clientId}`);
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        gstinNumber: encryptedGst,
+        response: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await gstin_verifyModel.create(storingData);
+      businessServiceLogger.info(
+        `Invalid GSTIN response received and sent to client: ${clientId}`,
+      );
       return res
         .status(404)
         .json(createApiResponse(404, { gstinNumber }, "Failed"));
     }
   } catch (error) {
-    businessServiceLogger.error(`System error in GSTIN verification for client ${clientId}: ${error.message}`, error);
+    businessServiceLogger.error(
+      `System error in GSTIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -169,7 +260,9 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
   const clientId = req.clientId;
   const isClient = req.role;
 
-  businessServiceLogger.info(`gstinNumber Details ===>> gstinNumber: ${gstinNumber}`);
+  businessServiceLogger.info(
+    `gstinNumber Details ===>> gstinNumber: ${gstinNumber}`,
+  );
   try {
     if (!gstinNumber) {
       return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
@@ -205,7 +298,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment
+      req.environment,
     );
 
     if (!maintainanceResponse?.result) {
@@ -216,7 +309,9 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       });
     }
 
-    const existingGstin = await gstin_panModel.findOne({ gstinNumber });
+    const encryptedGst = encryptData(response?.result?.gstinNumber);
+
+    const existingGstin = await gstin_panModel.findOne({ gstinNumber: encryptedGst });
 
     if (existingGstin) {
       const dataToShow = existingGstin?.result;
@@ -246,7 +341,6 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     let response = await GSTtoPANActiveServiceResponse(gstinNumber, service, 0);
 
     if (response?.message?.toUpperCase() == "VALID") {
-      const encryptedGst = encryptData(response?.result?.gstinNumber);
       const encryptedResponse = {
         ...response?.result,
         gstinNumber: encryptedGst,
@@ -280,11 +374,25 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         clientId: storingClient,
         result: {
           gstinNumber: gstinNumber,
-          ...findingInValidResponses("gstIn")
+          ...findingInValidResponses("gstIn"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
+        const storingData = {
+        status: 2,
+        gstinNumber: encryptedGst,
+        response: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await gstin_verifyModel.create(storingData);
       return res
         .status(404)
         .json(createApiResponse(404, { gstinNumber }, "Failed"));
@@ -294,4 +402,3 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };
-

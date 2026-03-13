@@ -26,10 +26,6 @@ const panDetails = new mongoose.Schema({
     type: String,
     required: false
   },
-  createdTime: {
-    type: String,
-    default: Date.now,
-  },
   createdDate: {
     type: String,
     default: Date.now,

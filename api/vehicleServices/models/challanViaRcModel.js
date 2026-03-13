@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
-const panDetails = new mongoose.Schema({
-  panNumber: {
+const challanViaRcDetails = new mongoose.Schema({
+  rcNumber: {
     type: String,
   },
   mobileNumber: {
@@ -22,10 +22,6 @@ const panDetails = new mongoose.Schema({
   serviceName:{
     type: String
   },
-  userName: {
-    type: String,
-    required: false
-  },
   createdTime: {
     type: String,
     default: Date.now,
@@ -40,4 +36,4 @@ const panDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panDetails", panDetails);
+module.exports = mongoose.model("challanViaRcData", challanViaRcDetails);
