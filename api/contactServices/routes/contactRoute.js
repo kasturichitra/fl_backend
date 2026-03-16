@@ -1,11 +1,8 @@
 const express = require('express');
-const panRouter = express.Router();
+const contactRouter = express.Router();
 
-const panverificationController = require('../controllers/panServices.controller');
+const { handleMobileToPanVerify } = require('../controllers/contactController');
 
-panRouter.post('/verify', panverificationController.verifyPanNumber);
-panRouter.post('/verify_to_aadhaar', panverificationController.verifyPanToAadhaar);
-panRouter.post('/getgstwithpan', panverificationController.verifyPantoGst_InNumber);
-panRouter.post('/panNameMatch', panverificationController.verifyPanNameMatch);
+contactRouter.post('/verify', handleMobileToPanVerify);
 
-module.exports = panRouter;
+module.exports = contactRouter;

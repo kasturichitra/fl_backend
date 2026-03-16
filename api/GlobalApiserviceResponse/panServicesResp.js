@@ -53,7 +53,7 @@ const panDobApiCall = async (data, service) => {
         docType: "359",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_NAMEMATCH_URL,
+      url: process.env.TRUTNSCREEN_PAN_DOB_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -181,7 +181,7 @@ const panNameApiCall = async (data, service) => {
         docType: "357",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_NAMEMATCH_URL,
+      url: process.env.TRUTNSCREEN_PAN_NAMEMATCH_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

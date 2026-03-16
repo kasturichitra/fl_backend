@@ -8,6 +8,11 @@ const ID_RULES = {
     regex: /^\d+$/,
     displayName: "Credit Card Number",
   },
+  voterId: {
+    length: 10,
+    regex: /^[A-Z]{3}[0-9]{7}$/,
+    displayName: "Voter ID Number",
+  },
   pan: { length: 10, regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, displayName: "PAN" },
   mobile: { length: 10, regex: /^\D[0-9]{10}$/, displayName: "Mobile Number" },
   aadhaar: { length: 12, regex: /^\d{12}$/, displayName: "Aadhaar Number" },
@@ -60,10 +65,20 @@ const ID_RULES = {
     regex: /^[A-Z]{2}[0-9]{13,14}$/,
     displayName: "Driving License Number",
   },
+  passportFileNo: {
+    length: 12,
+    regex: /^[A-Z]{2}[0-9]{2}-[0-9]{7}$/,
+    displayName: "Passport File Number",
+  },
   DateOfBirth: {
     length: 10,
     regex: /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-(19|20)\d{2}$/,
     displayName: "Date Of Birth",
+  },
+  passportNumber: {
+    length: 8,
+    regex: /^[A-Z]{1}[0-9]{7}$/,
+    displayName: "Passport Number",
   },
 };
 

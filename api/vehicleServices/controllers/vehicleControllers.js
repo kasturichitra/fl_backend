@@ -29,26 +29,26 @@ exports.handleRcVerification = async (req, res) => {
   const data = req.body;
   const { rcNumber, mobileNumber = "", serviceId = "", categoryId = "" } = data;
   const capitalRcNumber = rcNumber?.toUpperCase();
-  console.log("req coming in pan ===>>", req?.baseUrl);
+  console.log("req coming in rc verification ===>>", req?.baseUrl);
 
-  const isValid = handleValidation("pan", capitalRcNumber, res);
+  const isValid = handleValidation("RC", capitalRcNumber, res);
   if (!isValid) return;
 
   vehicleServiceLogger.info(
-    "All inputs in pan are valid, continue processing...",
+    "All inputs in Rc verification are valid, continue processing...",
   );
 
   const storingClient = req.clientId;
 
   try {
     vehicleServiceLogger.info(
-      `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+      `Executing Rc verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     // Always generate txnId
     const tnId = genrateUniqueServiceId();
     vehicleServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
+      `Generated Rc verification txn Id: ${tnId} for the client: ${storingClient}`,
     );
 
     const identifierHash = hashIdentifiers({
@@ -794,6 +794,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
 
     const existingLicenseNumber = await drivingLicenseModel.findOne({
       licenseNumber: encryptedLicenseNo,
+      DateOfBirth: DateOfBirth,
     });
 
     const analyticsResult = await AnalyticsDataUpdate(
@@ -873,6 +874,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
       { capitalLicenseNumber, DateOfBirth },
       service,
       0,
+      storingClient,
     );
 
     vehicleServiceLogger.info(
@@ -897,6 +899,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
       const storingData = {
         licenseNumber: encryptedLicenseNo,
         response: encryptedResponse,
+        DateOfBirth: DateOfBirth,
         serviceResponse: licenseNoResponse?.responseOfService,
         status: 1,
         ...(mobileNumber && { mobileNumber }),
@@ -929,6 +932,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
       const storingData = {
         licenseNumber: encryptedLicenseNo,
         response: findingInValidResponses("license"),
+        DateOfBirth: DateOfBirth,
         serviceResponse: licenseNoResponse?.responseOfService,
         status: 2,
         ...(mobileNumber && { mobileNumber }),

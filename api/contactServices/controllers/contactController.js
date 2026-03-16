@@ -1,21 +1,25 @@
-exports.verifyPanMobile = async (req, res) => {
+const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+const { findingInValidResponses } = require("../../../utils/InvalidResponses");
+const { mobileToPanActiveServiceResponse } = require("../../GlobalApiserviceResponse/contactServicesResp");
+const { selectService } = require("../../service/serviceSelector");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+
+exports.handleMobileToPanVerify = async (req, res) => {
   const data = req.body;
   const {
     mobileNumber = "",
     serviceId = "",
-    categoryId = "",
-    clientId = "",
+    categoryId = ""
   } = data;
-  const capitalPanNumber = panNumber?.toUpperCase();
-  const isValid = handleValidation("pan", capitalPanNumber, res);
+  const isValid = handleValidation("mobile", mobileNumber, res);
   if (!isValid) return;
 
-  panServiceLogger.info("All inputs in pan are valid, continue processing...");
+  contactServiceLogger.info("All inputs in pan are valid, continue processing...");
 
-  const storingClient = req.clientId || clientId;
+  const storingClient = req.clientId;
 
   try {
-    panServiceLogger.info(
+    contactServiceLogger.info(
       `Executing PAN NameDob verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
@@ -31,7 +35,7 @@ exports.verifyPanMobile = async (req, res) => {
     });
 
     if (!panMobileRateLimitResult.allowed) {
-      panServiceLogger.warn(
+      contactServiceLogger.warn(
         `Rate limit exceeded for PAN NameDob verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
@@ -41,7 +45,7 @@ exports.verifyPanMobile = async (req, res) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    panServiceLogger.info(`Generated PAN Mobile txn Id: ${tnId}`);
+    contactServiceLogger.info(`Generated PAN Mobile txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       storingClient,
@@ -52,7 +56,7 @@ exports.verifyPanMobile = async (req, res) => {
     );
 
     if (!maintainanceResponse?.result) {
-      panServiceLogger.error(
+      contactServiceLogger.error(
         `Credit deduction failed for PAN Mobile verification: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
@@ -66,7 +70,7 @@ exports.verifyPanMobile = async (req, res) => {
       mobileNumber: encryptedPan,
     });
 
-    panServiceLogger.debug(
+    contactServiceLogger.debug(
       `Checked for existing PAN NameDob record in DB: ${existingMobileNumber ? "Found" : "Not Found"}`,
     );
 
@@ -76,7 +80,7 @@ exports.verifyPanMobile = async (req, res) => {
       categoryId,
     );
     if (!analyticsResult.success) {
-      panServiceLogger.warn(
+      contactServiceLogger.warn(
         `Analytics update failed for PAN NameDob verification: client ${storingClient}, service ${serviceId}`,
       );
     }
@@ -91,7 +95,7 @@ exports.verifyPanMobile = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        panServiceLogger.info(
+        contactServiceLogger.info(
           `Returning cached valid PAN NameDob response for client: ${storingClient}`,
         );
         return res.json({
@@ -111,7 +115,7 @@ exports.verifyPanMobile = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-        panServiceLogger.info(
+        contactServiceLogger.info(
           `Returning cached invalid PAN NameDob response for client: ${storingClient}`,
         );
         return res.json({
@@ -128,22 +132,22 @@ exports.verifyPanMobile = async (req, res) => {
     const service = await selectService(categoryId, serviceId);
 
     if (!service) {
-      panServiceLogger.warn(
+      contactServiceLogger.warn(
         `Active service not found for PAN NameDob category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    panServiceLogger.info(
+    contactServiceLogger.info(
       `Active service selected for PAN NameDob verification: ${service.serviceFor}`,
     );
-    const response = await PANNameMatchActiveServiceResponse(
+    const response = await mobileToPanActiveServiceResponse(
       panNumber,
       service,
       0,
     );
 
-    panServiceLogger.info(
+    contactServiceLogger.info(
       `Response received from active service ${service.serviceFor} for PAN NameDob: ${response?.message}`,
     );
 
@@ -172,7 +176,7 @@ exports.verifyPanMobile = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await panToAadhaarModel.create(storingData);
-      panServiceLogger.info(
+      contactServiceLogger.info(
         `Valid PAN NameDob response stored and sent to client: ${storingClient}`,
       );
       return res
@@ -201,7 +205,7 @@ exports.verifyPanMobile = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
       await panToAadhaarModel.create(storingData);
-      panServiceLogger.info(
+      contactServiceLogger.info(
         `Invalid PAN NameDob response received and sent to client: ${storingClient}`,
       );
       return res.status(404).json(
@@ -216,7 +220,7 @@ exports.verifyPanMobile = async (req, res) => {
       );
     }
   } catch (error) {
-    panServiceLogger.error(
+    contactServiceLogger.error(
       `System error in PAN NameDob verification for client ${storingClient}: ${error.message}`,
       error,
     );
