@@ -1,3 +1,4 @@
+const { vehicleServiceLogger } = require("../Logger/logger");
 const {
   generateTransactionId,
   callTruthScreenAPI,
@@ -387,9 +388,13 @@ const drivingLicenseServiceResponse = async (
   data,
   services = [],
   index = 0,
+  client
 ) => {
   console.log("drivingLicenseServiceResponse called");
+  vehicleServiceLogger.info(`drivingLicenseServiceResponse called for this client: ${client}`)
+
   if (index >= services?.length) {
+    vehicleServiceLogger.info(`All services failed in drivingLicenseServiceResponse for this client: ${client}`)
     return { success: false, message: "All services failed" };
   }
 
@@ -414,6 +419,9 @@ const drivingLicenseServiceResponse = async (
     }
 
     console.log(
+      `[drivingLicenseServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    vehicleServiceLogger.info(
       `[drivingLicenseServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
     return drivingLicenseServiceResponse(data, services, index + 1);
