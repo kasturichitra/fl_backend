@@ -66,109 +66,109 @@ const shopApiCall = async (data, service) => {
             }
         },
         "TRUTHSCREEN": {
-            BodyData: JSON.stringify({
-                gstin: data
-            }),
-            url: process.env.INVINCIBLE_GSTIN_URL,
+            BodyData: {
+                transID: tskId,
+                docType: 20,
+                docNumber: data,
+            },
+            url: process.env.TRUTHSCREEN_API_URL, // DIN URL is similar to the shop
             header: {
-                accept: "application/json",
-                clientId: process.env.INVINCIBLE_CLIENT_ID,
-                "content-type": "application/json",
-                secretKey: process.env.INVINCIBLE_SECRET_KEY,
+                username: process.env.TRUTHSCREEN_USERNAME,
+                token: process.env.TRUTHSCREEN_TOKEN,
             }
         }
     };
 
-    // If service is empty → use first service entry
-    if (!service?.trim()) {
-        service = Object.keys(ApiData)[0];
-        console.log("Empty provider → defaulting to:", service);
-    }
+        // If service is empty → use first service entry
+        if(!service?.trim()) {
+            service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+}
 
-    const config = ApiData[service];
-    if (!config) throw new Error(`Invalid service: ${service}`);
+const config = ApiData[service];
+if (!config) throw new Error(`Invalid service: ${service}`);
 
-    let ApiResponse;
+let ApiResponse;
 
-    try {
+try {
 
-        ApiResponse = await axios.post(
-            config.url,
-            config.BodyData,
-            { headers: config.header }
-        );
-    } catch (error) {
-        return { success: false, data: null }; // fallback trigger
-    }
+    ApiResponse = await axios.post(
+        config.url,
+        config.BodyData,
+        { headers: config.header }
+    );
+} catch (error) {
+    return { success: false, data: null }; // fallback trigger
+}
 
-    const obj = ApiResponse.data;
-    console.log(`[shopApiCall] ${service} Response Object:`, JSON.stringify(obj));
+const obj = ApiResponse.data;
+console.log(`[shopApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
-    let returnedObj = {};
+let returnedObj = {};
 
-    if (obj.response_code === "101") {
-        return {
-            success: false,
-            data: {
-                result: "NoDataFound",
-                message: "Invalid",
-                responseOfService: {},
-                service: service,
-            }
-        };
-    }
-
-    switch (service) {
-        case "ZOOP":
-            returnedObj = {
-                registrationNumber: data,
-                state: obj?.state,
-                shopName: obj?.result?.result?.nameOfTheShop,
-                shopAddress: obj?.result?.result?.address
-            }
-            break;
-
-        case "INVINCIBLE":
-            returnedObj = {
-                gstinNumber: obj?.result?.essentials?.gstin || "",
-                business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-                central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-                gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
-                register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-                state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-                tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-                trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-                primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
-            }
-            break;
-        case "TRUTHSCREEN":
-            returnedObj = {
-                gstinNumber: obj?.result?.essentials?.gstin || "",
-                business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-                central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-                gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
-                register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-                state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-                tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-                trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-                primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
-            }
-            break;
-    }
+if (obj.response_code === "101") {
     return {
-        success: true,
+        success: false,
         data: {
-            registrationNumber: data || "",
-            result: returnedObj,
-            message: "Valid",
-            responseOfService: obj,
+            result: "NoDataFound",
+            message: "Invalid",
+            responseOfService: {},
             service: service,
         }
     };
+}
+
+switch (service) {
+    case "ZOOP":
+        returnedObj = {
+            registrationNumber: data,
+            state: obj?.state,
+            shopName: obj?.result?.result?.nameOfTheShop,
+            shopAddress: obj?.result?.result?.address
+        }
+        break;
+
+    case "INVINCIBLE":
+        returnedObj = {
+            gstinNumber: obj?.result?.essentials?.gstin || "",
+            business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
+            central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
+            gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+            companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+            other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
+            register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
+            state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
+            tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
+            trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
+            primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
+        }
+        break;
+    case "TRUTHSCREEN":
+        returnedObj = {
+            gstinNumber: obj?.result?.essentials?.gstin || "",
+            business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
+            central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
+            gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+            companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+            other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
+            register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
+            state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
+            tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
+            trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
+            primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
+        }
+        break;
+}
+return {
+    success: true,
+    data: {
+        registrationNumber: data || "",
+        result: returnedObj,
+        message: "Valid",
+        responseOfService: obj,
+        service: service,
+    }
+};
 };
 
 module.exports = {

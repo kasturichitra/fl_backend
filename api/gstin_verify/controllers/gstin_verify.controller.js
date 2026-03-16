@@ -55,12 +55,12 @@ exports.gstinverify = async (req, res, next) => {
       gstNo: capitalGstNumber,
     });
 
-    // const gstRateLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId,
-    //   categoryId,
-    //   clientId: clientId,
-    // });
+    const gstRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: clientId,
+    });
 
     if (!gstRateLimitResult.allowed) {
       businessServiceLogger.warn(`Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`);
@@ -73,13 +73,13 @@ exports.gstinverify = async (req, res, next) => {
     const tnId = genrateUniqueServiceId();
     businessServiceLogger.info(`Generated GSTIN txn Id: ${tnId}`);
 
-    // const maintainanceResponse = await deductCredits(
-    //   clientId,
-    //   serviceId,
-    //   categoryId,
-    //   tnId,
-    //   req.environment
-    // );
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment
+    );
 
     if (!maintainanceResponse?.result) {
       businessServiceLogger.error(`Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`);
@@ -96,9 +96,7 @@ exports.gstinverify = async (req, res, next) => {
     const existingGstin = await gstin_verifyModel.findOne({
       gstinNumber: encryptedGst,
     });
-
-    // Note: AnalyticsDataUpdate was missing, adding it for consistency
-    const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+    
     const analyticsResult = await AnalyticsDataUpdate(
       clientId,
       serviceId,

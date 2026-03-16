@@ -18,7 +18,7 @@ const clientValidation = async (req, res, next) => {
         if (ip === "::1") ip = "127.0.0.1";
 
         if (!accessToken) {
-            commonLogger.info(`Missing secret_token for client validation`);
+            commonLogger.warn(`IP Check: Missing secret_token for IP ${ip}`);
             return res.status(400).json({ message: "Missing secret_token header." });
         }
 
@@ -33,6 +33,9 @@ const clientValidation = async (req, res, next) => {
             return res.status(400).json({ message: "Invalid token structure." });
         }
 
+        console.log(
+            'ClientVAlidation is called hear and clientid is this', clientId
+        )
         const redisKey = `client:${clientId}`;
 
         // 2. Check Redis Cache
@@ -41,6 +44,7 @@ const clientValidation = async (req, res, next) => {
             const cachedData = await redisClient.get(redisKey);
             if (cachedData) {
                 const cachedDataObj = JSON.parse(cachedData);
+
                 const ips = Array.isArray(cachedDataObj) ? cachedDataObj : (cachedDataObj.allIps || []);
                 if (cachedDataObj?.allIps?.includes(ip) && cachedDataObj?.version_key == VersionKey) {
                     isWhitelisted = true;

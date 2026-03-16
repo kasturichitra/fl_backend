@@ -71,7 +71,7 @@ const checkingRateLimit = async ({
       remaining: dayLimit - apiHit.dayHitCount,
     };
   } catch (error) {
-    commonLogger.error(`Rate limit system error for client ${clientId}, service ${serviceId}: ${error.message}`);
+    commonLogger.error(`Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error)}`);
     return {
       allowed: false,
       message: "Rate limit verification failed. Please try again later.",

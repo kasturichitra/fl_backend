@@ -2,7 +2,6 @@ const crypto = require("crypto");
 const { commonLogger } = require("../api/Logger/logger");
 
 function hashIdentifiers(identifiers) {
-  console.log("identifiers in hashIdentifiers ===>>", identifiers)
   commonLogger.info("identifiers in hashIdentifiers ===>>", identifiers)
 
   if (!identifiers || typeof identifiers !== "object") {
@@ -17,8 +16,7 @@ function hashIdentifiers(identifiers) {
     )
     .join("|");
 
-  commonLogger.info("normalizedString in hashIdentifiers ===>>", normalizedString)
-  console.log("normalizedString in hashIdentifiers ===>>", normalizedString)
+  commonLogger.info("normalizedString in hashIdentifiers ===>>", normalizedString);
 
   return crypto
     .createHash("sha256")

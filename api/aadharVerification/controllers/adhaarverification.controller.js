@@ -56,12 +56,12 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       aadhaarNo: aadharNumber,
     });
 
-    // const rateLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId,
-    //   categoryId,
-    //   client_Id,
-    // });
+    const rateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      client_Id,
+    });
 
     if (!rateLimitResult.allowed) {
       aadhaarServiceLogger.warn(

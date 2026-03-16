@@ -35,7 +35,7 @@ function encrypt(plainText, password) {
 function decrypt(encryptedText, password) {
   const key = generateKey(password);
 
-  kycLogger.debug(`encryptedText ===> ${encryptedText} ${typeof encryptedText}`);
+  commonLogger.debug(`encryptedText ===> ${encryptedText} ${typeof encryptedText}`);
 
   if (typeof encryptedText !== "string") {
     throw new Error("Invalid encryptedText: must be a string");
@@ -66,7 +66,7 @@ const encryptresponseData = async (req, res) => {
 }
 
 const DecryptTruthScreenResponse = async (req, res) => {
-  kycLogger.info(`req.body for decryption ===>>> ${JSON.stringify(req.body)}`);
+  commonLogger.info(`req.body for decryption ===>>> ${JSON.stringify(req.body)}`);
   const { data } = req.body;
   const password = req.headers.password;
 
@@ -78,10 +78,10 @@ const DecryptTruthScreenResponse = async (req, res) => {
   try {
     const decryptedData = decrypt(data, password);
     const parsedData = JSON.parse(decryptedData);
-    kycLogger.info(`decrypted truthScreenResponse ===>>> ${JSON.stringify(parsedData)}`);
+    commonLogger.info(`decrypted truthScreenResponse ===>>> ${JSON.stringify(parsedData)}`);
     return res.status(200).json(parsedData);
   } catch (error) {
-    kycLogger.error(`Error in DecryptTruthScreenResponse: ${error.message}`);
+    commonLogger.error(`Error in DecryptTruthScreenResponse: ${error.message}`);
     res.status(500).json({ error: error.message });
   }
 }
