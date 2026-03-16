@@ -74,21 +74,26 @@ const inValidResponses = [
   {
     service: "panNameMatch",
     InValidResponse: {
-      code: "",
-      message: "",
-      result: {
-        aadhaar: "",
-      },
+      LastUpdate: "",
+      STATUS: "",
+      StatusDescription: "",
+      name_match_score: "",
     },
   },
   {
     service: "panNameDob",
     InValidResponse: {
-      code: "",
-      message: "",
-      result: {
-        aadhaar: "",
-      },
+      "Status of PAN": "",
+      "Given Name matches with the ITD Records": "",
+      "Given DOB matches with the ITD Records": "",
+    },
+  },
+  {
+    service: "panToGst",
+    InValidResponse: {
+      gstin: "",
+      authStatus: "",
+      stateCd: "",
     },
   },
   {
@@ -192,6 +197,34 @@ const inValidResponses = [
       "Application Received on Date": "",
       "Passport no": "",
       "Date of Birth": "",
+    },
+  },
+  {
+    service: "panDirector",
+    InValidResponse: {
+      name: "",
+      din: "",
+    },
+  },
+  {
+    service: "panToFather",
+    InValidResponse: {
+      data: {
+        additional_check: [],
+        category: "",
+        client_id: "",
+        dob: "",
+        dob_check: false,
+        dob_verified: false,
+        father_name: "",
+        full_name: "",
+        less_info: false,
+        pan_number: "",
+      },
+      message: "",
+      message_code: "",
+      status_code: "",
+      success: "",
     },
   },
 ];

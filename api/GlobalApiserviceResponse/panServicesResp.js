@@ -1,10 +1,10 @@
-const { callTruthScreenAPI, generateTransactionId } = require("../truthScreen/callTruthScreen");
+const { panServiceLogger } = require("../Logger/logger");
+const {
+  callTruthScreenAPI,
+  generateTransactionId,
+} = require("../truthScreen/callTruthScreen");
 
-const PANDobActiveServiceResponse = async (
-  data,
-  services = [],
-  index = 0,
-) => {
+const PANDobActiveServiceResponse = async (data, services = [], index = 0, client) => {
   console.log("PANDobActiveServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
@@ -51,7 +51,9 @@ const panDobApiCall = async (data, service) => {
       BodyData: {
         transID: tskId,
         docType: "359",
-        docNumber: data,
+        panNumber: data?.panNumber,
+        fullName: data?.nameToMatch,
+        dob: data?.dateOfBirth
       },
       url: process.env.TRUTNSCREEN_PAN_DOB_URL,
       header: {
@@ -96,7 +98,7 @@ const panDobApiCall = async (data, service) => {
     JSON.stringify(obj),
   );
 
-   let returnedObj = {};
+  let returnedObj = {};
 
   if (obj.status != "1") {
     return {
@@ -132,6 +134,7 @@ const PANNameMatchActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
+  client
 ) => {
   console.log("PANNameMatchActiveServiceResponse called");
   if (index >= services?.length) {
@@ -179,7 +182,8 @@ const panNameApiCall = async (data, service) => {
       BodyData: {
         transID: tskId,
         docType: "357",
-        docNumber: data,
+        panNumber: data?.panNumber,
+        Name: data?.nameToMatch,
       },
       url: process.env.TRUTNSCREEN_PAN_NAMEMATCH_URL,
       header: {
@@ -214,7 +218,10 @@ const panNameApiCall = async (data, service) => {
       );
     }
   } catch (error) {
-    console.log(`[pan name match api call] API Error in ${service}:`, error.message);
+    console.log(
+      `[pan name match api call] API Error in ${service}:`,
+      error.message,
+    );
     return { success: false, data: null }; // fallback trigger
   }
 
@@ -260,6 +267,7 @@ const PANtoGSTActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
+  client
 ) => {
   console.log("PANtoGSTActiveServiceResponse called");
   if (index >= services?.length) {
@@ -305,11 +313,11 @@ const PanToGstApiCall = async (data, service) => {
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
-        transID: tskId,
-        docType: "64",
+        trans_id: tskId,
+        docType: "455",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_PAN_TO_GST,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -342,7 +350,10 @@ const PanToGstApiCall = async (data, service) => {
       );
     }
   } catch (error) {
-    console.log(`[pan to gst api call] API Error in ${service}:`, error.message);
+    console.log(
+      `[pan to gst api call] API Error in ${service}:`,
+      error.message,
+    );
     return { success: false, data: null }; // fallback trigger
   }
 
@@ -352,7 +363,286 @@ const PanToGstApiCall = async (data, service) => {
     JSON.stringify(obj),
   );
 
-   let returnedObj = {};
+  let returnedObj = {};
+
+  if (obj.status != "1") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  switch (service) {
+    case "TRUTHSCREEN":
+      returnedObj = {
+        ...(obj?.msg || ""),
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj?.msg,
+      service: service,
+    },
+  };
+};
+
+const PANDirectorActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  client
+) => {
+  console.log("PANDirectorActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return PANDirectorActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[PANDirectorActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await PanDirectorApiCall(data, serviceName, 0);
+
+    if (res?.data) {
+      return res.data;
+    }
+
+    console.log(
+      `[PANDirectorActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return PANDirectorActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[PANDirectorActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return PANDirectorActiveServiceResponse(data, services, index + 1);
+  }
+};
+
+const PanDirectorApiCall = async (data, service) => {
+  const tskId = generateTransactionId(12);
+
+  const ApiData = {
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: "26",
+        docNumber: data,
+      },
+      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+      });
+      console.log(
+        "[pan director api call] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+      panServiceLogger.info(
+        "[pan director api call] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    }
+  } catch (error) {
+    console.log(
+      `[pan director api call] API Error in ${service}:`,
+      error.message,
+    );
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse;
+  console.log(
+    `[pan director api call] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+  panServiceLogger.info(
+    `[pan director api call] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+
+  let returnedObj = {};
+
+  if (obj.status != "1") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  switch (service) {
+    case "TRUTHSCREEN":
+      returnedObj = {
+        ...(obj?.msg || ""),
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj?.msg,
+      service: service,
+    },
+  };
+};
+const PANToFatherNameActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  client
+) => {
+  console.log("PANToFatherNameActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return PANToFatherNameActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[PANToFatherNameActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await PanToFatherNameApiCall(data, serviceName, 0);
+
+    if (res?.data) {
+      return res.data;
+    }
+
+    console.log(
+      `[PANToFatherNameActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return PANToFatherNameActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[PANToFatherNameActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return PANToFatherNameActiveServiceResponse(data, services, index + 1);
+  }
+};
+
+const PanToFatherNameApiCall = async (data, service) => {
+  const tskId = generateTransactionId(12);
+
+  const ApiData = {
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: "26",
+        docNumber: data,
+      },
+      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+      });
+      console.log(
+        "[pan director api call] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+      panServiceLogger.info(
+        "[pan director api call] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    }
+  } catch (error) {
+    console.log(
+      `[pan director api call] API Error in ${service}:`,
+      error.message,
+    );
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse;
+  console.log(
+    `[pan director api call] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+  panServiceLogger.info(
+    `[pan director api call] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+
+  let returnedObj = {};
 
   if (obj.status != "1") {
     return {
@@ -385,5 +675,9 @@ const PanToGstApiCall = async (data, service) => {
 };
 
 module.exports = {
-  PANDobActiveServiceResponse, PANNameMatchActiveServiceResponse, PANtoGSTActiveServiceResponse
+  PANDobActiveServiceResponse,
+  PANNameMatchActiveServiceResponse,
+  PANtoGSTActiveServiceResponse,
+  PANDirectorActiveServiceResponse,
+  PANToFatherNameActiveServiceResponse
 };

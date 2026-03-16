@@ -218,7 +218,10 @@ const stolenVehicleVerificationApiCall = async (data, service) => {
       );
     }
   } catch (error) {
-    console.log(`[stolen vehicle verification] API Error in ${service}:`, error.message);
+    console.log(
+      `[stolen vehicle verification] API Error in ${service}:`,
+      error.message,
+    );
     return { success: false, data: null }; // fallback trigger
   }
 
@@ -388,13 +391,17 @@ const drivingLicenseServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("drivingLicenseServiceResponse called");
-  vehicleServiceLogger.info(`drivingLicenseServiceResponse called for this client: ${client}`)
+  vehicleServiceLogger.info(
+    `drivingLicenseServiceResponse called for this client: ${client}`,
+  );
 
   if (index >= services?.length) {
-    vehicleServiceLogger.info(`All services failed in drivingLicenseServiceResponse for this client: ${client}`)
+    vehicleServiceLogger.info(
+      `All services failed in drivingLicenseServiceResponse for this client: ${client}`,
+    );
     return { success: false, message: "All services failed" };
   }
 
@@ -414,6 +421,13 @@ const drivingLicenseServiceResponse = async (
   try {
     const res = await drivingLicenseApiCall(data, serviceName, 0);
 
+    vehicleServiceLogger.info(
+      `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${client}`,
+    );
+    console.log(
+      `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${client}`,
+    );
+
     if (res?.data) {
       return res.data;
     }
@@ -422,11 +436,15 @@ const drivingLicenseServiceResponse = async (
       `[drivingLicenseServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
     vehicleServiceLogger.info(
-      `[drivingLicenseServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+      `[drivingLicenseServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service for this client: ${client}`,
     );
     return drivingLicenseServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(
+      `[drivingLicenseServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    vehicleServiceLogger.info(
       `[drivingLicenseServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
@@ -490,7 +508,7 @@ const drivingLicenseApiCall = async (data, service) => {
         responseOfService: {},
         service: service,
       },
-    }; 
+    };
   }
 
   const obj = ApiResponse;

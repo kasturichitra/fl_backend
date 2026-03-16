@@ -25,7 +25,6 @@ const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoute
 const { sendEmail } = require("../api/Gmail/mailverification");
 const analyticdataRouter = require("../api/analytics/routes/analyticdata.route");
 const dinRouter = require("../api/businessServices/DIN/routes/dinRoutes.js")
-const gstRouter = require("../api/gstServices/routes/gstservicesRoutes");
 const vehicleRouter = require("../api/vehicleServices/routes/vehicleRoutes");
 const employmentRouter = require("../api/employmentServices/routes/employmentRoutes");
 const bankingRouter = require("../api/bankingServices/routes/bankingRoutes");

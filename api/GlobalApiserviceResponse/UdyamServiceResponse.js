@@ -1,7 +1,8 @@
+const { businessServiceLogger } = require("../Logger/logger");
 const { generateTransactionId } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
-const udyamActiveServiceResponse = async (data, services, index = 0) => {
+const udyamActiveServiceResponse = async (data, services=[], index = 0, client) => {
     console.log('udyamActiveServiceResponse called');
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
@@ -33,7 +34,7 @@ const udyamActiveServiceResponse = async (data, services, index = 0) => {
     }
 };
 
-const udyamApiCall = async (data, service) => {
+const udyamApiCall = async (data, service, client) => {
     const transID = generateTransactionId(12);
 
     const ApiData = {
@@ -80,6 +81,7 @@ const udyamApiCall = async (data, service) => {
 
     const obj = ApiResponse.data;
     console.log(`[udyamApiCall] ${service} Response Object:`, JSON.stringify(obj));
+    businessServiceLogger.info(`[udyamApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
     let returnedObj = {};
 

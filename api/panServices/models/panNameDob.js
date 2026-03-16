@@ -4,8 +4,14 @@ const panNameDob = new mongoose.Schema({
   panNumber: {
     type: String,
   },
+  fullName: {
+    type: String,
+  },
   dateOfBirth:{
     type:String
+  },
+   mobileNumber:{
+    type: Number,
   },
   response: {
     type: Object,

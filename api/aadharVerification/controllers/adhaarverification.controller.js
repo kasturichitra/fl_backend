@@ -185,6 +185,8 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     await adhaarverificattionwithoutoptModel.create({
       aadhaarNumber: encryptedAadhaar,
       response,
+      status: 1,
+      serviceName: response?.service,
       message: response?.message || "Aadhaar verification completed",
       success: response?.code === 200 && !!response?.result,
     });
@@ -227,9 +229,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
   const storingClient = req.clientId || clientId;
 
   const tnId = genrateUniqueServiceId();
-  const maintainanceResponse = isInhouse
-    ? await chargesToBeDebited(storingClient, serviceId, categoryId, tnId)
-    : await deductCredits(
+  const maintainanceResponse = await deductCredits(
         storingClient,
         serviceId,
         categoryId,

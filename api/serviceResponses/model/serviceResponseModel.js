@@ -25,7 +25,7 @@ const responseSchema = new mongoose.Schema(
     },
     result: {
       type: Object,
-      // required: true
+      required: true
     }
   },
   { timestamps: true }

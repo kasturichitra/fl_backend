@@ -728,7 +728,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
   if (!isLicenseNoValid) return;
 
   const isDobValid = handleValidation(
-    "DateOfBirth",
+    "StrictDateOfBirth",
     DateOfBirth,
     res,
     storingClient,
@@ -878,8 +878,12 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
     );
 
     vehicleServiceLogger.info(
-      `Response received from active service ${licenseNoResponse?.service} with message: ${licenseNoResponse?.message} of data: ${JSON.stringify(licenseNoResponse?.result)}`,
+      `Response received from driving license verification active service ${licenseNoResponse?.service} with message: ${licenseNoResponse?.message} of data: ${JSON.stringify(licenseNoResponse?.result)}`,
     );
+
+      if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All pan to gst services failed");
+    }
 
     if (licenseNoResponse?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = {

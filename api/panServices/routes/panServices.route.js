@@ -7,5 +7,8 @@ panRouter.post('/verify', panverificationController.verifyPanNumber);
 panRouter.post('/verify_to_aadhaar', panverificationController.verifyPanToAadhaar);
 panRouter.post('/getgstwithpan', panverificationController.verifyPantoGst_InNumber);
 panRouter.post('/panNameMatch', panverificationController.verifyPanNameMatch);
+panRouter.post('/panName/DobVerify', panverificationController.verifyPanNameDob);
+panRouter.post('/knowDirector', panverificationController.panDirector);
+panRouter.post('/know/fatherName', panverificationController.panToFatherName);
 
 module.exports = panRouter;

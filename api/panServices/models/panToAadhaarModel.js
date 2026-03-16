@@ -24,6 +24,9 @@ const panAadhaarDetails = new mongoose.Schema(
     serviceName: {
       type: String,
     },
+     mobileNumber:{
+    type: Number,
+  },
     userName: {
       type: String,
     },

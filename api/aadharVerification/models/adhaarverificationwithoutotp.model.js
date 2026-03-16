@@ -11,6 +11,9 @@ const Adhaardetails = new mongoose.Schema(
     status: {
       type: Number,
     },
+    serviceName: {
+      type: Number,
+    },
     message: {
       type: String,
     },

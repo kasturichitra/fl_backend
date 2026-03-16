@@ -17,6 +17,9 @@ const verify_accountdata = new mongoose.Schema(
     status: {
       type: Number,
     },
+    mobileNumber: {
+      type: Number,
+    },
     serviceId: {
       type: String,
     },

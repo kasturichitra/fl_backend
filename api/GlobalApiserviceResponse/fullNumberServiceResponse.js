@@ -119,7 +119,6 @@ const FullNumberApiCall = async (data, service) => {
         data: {
           result: findingInValidResponses("fullCard"),
           message: "Invalid",
-          // raw is undefined here, using error object or empty object
           responseOfService: error || {},
           service,
         },

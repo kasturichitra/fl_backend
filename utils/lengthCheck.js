@@ -14,7 +14,7 @@ const ID_RULES = {
     displayName: "Voter ID Number",
   },
   pan: { length: 10, regex: /^[A-Z]{5}[0-9]{4}[A-Z]{1}$/, displayName: "PAN" },
-  mobile: { length: 10, regex: /^\D[0-9]{10}$/, displayName: "Mobile Number" },
+  mobile: { length: 10, regex: /^[6-9]\d{9}$/, displayName: "Mobile Number" },
   aadhaar: { length: 12, regex: /^\d{12}$/, displayName: "Aadhaar Number" },
   cin: {
     length: 21,
@@ -70,9 +70,14 @@ const ID_RULES = {
     regex: /^[A-Z]{2}[0-9]{2}-[0-9]{7}$/,
     displayName: "Passport File Number",
   },
-  DateOfBirth: {
+  StrictDateOfBirth: {
     length: 10,
     regex: /^(0[1-9]|[12][0-9]|3[01])-(0[1-9]|1[0-2])-(19|20)\d{2}$/,
+    displayName: "Date Of Birth",
+  },
+  DateOfBirth: {
+    length: 10,
+    regex: /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/(19|20)\d{2}$/,
     displayName: "Date Of Birth",
   },
   passportNumber: {
@@ -92,6 +97,10 @@ const validateId = (type, value, clientId) => {
   if (!value?.trim()) return false; // empty is invalid
 
   const trimmed = value.trim();
+
+  commonLogger.info(
+    `Validating ${type} value ${trimmed} for client ${clientId}`,
+  );
 
   if (rule.length && trimmed.length !== rule.length) return false;
   if (rule.min && trimmed.length < rule.min) return false;
@@ -114,19 +123,35 @@ const validateId = (type, value, clientId) => {
 const handleValidation = (type, value, res, storingClient) => {
   const rule = ID_RULES[type];
 
-  if (!validateId(type, value, storingClient)) {
+  // if (!validateId(type, value, storingClient)) {
+  //   commonLogger.info(
+  //     `validation failed for this type: ${type} of value: ${value} for this client: ${storingClient} ====>>`,
+  //   );
+  //   const errorMessage = {
+  //     response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
+  //     ...ERROR_CODES?.BAD_REQUEST,
+  //   };
+  //   res.status(400).json(errorMessage);
+  //   return false;
+  // }
+  // commonLogger.info(
+  //   `validation completed successfully for this type: ${type} of value: ${value} for this client: ${storingClient} ====>>`,
+  // );
+  const isValid = validateId(type, value, storingClient);
+
+  if (!isValid) {
     commonLogger.info(
-      `validation failed for this type: ${type} of value: ${value} for this client: ${storingClient} ====>>`,
+      `Validation failed for ${type}: ${value} client: ${storingClient}`,
     );
-    const errorMessage = {
-      response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
+
+    return res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
-    };
-    res.status(400).json(errorMessage);
-    return false;
+      response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
+    });
   }
+
   commonLogger.info(
-    `validation completed successfully for this type: ${type} of value: ${value} for this client: ${storingClient} ====>>`,
+    `Validation passed for ${type}: ${value} client: ${storingClient}`,
   );
   return true;
 };

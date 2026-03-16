@@ -10,6 +10,9 @@ const panToGstDetails = new mongoose.Schema({
   serviceResponse:{
     type: Object,
   },
+   mobileNumber:{
+    type: Number,
+  },
   status:{
     type: Number,
   },

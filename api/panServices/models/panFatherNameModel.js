@@ -1,22 +1,19 @@
 const mongoose = require("mongoose");
 
-const panNameMatch = new mongoose.Schema({
+const panFatherNameDetails = new mongoose.Schema({
   panNumber: {
     type: String,
   },
-  nameToMatch:{
-    type:String
-  },
   response: {
     type: Object,
-  },
-   mobileNumber:{
-    type: Number,
   },
   serviceResponse:{
     type: Object,
   },
   status:{
+    type: Number,
+  },
+  mobileNumber:{
     type: Number,
   },
   serviceId:{
@@ -39,4 +36,4 @@ const panNameMatch = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panNameMatch", panNameMatch);
+module.exports = mongoose.model("panToFatherName", panFatherNameDetails);
