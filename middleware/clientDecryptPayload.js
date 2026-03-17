@@ -1,0 +1,87 @@
+const crypto = require("crypto");
+const { commonLogger } = require("../api/Logger/logger");
+const { DataTypes } = require("sequelize");
+
+function generateKey(password) {
+    const hash = crypto.createHash("sha512");
+    hash.update(password, "utf-8");
+    return hash.digest("hex").substring(0, 16);
+};
+
+const encrypt = (plainText, password) => {
+
+    const key = generateKey(password);
+    const iv = crypto.randomBytes(16);
+    const cipher = crypto.createCipheriv("aes-128-cbc", Buffer.from(key), iv);
+
+    let encrypted = cipher.update(plainText, "utf-8", "base64");
+    encrypted += cipher.final("base64");
+
+    return `${encrypted}:${iv.toString("base64")}`;
+};
+
+exports.encryptPayload = (req, res, next) => {
+    try {
+        const password = req.clientSecret;
+
+        const oldJson = res.json.bind(res);
+        res.json = function (data) {
+            const encryptData = encrypt(JSON.stringify(data), password);
+            return oldJson(encryptData);
+        }
+        next();
+    } catch (error) {
+        commonLogger.error(`[STS] Error in encryptMiddleware setup: ${error.message}`);
+        res.status(500).json({
+            error: "Internal server error during encryption setup",
+            success: false
+        });
+    }
+};
+
+const decrypt = (encryptedText, password) => {
+
+    const key = generateKey(password);
+    commonLogger.debug(`encryptedText ===> ${encryptedText} ${typeof encryptedText}`);
+
+    if (typeof encryptedText !== "string") {
+        throw new Error("Invalid encryptedText: must be a string");
+    }
+
+    const [encryptedData, ivBase64] = encryptedText.split(":");
+    const iv = Buffer.from(ivBase64, "base64");
+
+    const decipher = crypto.createDecipheriv("aes-128-cbc", Buffer.from(key), iv);
+    let decrypted = decipher.update(encryptedData, "base64", "utf8");
+    decrypted += decipher.final("utf8");
+
+    return decrypted;
+}
+
+exports.decryptPayload = async (req, res, next) => {
+    try {
+        const password = req.clientSecret;
+        if (!req?.body.data) {
+            commonLogger.warn("[STS] Missing encrypted payload fields in request.");
+            return res.status(400).json({
+                error: "Missing encrypted payload",
+                success: false
+            });
+        }
+
+        commonLogger.info(`[STS] Attempting to decrypt request payload...,password:${password}, PayloadData: ${typeof (req?.body.data)}`);
+        const decryptedData = await decrypt(req?.body.data, password);
+
+
+        req.body = JSON.parse(decryptedData);
+        commonLogger.info(`[STS] Request payload decrypted successfully. decryptedData: ${typeof (decryptedData)}`);
+        next();
+
+    } catch (error) {
+        commonLogger.error(`[STS] Error occurred while decrypting payload: ${error.message}`);
+        res.status(500).json({
+            error: "Internal server error during decryption",
+            success: false
+        });
+    }
+}

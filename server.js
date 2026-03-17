@@ -8,6 +8,10 @@ const bodyParser = require("body-parser");
 const exceptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController");
 const mainRoutes = require("./routes/mainRoutes");
 const { keysApiroutes } = require("./api/Keysapi/keysapi.routes");
+const { encryptresponseData, DecryptTruthScreenResponse } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
+const clientValidation = require("./middleware/ClientValidation.middleware");
+const { decryptMiddleware, encryptMiddleware } = require("./middleware/decryptPayload");
+const { decryptPayload, encryptPayload } = require("./middleware/clientDecryptPayload");
 
 const app = express();
 
@@ -71,12 +75,14 @@ app.get('/health', (req, res) => {
 // These routes do NOT need encryption, key validation, or whitelisting
 app.use("/kyc/api/v1/ApiModuels", keysApiroutes);
 
+const serverMiddleware = [clientValidation, decryptPayload, encryptPayload];
+const clientMiddleware = [clientValidation, decryptMiddleware, encryptMiddleware];
+
 // Use Main Routes
-app.use("/kyc/api/v1", mainRoutes);
-app.use("/kyc/api/v1/inhouse", mainRoutes);
+app.use("/kyc/api/v1/internal", ...serverMiddleware, mainRoutes); // SERVER TO SERVER
+app.use("/kyc/api/v1/client", ...clientMiddleware, mainRoutes); // FRONTEND TO SERVER
 
 // ================== FOR TruthScreen Testing ==================
-const { encryptresponseData, DecryptTruthScreenResponse } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
 app.post("/kyc/api/v1/TruthScreen/Encryption", encryptresponseData);
 app.post("/kyc/api/v1/TruthScreen/Decryption", DecryptTruthScreenResponse);
 

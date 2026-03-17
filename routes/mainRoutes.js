@@ -1,19 +1,11 @@
 const express = require("express");
 const mainRouter = express.Router();
 
-// Middlewares
-const clientValidation = require("../middleware/ClientValidation.middleware");
-const {
-    decryptMiddleware,
-    encryptMiddleware,
-} = require("../middleware/decryptPayload");
-
 // Routes Imports
 const panRouter = require("../api/panServices/routes/panServices.route");
 const aadhaarRouter = require("../api/aadharVerification/routes/adhaarverification.route");
 const otpRouter = require("../api/otp/routes/otpRoutes");
 const shopRouter = require("../api/shopEstablishment/routes/shopestablishment.route");
-const gstRouter = require("../api/gstin_verify/routes/gstin_verify.route");
 const accountRouter = require("../api/accountdata/routes/accountdata.route");
 const faceRouter = require("../api/facematch/routes/facematch.route");
 const nameRouter = require("../api/compareNames/routes/compareNames.route");
@@ -22,51 +14,36 @@ const ipRouter = require("../api/whitelistapi/routes/whitelistApi.routes");
 const udyamRouter = require("../api/udhyamVerification/routes/udyamRoutes");
 const instantPayRouter = require("../api/instantPay/routes/InstantPayRoutes");
 const fullCardRouter = require("../api/cardValidation/routes/cardValidationRoutes");
-const { sendEmail } = require("../api/Gmail/mailverification");
+// const sendEmail  = require("../api/Gmail/mailverification");
 const analyticdataRouter = require("../api/analytics/routes/analyticdata.route");
-const dinRouter = require("../api/businessServices/DIN/routes/dinRoutes.js")
-const gstRouter = require("../api/gstServices/routes/gstservicesRoutes");
+const businessRouters = require("../api/businessServices/routes/dinRoutes.js")
 const vehicleRouter = require("../api/vehicleServices/routes/vehicleRoutes");
 const employmentRouter = require("../api/employmentServices/routes/employmentRoutes");
 const bankingRouter = require("../api/bankingServices/routes/bankingRoutes");
 const contactRouter = require("../api/contactServices/routes/contactRoute");
 const governmentIdRouter = require("../api/governmentIdServices/routes/governmentIdRoutes");
 
-const protectedMiddleware = [
-    clientValidation,
-    // decryptMiddleware,
-    // encryptMiddleware
-];
-
-// Helper to bypass middleware for "In House" routes (mounted at /inhouse)
-const bypassIfInHouse = (middleware) => (req, res, next) => {
-    if (req.baseUrl.includes('inhouse')) return next();
-    return middleware(req, res, next);
-};
-
-const conditionalMiddleware = protectedMiddleware.map(bypassIfInHouse);
-
-mainRouter.use("/pan", ...conditionalMiddleware, panRouter);
-mainRouter.use("/din", ...conditionalMiddleware, dinRouter);
-mainRouter.use("/aadhaar", ...conditionalMiddleware, aadhaarRouter);
-mainRouter.use("/mobileNumber", ...conditionalMiddleware, otpRouter);
-mainRouter.use("/email", ...conditionalMiddleware, sendEmail);
-mainRouter.use("/shop", ...conditionalMiddleware, shopRouter);
-mainRouter.use("/business", ...conditionalMiddleware, gstRouter);
-mainRouter.use("/face", ...conditionalMiddleware, faceRouter);
-mainRouter.use("/accounts", ...conditionalMiddleware, accountRouter);
-mainRouter.use("/instant", ...conditionalMiddleware, instantPayRouter);
-mainRouter.use("/udyam", ...conditionalMiddleware, udyamRouter);
-mainRouter.use("/name", ...conditionalMiddleware, nameRouter);
-mainRouter.use("/bin", ...conditionalMiddleware, binRouter);
-mainRouter.use("/card", ...conditionalMiddleware, fullCardRouter);
-mainRouter.use("/IP", ...conditionalMiddleware, ipRouter);
-// mainRouter.use("/voterId", ...conditionalMiddleware, VoterIdRouter);
-mainRouter.use("/vehicle", ...conditionalMiddleware, vehicleRouter);
-mainRouter.use("/employee", ...conditionalMiddleware, employmentRouter);
-mainRouter.use("/bank", ...conditionalMiddleware, bankingRouter);
-mainRouter.use("/contact", ...conditionalMiddleware, contactRouter);
-mainRouter.use("/government", ...conditionalMiddleware, governmentIdRouter);
+//Routes
+mainRouter.use("/pan", panRouter);
+mainRouter.use("/business", businessRouters);
+mainRouter.use("/aadhaar", aadhaarRouter);
+mainRouter.use("/mobileNumber", otpRouter);
+// mainRouter.use("/email", sendEmail);
+mainRouter.use("/shop", shopRouter);
+mainRouter.use("/face", faceRouter);
+mainRouter.use("/accounts", accountRouter);
+mainRouter.use("/instant", instantPayRouter);
+mainRouter.use("/udyam", udyamRouter);
+mainRouter.use("/name", nameRouter);
+mainRouter.use("/bin", binRouter);
+mainRouter.use("/card", fullCardRouter);
+mainRouter.use("/IP", ipRouter);
+// mainRouter.use("/voterId", VoterIdRouter);
+mainRouter.use("/vehicle", vehicleRouter);
+mainRouter.use("/employee", employmentRouter);
+mainRouter.use("/bank", bankingRouter);
+mainRouter.use("/contact", contactRouter);
+mainRouter.use("/government", governmentIdRouter);
 
 // no middleware checking for this
 mainRouter.use("/analytics", analyticdataRouter);
