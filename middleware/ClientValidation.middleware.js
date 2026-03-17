@@ -10,7 +10,7 @@ const jwt = require("jsonwebtoken");
 
 const clientValidation = async (req, res, next) => {
     const accessToken = req.headers["secret_token"];
-    commonLogger.info(`Client Validation (Whitelist) called with token:`);
+    commonLogger.info(`Client Validation (Whitelist) called with token:${accessToken}`);
     try {
         // 1. Extract IP
         let ip = requestIp.getClientIp(req);
@@ -28,6 +28,8 @@ const clientValidation = async (req, res, next) => {
             //  environment 
         } = decodedToken;
 
+        req.clientSecret = clientSecret; // update cientSecret
+        
         if (!clientId || !clientSecret) {
             commonLogger.warn("Invalid token structure.")
             return res.status(400).json({ message: "Invalid token structure." });

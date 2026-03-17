@@ -74,45 +74,45 @@ exports.verifyPanNumber = async (req, res) => {
     );
 
     // Common: hash identifier
-    // const identifierHash = hashIdentifiers({
-    //   panNo: capitalPanNumber,
-    // });
+    const identifierHash = hashIdentifiers({
+      panNo: capitalPanNumber,
+    });
 
-    // const panRateLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId,
-    //   categoryId,
-    //   clientId: storingClient,
-    // });
+    const panRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+    });
 
-    // if (!panRateLimitResult.allowed) {
-    //   panServiceLogger.warn(
-    //     `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
-    //   );
-    //   return res.status(429).json({
-    //     success: false,
-    //     message: panRateLimitResult.message,
-    //   });
-    // }
+    if (!panRateLimitResult.allowed) {
+      panServiceLogger.warn(
+        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: panRateLimitResult.message,
+      });
+    }
 
-    // const maintainanceResponse = await deductCredits(
-    //       storingClient,
-    //       serviceId,
-    //       categoryId,
-    //       tnId,
-    //       req.environment,
-    //     );
+    const maintainanceResponse = await deductCredits(
+          storingClient,
+          serviceId,
+          categoryId,
+          tnId,
+          req.environment,
+        );
 
-    // if (!maintainanceResponse?.result) {
-    //   panServiceLogger.error(
-    //     `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
-    //   );
-    //   return res.status(500).json({
-    //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
-    //     response: {},
-    //   });
-    // }
+    if (!maintainanceResponse?.result) {
+      panServiceLogger.error(
+        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
 
     const encryptedPan = encryptData(capitalPanNumber);
 
