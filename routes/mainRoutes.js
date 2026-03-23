@@ -22,6 +22,7 @@ const employmentRouter = require("../api/employmentServices/routes/employmentRou
 const bankingRouter = require("../api/bankingServices/routes/bankingRoutes");
 const contactRouter = require("../api/contactServices/routes/contactRoute");
 const governmentIdRouter = require("../api/governmentIdServices/routes/governmentIdRoutes");
+const locationRouter = require("../api/locationServices/routes/locationRoutes.js");
 
 //Routes
 mainRouter.use("/pan", panRouter);
@@ -44,6 +45,8 @@ mainRouter.use("/employee", employmentRouter);
 mainRouter.use("/bank", bankingRouter);
 mainRouter.use("/contact", contactRouter);
 mainRouter.use("/government", governmentIdRouter);
+mainRouter.use("/location", locationRouter);
+
 
 // no middleware checking for this
 mainRouter.use("/analytics", analyticdataRouter);

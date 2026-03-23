@@ -81,9 +81,10 @@ const checkingRateLimit = async ({
       remaining: dayLimit - apiHit.dayHitCount,
     };
   } catch (error) {
+    console.log("error ==========>>", error)
     commonLogger.error(`Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error)}`);
     commonLogger.info(
-      `Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error?.response?.data)}`,
+      `[ERROR] Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error?.response?.data)}`,
     );
     if (error?.response?.data?.statusCode == 400) {
       return {

@@ -10,9 +10,6 @@ const { DinActiveServiceResponse } = require("../../GlobalApiserviceResponse/din
 const { businessServiceLogger } = require("../../Logger/logger.js");
 const { selectService } = require("../../service/serviceSelector.js");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel.js");
-const {
-    GSTtoPANActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/GSTtoPANActiveServiceResponse");
 const gstin_verifyModel = require("../module/gstin_verify.model.js");
 const gstInTaxpayer = require("../module/gstin_taxpayer.model.js")
 const gstin_panModel = require("../module/gstin_pan.model.js");
@@ -22,6 +19,8 @@ const IncorporationCertificateModel = require("../module/IncorporationCertificat
 const { response } = require("express");
 const handleValidation = require("../../../utils/lengthCheck.js");
 const { GstTaxpayerActiveServiceResponse } = require("../../GlobalApiserviceResponse/gstinTaxpayerServiceResp.js");
+const { GSTtoPANActiveServiceResponse, GSTActiveServiceResponse } = require("../../GlobalApiserviceResponse/GstServiceResponse.js");
+const { findingInValidResponses } = require("../../../utils/InvalidResponses.js");
 
 // DIN VERIFICATION
 exports.dinVerification = async (req, res) => {
@@ -386,7 +385,7 @@ exports.gstinverify = async (req, res, next) => {
         );
 
         //  get Acitve Service Response
-        let response = await GSTtoPANActiveServiceResponse(gstinNumber, service, 0);
+        let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
         businessServiceLogger.info(
             `Response received from active service ${service.serviceFor}: ${response?.message}`,
         );

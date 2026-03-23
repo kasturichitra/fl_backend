@@ -1,8 +1,9 @@
-const { generateTransactionId } = require("../truthScreen/callTruthScreen")
+const { locationServiceLogger } = require("../Logger/logger");
+const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
-const GSTActiveServiceResponse = async (data, services, index = 0) => {
-    console.log('GSTActiveServiceResponse called');
+const pincodeGeofencingActiveServiceResponse = async (data, services=[], index = 0, client) => {
+    console.log('pincodeGeofencingActiveServiceResponse called');
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -11,68 +12,40 @@ const GSTActiveServiceResponse = async (data, services, index = 0) => {
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return GSTActiveServiceResponse(data, services, index + 1);
+        return pincodeGeofencingActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`[GSTActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    console.log(`[pincodeGeofencingActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await GSTApiCall(data, serviceName, 0);
+        const res = await pincodeGeofencingApiCall(data, serviceName, client);
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 
-        console.log(`[GSTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return GSTActiveServiceResponse(data, services, index + 1);
+        console.log(`[pincodeGeofencingActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+        return pincodeGeofencingActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`[GSTActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return GSTActiveServiceResponse(data, services, index + 1);
+        console.log(`[pincodeGeofencingActiveServiceResponse] Error from ${serviceName}:`, err.message);
+        locationServiceLogger.info(`[pincodeGeofencingActiveServiceResponse] Error from ${serviceName}:`, err.message);
+        return pincodeGeofencingActiveServiceResponse(data, services, index + 1);
     }
 };
 
-const GSTApiCall = async (data, service) => {
+const pincodeGeofencingApiCall = async (data, service, CID) => {
     const tskId = await generateTransactionId(12);
 
     const ApiData = {
-        "ZOOP": {
-            BodyData: {
-                mode: "sync",
-                data: {
-                    business_gstin_number: data,
-                    consent: "Y",
-                    consent_text:
-                        "I hereby declare my consent agreement for fetching my information via ZOOP API",
-                },
-            },
-            url: process.env.ZOOP_GSTIN_URL,
-            header: {
-                "app-id": process.env.ZOOP_APP_ID,
-                "api-key": process.env.ZOOP_API_KEY,
-                "content-type": "application/json",
-            }
-        },
-        "INVINCIBLE": {
-            BodyData: JSON.stringify({
-                gstin: data
-            }),
-            url: process.env.INVINCIBLE_GSTIN_URL,
-            header: {
-                accept: "application/json",
-                clientId: process.env.INVINCIBLE_CLIENT_ID,
-                "content-type": "application/json",
-                secretKey: process.env.INVINCIBLE_SECRET_KEY,
-            }
-        },
         "TRUTHSCREEN": {
             BodyData: {
                 transID: tskId,
-                "docType": "23",
+                "docType": "554",
                 "docNumber": data
             },
-            url: process.env.TRUTHSCREEN_API_URL,
+            url: process.env.TRUTHSCREEN_PINCODE_GEOFENCING,
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,
@@ -99,16 +72,16 @@ const GSTApiCall = async (data, service) => {
             { headers: config.header }
         );
     } catch (error) {
-        console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+        console.log(`[pincode geofencing ApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null }; // fallback trigger
     }
 
-    const obj = ApiResponse.data;
-    console.log(`[GSTApiCall] ${service} Response Object:`, JSON.stringify(obj));
+    const obj = ApiResponse;
+    console.log(`[pincode geofencing ApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
     let returnedObj = {};
 
-    if (obj.response_code === "101") {
+    if (obj?.status != 1 && obj?.msg == "No Record Found") {
         return {
             success: false,
             data: {
@@ -121,36 +94,6 @@ const GSTApiCall = async (data, service) => {
     }
 
     switch (service) {
-        case "ZOOP":
-            returnedObj = {
-                gstinNumber: obj?.result?.gstin,
-                business_constitution: obj?.result?.business_constitution,
-                central_jurisdiction: obj?.central_jurisdiction,
-                gstin: obj?.gstin,
-                companyName: obj?.result?.legal_name,
-                other_business_address: obj?.result?.other_business_address,
-                register_cancellation_date: obj?.result?.register_cancellation_date,
-                state_jurisdiction: obj?.result?.state_jurisdiction,
-                tax_payer_type: obj?.result?.tax_payer_type,
-                trade_name: obj?.result?.trade_name,
-                primary_business_address: obj?.result?.primary_business_address
-            }
-            break;
-        case "INVINCIBLE":
-            returnedObj = {
-                gstinNumber: obj?.result?.essentials?.gstin || "",
-                business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-                central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-                gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
-                register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-                state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-                tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-                trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-                primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
-            }
-            break;
         case "TRUTHSCREEN":
             returnedObj = {
                 gstinNumber: obj?.result?.essentials?.gstin || "",
@@ -179,13 +122,14 @@ const GSTApiCall = async (data, service) => {
     };
 };
 
-const GSTtoPANActiveServiceResponse = async (
+const longLatGeofencingActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
+  client
 ) => {
   console.log(
-    "GSTtoPANActiveServiceResponse called",
+    "longLatGeofencingActiveServiceResponse called",
     JSON.stringify(services),
     data,
     index,
@@ -203,28 +147,28 @@ const GSTtoPANActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return GSTtoPANActiveServiceResponse(data, services, index + 1);
+    return longLatGeofencingActiveServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(`Trying service:`, newService);
 
   try {
-    const res = await GSTToPANApiCall(data, serviceName, 0);
+    const res = await longLaotGeofencingApiCall(data, serviceName, client);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
     console.log(`${serviceName} responded failure → trying next`);
-    return GSTtoPANActiveServiceResponse(data, services, index + 1);
+    return longLatGeofencingActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(`Error from ${serviceName}:`, err.message);
-    return GSTtoPANActiveServiceResponse(data, services, index + 1);
+    return longLatGeofencingActiveServiceResponse(data, services, index + 1);
   }
 };
 
-const GSTToPANApiCall = async (data, service) => {
+const longLaotGeofencingApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -271,12 +215,12 @@ const GSTToPANApiCall = async (data, service) => {
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse.data;
+  const obj = ApiResponse;
   console.log("obj ==>", obj);
 
   let returnedObj = {};
 
-  if (obj.response_code === "101") {
+  if (obj.status === 1) {
     return {
       success: false,
       data: {
@@ -308,5 +252,5 @@ const GSTToPANApiCall = async (data, service) => {
 };
 
 module.exports = {
-    GSTActiveServiceResponse, GSTtoPANActiveServiceResponse
+    pincodeGeofencingActiveServiceResponse, longLatGeofencingActiveServiceResponse
 }

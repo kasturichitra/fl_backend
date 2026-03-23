@@ -2,7 +2,7 @@ const { panServiceLogger } = require("../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const PanActiveServiceResponse = async (data, services=[], index = 0) => {
+const PanActiveServiceResponse = async (data, services=[], index = 0, client) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -115,6 +115,9 @@ const PanApiCall = async (data, service) => {
         console.log(`[PanApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
     } catch (error) {
         console.log(`[PanApiCall] API Error in ${service}:`, error.message);
+        console.log(`[PanApiCall] API Error Response in ${service}:`, error.response);
+        console.log(`[PanApiCall] API Error Response in ${service}:`, JSON.stringify(error.response));
+        panServiceLogger.info(`[PanApiCall] API Error Response in ${service}:`, error.response);
         return { success: false };
     }
 

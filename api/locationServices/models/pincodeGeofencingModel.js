@@ -1,7 +1,7 @@
 const mongoose = require("mongoose");
 
-const panToGstDetails = new mongoose.Schema({
-  panNumber: {
+const pincodeDetails = new mongoose.Schema({
+  pincode: {
     type: String,
   },
   response: {
@@ -36,4 +36,4 @@ const panToGstDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panToGstDetails", panToGstDetails);
+module.exports = mongoose.model("pincodeGeofencing", pincodeDetails);

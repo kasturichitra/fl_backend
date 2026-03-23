@@ -207,6 +207,29 @@ const inValidResponses = [
     },
   },
   {
+    service: "latLong",
+    InValidResponse: {
+      "Center Code": "",
+      District: "",
+      Pincode: "",
+      "Population Group": " ",
+      "Post Office": "Kora ",
+      "Revenue Center": "",
+      State: " ",
+      Subdistrict: "",
+      Tier: " ",
+    },
+  },
+  {
+    service: "pinCode",
+    InValidResponse: {
+      District: "",
+      "Post Office": " ",
+      State: " ",
+      Subdistrict: "",
+    },
+  },
+  {
     service: "panToFather",
     InValidResponse: {
       data: {

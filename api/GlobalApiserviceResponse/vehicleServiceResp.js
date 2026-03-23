@@ -417,6 +417,9 @@ const drivingLicenseServiceResponse = async (
     `[drivingLicenseServiceResponse] Trying service with priority ${index + 1}:`,
     newService,
   );
+  vehicleServiceLogger.info(
+    `[drivingLicenseServiceResponse] Trying service with priority: ${index + 1} for this client: ${client} of serviceName: ${newService}`,
+  );
 
   try {
     const res = await drivingLicenseApiCall(data, serviceName, 0);
@@ -519,7 +522,7 @@ const drivingLicenseApiCall = async (data, service) => {
 
   let returnedObj = {};
 
-  if (obj.status != "1") {
+  if (obj.status != "1" || obj.msg == "No record found") {
     return {
       success: false,
       data: {

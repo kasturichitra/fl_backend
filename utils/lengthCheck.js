@@ -144,10 +144,11 @@ const handleValidation = (type, value, res, storingClient) => {
       `Validation failed for ${type}: ${value} client: ${storingClient}`,
     );
 
-    return res.status(400).json({
+    res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
       response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
     });
+    return false;
   }
 
   commonLogger.info(

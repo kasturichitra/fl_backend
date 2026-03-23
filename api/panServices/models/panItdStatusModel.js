@@ -1,7 +1,13 @@
 const mongoose = require("mongoose");
 
-const panToGstDetails = new mongoose.Schema({
+const panItdStatusDetails = new mongoose.Schema({
   panNumber: {
+    type: String,
+  },
+  fullname: {
+    type: String,
+  },
+  dateOfBirth: {
     type: String,
   },
   response: {
@@ -10,10 +16,10 @@ const panToGstDetails = new mongoose.Schema({
   serviceResponse:{
     type: Object,
   },
-   mobileNumber:{
+  status:{
     type: Number,
   },
-  status:{
+  mobileNumber:{
     type: Number,
   },
   serviceId:{
@@ -36,4 +42,4 @@ const panToGstDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panToGstDetails", panToGstDetails);
+module.exports = mongoose.model("panItdStatus", panItdStatusDetails);
