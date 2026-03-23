@@ -1,6 +1,7 @@
 const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const {
   encryptData,
@@ -27,7 +28,7 @@ const stolenVehicleModel = require("../models/stolenVehicleModel");
 
 exports.handleRcVerification = async (req, res) => {
   const data = req.body;
-  const { rcNumber, mobileNumber = "", serviceId = "", categoryId = "" } = data;
+  const { rcNumber, mobileNumber = "" } = data;
   const capitalRcNumber = rcNumber?.toUpperCase();
   console.log("req coming in rc verification ===>>", req?.baseUrl);
 
@@ -39,6 +40,13 @@ exports.handleRcVerification = async (req, res) => {
   );
 
   const storingClient = req.clientId;
+
+  const {  idOfCategory, idOfService } =
+    getCategoryIdAndServiceId("RC_VERIFICATION", clientId);
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory
+  const serviceId = idOfService
 
   try {
     vehicleServiceLogger.info(
@@ -881,7 +889,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
       `Response received from driving license verification active service ${licenseNoResponse?.service} with message: ${licenseNoResponse?.message} of data: ${JSON.stringify(licenseNoResponse?.result)}`,
     );
 
-      if (response?.message?.toLowerCase() === "all services failed") {
+    if (response?.message?.toLowerCase() === "all services failed") {
       throw new Error("All pan to gst services failed");
     }
 

@@ -98,6 +98,17 @@ const ID_RULES = {
     regex: /^[A-Z]{1}[0-9]{7}$/,
     displayName: "Passport Number",
   },
+  digipin: {
+    length: 10,
+    regex: /^[A-Z0-9]{10}$/,
+    displayName: "DIGIPIN",
+  },
+  address: {
+    min: 5,
+    max: 200,
+    regex: /^[A-Za-z0-9\s,.\-/#()]+$/,
+    displayName: "Address",
+  },
 };
 
 const validateId = (type, value, clientId) => {
@@ -135,7 +146,7 @@ const validateId = (type, value, clientId) => {
 
 const handleValidation = (type, value, res, storingClient) => {
   const rule = ID_RULES[type];
-  if (!value) {
+  if (!value?.trim()) {
     res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
       response: `${rule.displayName} is Missing 🤦‍♂️`,
@@ -157,7 +168,7 @@ const handleValidation = (type, value, res, storingClient) => {
   }
 
   commonLogger.info(
-    `Validation passed for ${type}: ${value} client: ${storingClient}`,
+    `Validation passed for ${type}: with value: ${value} for this client: ${storingClient}`,
   );
   return true;
 };

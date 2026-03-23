@@ -1,10 +1,25 @@
+const { commonLogger } = require("../api/Logger/logger");
+
 const CATEGORIES = {
   PAN: "PANSERVICES",
   GEO: "GEOLOCATION",
+  VEHICLE: "VEHICLE_TRANSPORT",
 };
 
 const SERVICES = {
   PINCODE_GEOFENCING: {
+    category: "GEO",
+    serviceId: "PINCODEGEOFENCINGAPI",
+  },
+  LONG_LAT_GEOFENCING: {
+    category: "GEO",
+    serviceId: "LONGITUDELATITUDEGEOFENCINGAPI",
+  },
+  LONG_LAT_TO_DIGIPIN: {
+    category: "GEO",
+    serviceId: "asdfgh",
+  },
+  DIGIPIN_TO_LONG_LAT: {
     category: "GEO",
     serviceId: "asdfgh",
   },
@@ -16,18 +31,30 @@ const SERVICES = {
     category: "PAN",
     serviceId: "",
   },
+  RC_VERIFICATION: {
+    category: "VEHICLE",
+    serviceId: "",
+  },
 };
 
-const getCategoryIdAndServiceId = (type) => {
+const getCategoryIdAndServiceId = (type, client) => {
   if (!type) return { categoryId: "", serviceId: "" };
 
   const key = type.toUpperCase();
+  commonLogger.info(
+    `[SERVICE AND CATEGORY] key: ${key} in getting category and service for this client: ${client}====>>>`,
+  );
   const service = SERVICES[key];
+  commonLogger.info(
+    `[SERVICE AND CATEGORY] service: ${JSON.stringify(service)} in getting category and service for this client: ${client}====>>>`,
+  );
 
   if (!service) return { categoryId: "", serviceId: "" };
 
   return {
-    categoryId: CATEGORIES[service.category] || "",
-    serviceId: service.serviceId || "",
+    idOfCategory: CATEGORIES[service.category] || "",
+    idOfService: service.serviceId || "",
   };
 };
+
+module.exports = getCategoryIdAndServiceId;

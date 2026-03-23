@@ -1,4 +1,96 @@
 const inValidResponses = [
+  // pan services
+
+  // pan basic
+  {
+    service: "panBasic",
+    InValidResponse: {
+      PAN: "",
+      Name: "",
+      PAN_Status: "",
+      PAN_Holder_Type: "",
+    },
+  },
+  // pan to masked aadhaar
+  {
+    service: "panToAadhaar",
+    InValidResponse: {
+      code: "",
+      message: "",
+      result: {
+        aadhaar: "",
+      },
+    },
+  },
+  // pan name match
+  {
+    service: "panNameMatch",
+    InValidResponse: {
+      LastUpdate: "",
+      STATUS: "",
+      StatusDescription: "",
+      name_match_score: "",
+    },
+  },
+  {
+    service: "panNameDob",
+    InValidResponse: {
+      "Status of PAN": "",
+      "Given Name matches with the ITD Records": "",
+      "Given DOB matches with the ITD Records": "",
+    },
+  },
+  {
+    service: "panToGst",
+    InValidResponse: {
+      gstin: "",
+      authStatus: "",
+      stateCd: "",
+    },
+  },
+  // pan to father name
+  {
+    service: "panToFather",
+    InValidResponse: {
+      data: {
+        additional_check: [],
+        category: "",
+        client_id: "",
+        dob: "",
+        dob_check: false,
+        dob_verified: false,
+        father_name: "",
+        full_name: "",
+        less_info: false,
+        pan_number: "",
+      },
+      message: "",
+      message_code: "",
+      status_code: "",
+      success: "",
+    },
+  },
+  // pan director
+  {
+    service: "panDirector",
+    InValidResponse: {
+      name: "",
+      din: "",
+    },
+  },
+  // business services
+
+  // cin search
+  {
+    service: "cin",
+    InValidResponse: {
+      PAN: "",
+      Name: "",
+      PAN_Status: "",
+      PAN_Holder_Type: "",
+    },
+  },
+  // udyam
   {
     service: "udyam",
     InValidResponse: {
@@ -15,6 +107,7 @@ const inValidResponses = [
       "Official address of Enterprise": {},
     },
   },
+  // gst_in
   {
     service: "gstIn",
     InValidResponse: {
@@ -43,25 +136,6 @@ const inValidResponses = [
     },
   },
   {
-    service: "panBasic",
-    InValidResponse: {
-      PAN: "",
-      Name: "",
-      PAN_Status: "",
-      PAN_Holder_Type: "",
-    },
-  },
-  {
-    service: "panToAadhaar",
-    InValidResponse: {
-      code: "",
-      message: "",
-      result: {
-        aadhaar: "",
-      },
-    },
-  },
-  {
     service: "aadhaarToPan",
     InValidResponse: {
       code: "",
@@ -69,40 +143,6 @@ const inValidResponses = [
       result: {
         pan: "",
       },
-    },
-  },
-  {
-    service: "panNameMatch",
-    InValidResponse: {
-      LastUpdate: "",
-      STATUS: "",
-      StatusDescription: "",
-      name_match_score: "",
-    },
-  },
-  {
-    service: "panNameDob",
-    InValidResponse: {
-      "Status of PAN": "",
-      "Given Name matches with the ITD Records": "",
-      "Given DOB matches with the ITD Records": "",
-    },
-  },
-  {
-    service: "panToGst",
-    InValidResponse: {
-      gstin: "",
-      authStatus: "",
-      stateCd: "",
-    },
-  },
-  {
-    service: "cin",
-    InValidResponse: {
-      PAN: "",
-      Name: "",
-      PAN_Status: "",
-      PAN_Holder_Type: "",
     },
   },
   {
@@ -117,6 +157,7 @@ const inValidResponses = [
       Issuer: "",
     },
   },
+  // vehicle services
   {
     service: "license",
     InValidResponse: {
@@ -162,6 +203,7 @@ const inValidResponses = [
       imgurl: "",
     },
   },
+  // government services
   {
     service: "voterId",
     InValidResponse: {
@@ -199,13 +241,7 @@ const inValidResponses = [
       "Date of Birth": "",
     },
   },
-  {
-    service: "panDirector",
-    InValidResponse: {
-      name: "",
-      din: "",
-    },
-  },
+  // location services
   {
     service: "latLong",
     InValidResponse: {
@@ -221,7 +257,7 @@ const inValidResponses = [
     },
   },
   {
-    service: "pinCode",
+    service: "pincode",
     InValidResponse: {
       District: "",
       "Post Office": " ",
@@ -230,24 +266,42 @@ const inValidResponses = [
     },
   },
   {
-    service: "panToFather",
+    service: "pincode",
     InValidResponse: {
-      data: {
-        additional_check: [],
-        category: "",
-        client_id: "",
-        dob: "",
-        dob_check: false,
-        dob_verified: false,
-        father_name: "",
-        full_name: "",
-        less_info: false,
-        pan_number: "",
-      },
-      message: "",
-      message_code: "",
-      status_code: "",
-      success: "",
+      results: [
+        {
+          plus_code: "",
+          street_number: "",
+          route: "",
+          locality: "",
+          administrative_area_level_4: "",
+          administrative_area_level_3: "",
+          administrative_area_level_2: "",
+          administrative_area_level_1: "",
+          country: "",
+          postal_code: "",
+          formatted_address: "",
+          place_id: "",
+          types: [],
+          digipin: "",
+        },
+        {
+          plus_code: "",
+          street_number: "",
+          route: "",
+          locality: "",
+          administrative_area_level_4: "",
+          administrative_area_level_3: "",
+          administrative_area_level_2: "",
+          administrative_area_level_1: "",
+          country: "",
+          postal_code: "",
+          formatted_address: "",
+          place_id: "",
+          types: [],
+          digipin: "",
+        },
+      ],
     },
   },
 ];

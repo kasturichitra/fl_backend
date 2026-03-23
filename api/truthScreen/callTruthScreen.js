@@ -126,13 +126,13 @@ async function callTruthScreen({ url, payload, username, password }) {
 }
 
 // Truth Screen actual api call happen hear
-async function callTruthScreenAPI({ url, payload, username, password }) {
+async function callTruthScreenAPI({ url, payload, username, password, cId="" }) {
   // displaying password in logs is bad practice, removing it.
-  commonLogger.info(`url payload username ===>> ${url} ${JSON.stringify(payload)} ${username}`);
+  commonLogger.info(`Details for the request with client: ${cId} url: ${url} payload: ${JSON.stringify(payload)} username: ${username} ===>>`);
   try {
     const encryptedData = encrypt(JSON.stringify(payload), password);
 
-    commonLogger.info(`encryptedData in truth screen ====>>> ${encryptedData} ${url}`);
+    commonLogger.info(`encrypted Data successfully in truth screen for this client: ${cId} ====>>>`);
 
     const response = await axios.post(
       url,
