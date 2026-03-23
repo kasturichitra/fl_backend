@@ -8,6 +8,19 @@ const ID_RULES = {
     regex: /^\d+$/,
     displayName: "Credit Card Number",
   },
+  pincode: {
+    length: 6,
+    regex: /^[1-9][0-9]{5}$/, // Indian PIN code (cannot start with 0)
+    displayName: "Pincode",
+  },
+  latitude: {
+    regex: /^-?([0-8]?[0-9](\.\d+)?|90(\.0+)?)$/, // -90 to 90
+    displayName: "Latitude",
+  },
+  longitude: {
+    regex: /^-?((1[0-7][0-9]|[0-9]?[0-9])(\.\d+)?|180(\.0+)?)$/, // -180 to 180
+    displayName: "Longitude",
+  },
   voterId: {
     length: 10,
     regex: /^[A-Z]{3}[0-9]{7}$/,
@@ -122,21 +135,13 @@ const validateId = (type, value, clientId) => {
 
 const handleValidation = (type, value, res, storingClient) => {
   const rule = ID_RULES[type];
-
-  // if (!validateId(type, value, storingClient)) {
-  //   commonLogger.info(
-  //     `validation failed for this type: ${type} of value: ${value} for this client: ${storingClient} ====>>`,
-  //   );
-  //   const errorMessage = {
-  //     response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
-  //     ...ERROR_CODES?.BAD_REQUEST,
-  //   };
-  //   res.status(400).json(errorMessage);
-  //   return false;
-  // }
-  // commonLogger.info(
-  //   `validation completed successfully for this type: ${type} of value: ${value} for this client: ${storingClient} ====>>`,
-  // );
+  if (!value) {
+    res.status(400).json({
+      ...ERROR_CODES?.BAD_REQUEST,
+      response: `${rule.displayName} is Missing 🤦‍♂️`,
+    });
+    return false;
+  }
   const isValid = validateId(type, value, storingClient);
 
   if (!isValid) {
@@ -146,7 +151,7 @@ const handleValidation = (type, value, res, storingClient) => {
 
     res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
-      response: `${rule.displayName} is Missing or Invalid 🤦‍♂️`,
+      response: `${rule.displayName} is Invalid 🤦‍♂️`,
     });
     return false;
   }

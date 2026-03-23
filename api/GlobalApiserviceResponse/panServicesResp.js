@@ -534,6 +534,7 @@ const PanDirectorApiCall = async (data, service) => {
     },
   };
 };
+
 const PANToFatherNameActiveServiceResponse = async (
   data,
   services = [],
@@ -728,7 +729,7 @@ const PanItdStatusOtpGenerateApiCall = async (data, service) => {
         docType: "349",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTNSCREEN_ID_SEARCH_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -867,8 +868,9 @@ const PanItdStatusOtpValidateApiCall = async (data, service) => {
         transID: tskId,
         docType: "349",
         docNumber: data,
+        otp: data?.otp
       },
-      url: process.env.TRUTNSCREEN_PAN_ITD_STATUS_URL,
+      url: process.env.TRUTNSCREEN_PAN_ITD_STATUS_OTP_VERIFY_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

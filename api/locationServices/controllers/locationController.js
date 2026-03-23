@@ -1,483 +1,484 @@
 const { deductCredits } = require("../../../services/CreditService");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const { encryptData } = require("../../../utils/EncryptAndDecrypt");
 const { mapError } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
-const { pincodeGeofencingActiveServiceResponse } = require("../../GlobalApiserviceResponse/locationServicesResp");
+const handleValidation = require("../../../utils/lengthCheck");
+const {
+  pincodeGeofencingActiveServiceResponse,
+  longLatGeofencingActiveServiceResponse,
+} = require("../../GlobalApiserviceResponse/locationServicesResp");
 const { locationServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const longLatGeofencingModel = require("../models/longLatGeofencingModel");
 const pincodeGeofencingModel = require("../models/pincodeGeofencingModel");
 
-exports.handlePincodeGeofencing = async (req, res) =>{
-    const data = req.body;
-      const {
-        pincode,
-        mobileNumber = "",
-        serviceId = "",
-        categoryId = "",
-      } = data;
-      const storingClient = req.clientId || "CID-6140971541";
-    
-      const capitalPanNumber = reusablePanNumberFieldVerification(
-        panNumber,
-        storingClient,
-        res,
-      );
-    
-      if (!capitalPanNumber) return;
-      try {
-        locationServiceLogger.info(
-          `Executing PAN to GST verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-        );
-    
-        const identifierHash = hashIdentifiers({
-          panNo: capitalPanNumber,
-        });
-    
-        const panRateLimitResult = await checkingRateLimit({
-          identifiers: { identifierHash },
-          serviceId,
-          categoryId: "GEOLOCATION",
-          clientId: storingClient,
-        });
-    
-        if (!panRateLimitResult.allowed) {
-          locationServiceLogger.warn(
-            `Rate limit exceeded for PAN to GST verification: client ${storingClient}, service ${serviceId}`,
-          );
-          return res.status(429).json({
-            success: false,
-            message: panRateLimitResult.message,
-          });
-        }
-    
-        const tnId = genrateUniqueServiceId();
-        locationServiceLogger.info(`Generated PAN to GST txn Id: ${tnId}`);
-    
-        const maintainanceResponse = await deductCredits(
-          storingClient,
-          serviceId,
-          categoryId,
-          tnId,
-          req.environment,
-        );
-    
-        if (!maintainanceResponse?.result) {
-          locationServiceLogger.error(
-            `Credit deduction failed for PAN to GST verification: client ${storingClient}, txnId ${tnId}`,
-          );
-          return res.status(500).json({
-            success: false,
-            message: maintainanceResponse?.message || "InValid",
-            response: {},
-          });
-        }
-    
-        const encryptedPan = encryptData(capitalPanNumber);
-    
-        const existingPanNumber = await pincodeGeofencingModel.findOne({
-          panNumber: encryptedPan,
-        });
-    
-        const analyticsResult = await AnalyticsDataUpdate(
-          storingClient,
-          serviceId,
-          categoryId,
-        );
-        if (!analyticsResult.success) {
-          locationServiceLogger.warn(
-            `Analytics update failed for PAN to GST verification: client ${storingClient}, service ${serviceId}`,
-          );
-        }
-    
-        locationServiceLogger.debug(
-          `Checked for existing PAN to GST record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
-        );
-        if (existingPanNumber) {
-          const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-          const resOfPan = existingPanNumber?.response;
-    
-          if (existingPanNumber?.status == 1) {
-            const decryptedResponse = {
-              ...existingPanNumber?.response,
-              PAN: decryptedPanNumber,
-            };
-            await responseModel.create({
-              serviceId,
-              categoryId,
-              clientId: storingClient,
-              result: decryptedResponse,
-              createdTime: new Date().toLocaleTimeString(),
-              createdDate: new Date().toLocaleDateString(),
-            });
-            locationServiceLogger.info(
-              `Returning cached valid PAN to GST response for client: ${storingClient}`,
-            );
-            return res
-              .status(200)
-              .json(createApiResponse(200, decryptedResponse, "Valid"));
-          } else {
-            await responseModel.create({
-              serviceId,
-              categoryId,
-              clientId: storingClient,
-              result: {
-                PAN: decryptedPanNumber,
-              },
-              createdTime: new Date().toLocaleTimeString(),
-              createdDate: new Date().toLocaleDateString(),
-            });
-            locationServiceLogger.info(
-              `Returning cached invalid PAN to GST response for client: ${storingClient}`,
-            );
-            return res
-              .status(404)
-              .json(createApiResponse(404, resOfPan, "InValid"));
-          }
-        }
-    
-        const service = await selectService(categoryId, serviceId);
-    
-        if (!service) {
-          locationServiceLogger.warn(
-            `Active service not found for PAN to GST category ${categoryId}, service ${serviceId}`,
-          );
-          return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-        }
-    
-        locationServiceLogger.info(
-          `Active service selected for PAN to GST verification: ${service.serviceFor}`,
-        );
-        let response = await pincodeGeofencingActiveServiceResponse(
-          panNumber,
-          service,
-          0,
-          storingClient,
-        );
-    
-        locationServiceLogger.info(
-          `Response received from Pan to Gst for active service ${response?.service} with message: ${response?.message} for the client: ${storingClient} :: ${JSON.stringify(response)}`,
-        );
-    
-        if (response?.message?.toLowerCase() === "all services failed") {
-          throw new Error("All pan to gst services failed");
-        }
-    
-        if (response?.message?.toUpperCase() == "VALID") {
-          const encryptedPan = encryptData(response?.result?.PAN);
-          const encryptedResponse = { ...response?.result, PAN: encryptedPan };
-    
-          await responseModel.create({
-            serviceId,
-            categoryId,
-            clientId: storingClient,
-            result: response?.result,
-            createdTime: new Date().toLocaleTimeString(),
-            createdDate: new Date().toLocaleDateString(),
-          });
-    
-          const storingData = {
-            pincode: encryptedPan,
-            response: encryptedResponse,
-            serviceResponse: response?.responseOfService,
-            ...(mobileNumber && { mobileNumber }),
-            status: 1,
-            serviceName: response?.service,
-            createdDate: new Date().toLocaleDateString(),
-            createdTime: new Date().toLocaleTimeString(),
-          };
-    
-          await pincodeGeofencingModel.create(storingData);
-          locationServiceLogger.info(
-            `Valid PAN to GST response stored and sent to client: ${storingClient}`,
-          );
-    
-          return res
-            .status(200)
-            .json(createApiResponse(200, response?.result, "Valid"));
-        } else {
-          await responseModel.create({
-            serviceId,
-            categoryId,
-            clientId: storingClient,
-            result: { pan: panNumber, ...findingInValidResponses("pincodeGeofencing") },
-            createdTime: new Date().toLocaleTimeString(),
-            createdDate: new Date().toLocaleDateString(),
-          });
-    
-          const storingData = {
-            pincode: encryptedPan,
-            response: {
-              pan: panNumber,
-              ...findingInValidResponses("pincodeGeofencing"),
-            },
-            status: 2,
-            serviceResponse: {},
-            ...(mobileNumber && { mobileNumber }),
-            serviceName: response?.service,
-            createdDate: new Date().toLocaleDateString(),
-            createdTime: new Date().toLocaleTimeString(),
-          };
-    
-          await pincodeGeofencingModel.create(storingData);
-          locationServiceLogger.info(
-            `Invalid PAN to GST response stored and sent to client: ${storingClient}`,
-          );
-          return res
-            .status(404)
-            .json(
-              createApiResponse(
-                404,
-                { pan: panNumber, ...findingInValidResponses("pincodeGeofencing") },
-                "InValid",
-              ),
-            );
-        }
-      } catch (error) {
-        locationServiceLogger.error(
-          `System error in pincode geofencing for client ${storingClient}: ${error.message}`,
-          error,
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
-      }
-}
+exports.handlePincodeGeofencing = async (req, res) => {
+  const { pincode, mobileNumber = "" } = req.body;
 
-exports.handleLongLatGeofencing = async (req, res) =>{
-       const data = req.body;
-      const {
-        panNumber,
-        mobileNumber = "",
-        serviceId = "",
-        categoryId = "",
-      } = data;
-      const storingClient = req.clientId || "CID-6140971541";
-    
-      const capitalPanNumber = reusablePanNumberFieldVerification(
-        panNumber,
-        storingClient,
-        res,
+  const clientId = req.clientId || "CID-6140971541";
+
+  locationServiceLogger.info(
+    `pincode Details ===>> pincode: ${pincode} for this client: ${clientId}`,
+  );
+
+  const isValid = handleValidation("pincode", pincode, res, clientId);
+  if (!isValid) return;
+
+  const { idOfCategory, idOfService } =
+    getCategoryIdAndServiceId("PINCODE_GEOFENCING");
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  locationServiceLogger.info(
+    `Executing pincode geofencing for client: ${clientId}, service: ${idOfService}, category: ${idOfCategory}`,
+  );
+
+  try {
+    const identifierHash = hashIdentifiers({
+      pin: pincode,
+    });
+
+    const pincodeGeofencingRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      idOfService,
+      idOfCategory,
+      clientId: clientId,
+    });
+
+    if (!pincodeGeofencingRateLimitResult.allowed) {
+      locationServiceLogger.warn(
+        `Rate limit exceeded for GSTIN verification: client ${clientId}, service ${idOfService}`,
       );
-    
-      if (!capitalPanNumber) return;
-      try {
+      return res.status(429).json({
+        success: false,
+        message: pincodeGeofencingRateLimitResult.message,
+      });
+    }
+
+    const tnId = genrateUniqueServiceId();
+    locationServiceLogger.info(
+      `Generated pincode geofencing txn Id: ${tnId} for this client: ${clientId}`,
+    );
+
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      idOfCategory,
+      tnId,
+      req.environment,
+    );
+
+    if (!maintainanceResponse?.result) {
+      locationServiceLogger.error(
+        `Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    const encryptedGst = encryptData(pincode);
+
+    // Check if the record is present in the DB
+    const existingGstin = await pincodeGeofencingModel.findOne({
+      pincode: encryptedGst,
+    });
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.warn(
+        `Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`,
+      );
+    }
+
+    locationServiceLogger.debug(
+      `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+    );
+    if (existingGstin) {
+      if (existingGstin?.status == 1) {
         locationServiceLogger.info(
-          `Executing PAN to GST verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+          `Returning cached GSTIN response for client: ${clientId}`,
         );
-    
-        const identifierHash = hashIdentifiers({
-          panNo: capitalPanNumber,
-        });
-    
-        const panRateLimitResult = await checkingRateLimit({
-          identifiers: { identifierHash },
-          serviceId,
-          categoryId: "GEOLOCATION",
-          clientId: storingClient,
-        });
-    
-        if (!panRateLimitResult.allowed) {
-          locationServiceLogger.warn(
-            `Rate limit exceeded for PAN to GST verification: client ${storingClient}, service ${serviceId}`,
-          );
-          return res.status(429).json({
-            success: false,
-            message: panRateLimitResult.message,
-          });
-        }
-    
-        const tnId = genrateUniqueServiceId();
-        locationServiceLogger.info(`Generated PAN to GST txn Id: ${tnId}`);
-    
-        const maintainanceResponse = await deductCredits(
-          storingClient,
+
+        const decrypted = {
+          ...existingGstin?.response,
+          gstinNumber: gstinNumber,
+        };
+        await responseModel.create({
           serviceId,
           categoryId,
-          tnId,
-          req.environment,
-        );
-    
-        if (!maintainanceResponse?.result) {
-          locationServiceLogger.error(
-            `Credit deduction failed for PAN to GST verification: client ${storingClient}, txnId ${tnId}`,
-          );
-          return res.status(500).json({
-            success: false,
-            message: maintainanceResponse?.message || "InValid",
-            response: {},
-          });
-        }
-    
-        const encryptedPan = encryptData(capitalPanNumber);
-    
-        const existingPanNumber = await pincodeGeofencingModel.findOne({
-          panNumber: encryptedPan,
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
         });
-    
-        const analyticsResult = await AnalyticsDataUpdate(
-          storingClient,
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        locationServiceLogger.info(
+          `Returning cached GSTIN response for client: ${clientId}`,
+        );
+        await responseModel.create({
           serviceId,
           categoryId,
-        );
-        if (!analyticsResult.success) {
-          locationServiceLogger.warn(
-            `Analytics update failed for PAN to GST verification: client ${storingClient}, service ${serviceId}`,
-          );
-        }
-    
-        locationServiceLogger.debug(
-          `Checked for existing PAN to GST record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
-        );
-        if (existingPanNumber) {
-          const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-          const resOfPan = existingPanNumber?.response;
-    
-          if (existingPanNumber?.status == 1) {
-            const decryptedResponse = {
-              ...existingPanNumber?.response,
-              PAN: decryptedPanNumber,
-            };
-            await responseModel.create({
-              serviceId,
-              categoryId,
-              clientId: storingClient,
-              result: decryptedResponse,
-              createdTime: new Date().toLocaleTimeString(),
-              createdDate: new Date().toLocaleDateString(),
-            });
-            locationServiceLogger.info(
-              `Returning cached valid PAN to GST response for client: ${storingClient}`,
-            );
-            return res
-              .status(200)
-              .json(createApiResponse(200, decryptedResponse, "Valid"));
-          } else {
-            await responseModel.create({
-              serviceId,
-              categoryId,
-              clientId: storingClient,
-              result: {
-                PAN: decryptedPanNumber,
-              },
-              createdTime: new Date().toLocaleTimeString(),
-              createdDate: new Date().toLocaleDateString(),
-            });
-            locationServiceLogger.info(
-              `Returning cached invalid PAN to GST response for client: ${storingClient}`,
-            );
-            return res
-              .status(404)
-              .json(createApiResponse(404, resOfPan, "InValid"));
-          }
-        }
-    
-        const service = await selectService(categoryId, serviceId);
-    
-        if (!service) {
-          locationServiceLogger.warn(
-            `Active service not found for PAN to GST category ${categoryId}, service ${serviceId}`,
-          );
-          return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-        }
-    
-        locationServiceLogger.info(
-          `Active service selected for PAN to GST verification: ${service.serviceFor}`,
-        );
-        let response = await pincodeGeofencingActiveServiceResponse(
-          panNumber,
-          service,
-          0,
-          storingClient,
-        );
-    
-        locationServiceLogger.info(
-          `Response received from Pan to Gst for active service ${response?.service} with message: ${response?.message} for the client: ${storingClient} :: ${JSON.stringify(response)}`,
-        );
-    
-        if (response?.message?.toLowerCase() === "all services failed") {
-          throw new Error("All pan to gst services failed");
-        }
-    
-        if (response?.message?.toUpperCase() == "VALID") {
-          const encryptedPan = encryptData(response?.result?.PAN);
-          const encryptedResponse = { ...response?.result, PAN: encryptedPan };
-    
-          await responseModel.create({
-            serviceId,
-            categoryId,
-            clientId: storingClient,
-            result: response?.result,
-            createdTime: new Date().toLocaleTimeString(),
-            createdDate: new Date().toLocaleDateString(),
-          });
-    
-          const storingData = {
-            pincode: encryptedPan,
-            response: encryptedResponse,
-            serviceResponse: response?.responseOfService,
-            ...(mobileNumber && { mobileNumber }),
-            status: 1,
-            serviceName: response?.service,
-            createdDate: new Date().toLocaleDateString(),
-            createdTime: new Date().toLocaleTimeString(),
-          };
-    
-          await pincodeGeofencingModel.create(storingData);
-          locationServiceLogger.info(
-            `Valid PAN to GST response stored and sent to client: ${storingClient}`,
-          );
-    
-          return res
-            .status(200)
-            .json(createApiResponse(200, response?.result, "Valid"));
-        } else {
-          await responseModel.create({
-            serviceId,
-            categoryId,
-            clientId: storingClient,
-            result: { pan: panNumber, ...findingInValidResponses("pincodeGeofencing") },
-            createdTime: new Date().toLocaleTimeString(),
-            createdDate: new Date().toLocaleDateString(),
-          });
-    
-          const storingData = {
-            pincode: encryptedPan,
-            response: {
-              pan: panNumber,
-              ...findingInValidResponses("pincodeGeofencing"),
-            },
-            status: 2,
-            serviceResponse: {},
-            ...(mobileNumber && { mobileNumber }),
-            serviceName: response?.service,
-            createdDate: new Date().toLocaleDateString(),
-            createdTime: new Date().toLocaleTimeString(),
-          };
-    
-          await pincodeGeofencingModel.create(storingData);
-          locationServiceLogger.info(
-            `Invalid PAN to GST response stored and sent to client: ${storingClient}`,
-          );
-          return res
-            .status(404)
-            .json(
-              createApiResponse(
-                404,
-                { pan: panNumber, ...findingInValidResponses("pincodeGeofencing") },
-                "InValid",
-              ),
-            );
-        }
-      } catch (error) {
-        locationServiceLogger.error(
-          `System error in pincode geofencing for client ${storingClient}: ${error.message}`,
-          error,
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingGstin?.response;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
       }
-}
+    }
+
+    // Get All Active Services
+    const service = await selectService(categoryId, serviceId);
+    if (!service) {
+      locationServiceLogger.warn(
+        `Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    locationServiceLogger.info(
+      `Active service selected for GSTIN verification: ${service.serviceFor}`,
+    );
+
+    //  get Acitve Service Response
+    let response = await pincodeGeofencingActiveServiceResponse(
+      gstinNumber,
+      service,
+      0,
+    );
+    locationServiceLogger.info(
+      `Response received from active service ${service.serviceFor}: ${response?.message}`,
+    );
+
+    // Response form Active Service if response message is Valid
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        gstinNumber: encryptedGst,
+      };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        gstinNumber: encryptedGst,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await pincodeGeofencingModel.create(storingData);
+      locationServiceLogger.info(
+        `Valid GSTIN response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        gstinNumber: encryptedGst,
+        response: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await pincodeGeofencingModel.create(storingData);
+      locationServiceLogger.info(
+        `Invalid GSTIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { gstinNumber }, "Failed"));
+    }
+  } catch (error) {
+    locationServiceLogger.error(
+      `System error in GSTIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.handleLongLatGeofencing = async (req, res) => {
+  const {
+    latitude,
+    longitude,
+    serviceId = "",
+    categoryId = "",
+    mobileNumber = "",
+  } = req.body;
+
+  const clientId = req.clientId || "CID-6140971541";
+
+  locationServiceLogger.info(
+    `latitude and longitude Details ===>> gstinNumber: ${gstinNumber} for this client: ${clientId}`,
+  );
+
+  try {
+    const isLatValid = handleValidation("latitude", latitude, res);
+    if (!isLatValid) return;
+    const isLongValid = handleValidation("longitude", longitude, res);
+    if (!isLongValid) return;
+
+    locationServiceLogger.info(
+      `Executing longLat geofencing for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+    );
+
+    const identifierHash = hashIdentifiers({
+      lat: latitude,
+      long: longitude,
+    });
+
+    const longLatGeofencingRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: clientId,
+    });
+
+    if (!longLatGeofencingRateLimitResult.allowed) {
+      locationServiceLogger.warn(
+        `Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: longLatGeofencingRateLimitResult.message,
+      });
+    }
+
+    const tnId = genrateUniqueServiceId();
+    locationServiceLogger.info(
+      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
+    );
+
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment,
+    );
+
+    if (!maintainanceResponse?.result) {
+      locationServiceLogger.error(
+        `Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    const encryptedLatitude = encryptData(latitude);
+    const encryptedLongitude = encryptData(longitude);
+
+    // Check if the record is present in the DB
+    const existingGstin = await longLatGeofencingModel.findOne({
+      longitude: encryptedLongitude,
+      latitude: encryptedLatitude,
+    });
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.warn(
+        `Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`,
+      );
+    }
+
+    locationServiceLogger.debug(
+      `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+    );
+    if (existingGstin) {
+      if (existingGstin?.status == 1) {
+        locationServiceLogger.info(
+          `Returning cached GSTIN response for client: ${clientId}`,
+        );
+
+        const decrypted = {
+          ...existingGstin?.response,
+          gstinNumber: gstinNumber,
+        };
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        locationServiceLogger.info(
+          `Returning cached GSTIN response for client: ${clientId}`,
+        );
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingGstin?.response;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      }
+    }
+
+    // Get All Active Services
+    const service = await selectService(categoryId, serviceId);
+    if (!service) {
+      locationServiceLogger.warn(
+        `Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    locationServiceLogger.info(
+      `Active service selected for GSTIN verification: ${service.serviceFor}`,
+    );
+
+    //  get Acitve Service Response
+    let response = await longLatGeofencingActiveServiceResponse(
+      gstinNumber,
+      service,
+      0,
+    );
+    locationServiceLogger.info(
+      `Response received from active service ${service.serviceFor}: ${response?.message}`,
+    );
+
+    // Response form Active Service if response message is Valid
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        gstinNumber: encryptedGst,
+      };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        gstinNumber: encryptedGst,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await longLatGeofencingModel.create(storingData);
+      locationServiceLogger.info(
+        `Valid GSTIN response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        gstinNumber: encryptedGst,
+        response: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await longLatGeofencingModel.create(storingData);
+      locationServiceLogger.info(
+        `Invalid GSTIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { gstinNumber }, "Failed"));
+    }
+  } catch (error) {
+    locationServiceLogger.error(
+      `System error in GSTIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};

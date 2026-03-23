@@ -2,7 +2,7 @@
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const CinActiveServiceResponse = async (data, services, index = 0) => {
+const CinActiveServiceResponse = async (data, services, index = 0, client) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }

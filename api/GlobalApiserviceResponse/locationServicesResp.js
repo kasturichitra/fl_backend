@@ -175,7 +175,7 @@ const longLaotGeofencingApiCall = async (data, service, CID) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "64",
+        docType: "553",
         docNumber: data,
       },
       url: process.env.TRUTNSCREEN_UTILITY_URL,
