@@ -63,6 +63,9 @@ const createSectionLogger = (section) => {
 
 module.exports = {
   panServiceLogger: createSectionLogger('panService'),
+  dinServiceLogger: createSectionLogger('dinService'),
+  tinServiceLogger: createSectionLogger('tinService'),
+  iecServiceLogger: createSectionLogger('iecService'),
   aadhaarServiceLogger: createSectionLogger('aadhaarService'),
   bankServiceLogger: createSectionLogger('bankService'),
   gstServiceLogger: createSectionLogger('gstService'),

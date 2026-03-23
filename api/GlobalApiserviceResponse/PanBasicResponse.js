@@ -76,7 +76,7 @@ const PanApiCall = async (data, service) => {
                 docType: 2,
                 docNumber: data,
             },
-            url: process.env.TRUTNSCREEN_PANVERIFICATION_URL,
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,

@@ -53,7 +53,7 @@ const CinApiCall = async (data, service) => {
                 docType: 15,     // CIN docType
                 docNumber: data
             },
-            url: process.env.TRUTNSCREEN_CIN_URL,
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 password: process.env.TRUTHSCREEN_TOKEN
