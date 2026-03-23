@@ -2,6 +2,6 @@ const express = require("express");
 const { verifyFullCardNumber } = require("../controllers/cardValidation.controller");
 const fullCardRouter = express?.Router();
 
-fullCardRouter.post("/cardVerify", verifyFullCardNumber)
+fullCardRouter.post("/Verify", verifyFullCardNumber)
 
 module.exports = fullCardRouter

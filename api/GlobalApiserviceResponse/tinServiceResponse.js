@@ -1,55 +1,55 @@
-const { panServiceLogger } = require("../Logger/logger");
+const { dinServiceLogger } = require("../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const GstTaxpayerActiveServiceResponse = async (data, services=[], index = 0) => {
+const TinActiveServiceResponse = async (data, services=[], index = 0) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
     const newService = services?.find((ser) => ser.priority === index + 1);
-    console.log("[GstTaxpayerActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    panServiceLogger.info("[GstTaxpayerActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    console.log("[TinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    dinServiceLogger.info("[TinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return GstTaxpayerActiveServiceResponse(data, services, index + 1);
+        return TinActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`[GstTaxpayerActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-    panServiceLogger.info(`[GstTaxpayerActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    console.log(`[TinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    dinServiceLogger.info(`[TinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await GstInTaxPayerApiCall(data, serviceName);
+        const res = await TinApiCall(data, serviceName);
 
         if (res?.success) {
             return res.data;
         }
 
-        console.log(`[GstTaxpayerActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return GstTaxpayerActiveServiceResponse(data, services, index + 1);
+        console.log(`[TinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+        return TinActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`[GstTaxpayerActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return GstTaxpayerActiveServiceResponse(data, services, index + 1);
+        console.log(`[TinActiveServiceResponse] Error from ${serviceName}:`, err.message);
+        return TinActiveServiceResponse(data, services, index + 1);
     }
 };
 
 // =======================================
-//         PAN API CALL (ALL SERVICES)
+//         TIN API CALL (ALL SERVICES)
 // =======================================
 
-const GstInTaxPayerApiCall = async (data, service) => {
+const TinApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
                 transID: tskId,
-                docType: 115,
+                docType: 16,
                 docNumber: data,
             },
-            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // DIN URL is similar to the Pan
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // TIN URL is similar to the Tin
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,
@@ -76,7 +76,7 @@ const GstInTaxPayerApiCall = async (data, service) => {
                 username: config.header.username,
                 password: config.header.token,
             });
-            console.log('[GstInTaxPayerApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
+            console.log('[TinApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 
         } else {
             ApiResponse = await axios.post(
@@ -85,9 +85,9 @@ const GstInTaxPayerApiCall = async (data, service) => {
                 { headers: config.header }
             );
         }
-        console.log(`[GstInTaxPayerApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
+        console.log(`[TinApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
     } catch (error) {
-        console.log(`[GstInTaxPayerApiCall] API Error in ${service}:`, error.message);
+        console.log(`[TinApiCall] API Error in ${service}:`, error.message);
         return { success: false };
     }
 
@@ -100,36 +100,6 @@ const GstInTaxPayerApiCall = async (data, service) => {
     // =======================================
 
     let returnedObj = {};
-
-    // ------------------------
-    // ZOOP RESPONSE
-    // ------------------------
-    if (service === "ZOOP") {
-        if (obj?.response_code === "101" || !obj?.success) {
-            return invalidResponse(service, obj?.result);
-        }
-
-        returnedObj = {
-            PAN: obj?.result?.pan_number || null,
-            Name: obj?.result?.user_full_name || null,
-            PAN_Status: obj?.result?.pan_status || null,
-            PAN_Holder_Type: obj?.result?.pan_type || null,
-        };
-    }
-
-    // ------------------------
-    // INVINCIBLE RESPONSE
-    // ------------------------
-    if (service === "INVINCIBLE") {
-        if (!obj?.success) return invalidResponse(service, obj?.result);
-
-        returnedObj = {
-            PAN: obj?.result?.pan_number || null,
-            Name: obj?.result?.user_full_name || null,
-            PAN_Status: obj?.result?.pan_status || null,
-            PAN_Holder_Type: obj?.result?.pan_type || null,
-        };
-    }
 
     // ------------------------
     // TRUTHSCREEN RESPONSE
@@ -186,5 +156,5 @@ const invalidResponse = (service, raw) => ({
 
 
 module.exports = {
-    GstTaxpayerActiveServiceResponse,
+    TinActiveServiceResponse,
 };

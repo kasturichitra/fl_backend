@@ -198,7 +198,7 @@ exports.verifyPanNumber = async (req, res) => {
     );
 
     panServiceLogger.info(
-      `Response received from active service ${service.serviceFor}: ${panNumberResponse?.message}`,
+      `Response received from active service ${service.serviceFor}: ${JSON.stringify(panNumberResponse)}`,
     );
 
     if (response?.message?.toLowerCase() === "all services failed") {

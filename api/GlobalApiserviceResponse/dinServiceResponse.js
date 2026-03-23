@@ -1,4 +1,4 @@
-const { panServiceLogger } = require("../Logger/logger");
+const { dinServiceLogger } = require("../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
 
@@ -9,7 +9,7 @@ const DinActiveServiceResponse = async (data, services=[], index = 0) => {
 
     const newService = services?.find((ser) => ser.priority === index + 1);
     console.log("[DinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    panServiceLogger.info("[DinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    dinServiceLogger.info("[DinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
@@ -18,7 +18,7 @@ const DinActiveServiceResponse = async (data, services=[], index = 0) => {
 
     const serviceName = newService.providerId || "";
     console.log(`[DinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-    panServiceLogger.info(`[DinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    dinServiceLogger.info(`[DinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await DinApiCall(data, serviceName);
@@ -37,7 +37,7 @@ const DinActiveServiceResponse = async (data, services=[], index = 0) => {
 };
 
 // =======================================
-//         PAN API CALL (ALL SERVICES)
+//         TIN API CALL (ALL SERVICES)
 // =======================================
 
 const DinApiCall = async (data, service) => {
@@ -49,7 +49,7 @@ const DinApiCall = async (data, service) => {
                 docType: 14,
                 docNumber: data,
             },
-            url: process.env.TRUTNSCREEN_PANVERIFICATION_URL, // DIN URL is similar to the Pan
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // DIN URL is similar to the Tin
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,
@@ -100,36 +100,6 @@ const DinApiCall = async (data, service) => {
     // =======================================
 
     let returnedObj = {};
-
-    // ------------------------
-    // ZOOP RESPONSE
-    // ------------------------
-    if (service === "ZOOP") {
-        if (obj?.response_code === "101" || !obj?.success) {
-            return invalidResponse(service, obj?.result);
-        }
-
-        returnedObj = {
-            PAN: obj?.result?.pan_number || null,
-            Name: obj?.result?.user_full_name || null,
-            PAN_Status: obj?.result?.pan_status || null,
-            PAN_Holder_Type: obj?.result?.pan_type || null,
-        };
-    }
-
-    // ------------------------
-    // INVINCIBLE RESPONSE
-    // ------------------------
-    if (service === "INVINCIBLE") {
-        if (!obj?.success) return invalidResponse(service, obj?.result);
-
-        returnedObj = {
-            PAN: obj?.result?.pan_number || null,
-            Name: obj?.result?.user_full_name || null,
-            PAN_Status: obj?.result?.pan_status || null,
-            PAN_Holder_Type: obj?.result?.pan_type || null,
-        };
-    }
 
     // ------------------------
     // TRUTHSCREEN RESPONSE

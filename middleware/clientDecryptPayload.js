@@ -20,13 +20,13 @@ const encrypt = (plainText, password) => {
     return `${encrypted}:${iv.toString("base64")}`;
 };
 
-exports.encryptPayload = (req, res, next) => {
+exports.encryptPayload = async (req, res, next) => {
     try {
         const password = req.clientSecret;
 
         const oldJson = res.json.bind(res);
-        res.json = function (data) {
-            const encryptData = encrypt(JSON.stringify(data), password);
+        res.json = async function (data) {
+            const encryptData = await encrypt(JSON.stringify(data), password);
             return oldJson(encryptData);
         }
         next();
@@ -67,11 +67,10 @@ exports.decryptPayload = async (req, res, next) => {
                 error: "Missing encrypted payload",
                 success: false
             });
-        }
+        };
 
         commonLogger.info(`[STS] Attempting to decrypt request payload...,password:${password}, PayloadData: ${typeof (req?.body.data)}`);
         const decryptedData = await decrypt(req?.body.data, password);
-
 
         req.body = JSON.parse(decryptedData);
         commonLogger.info(`[STS] Request payload decrypted successfully. decryptedData: ${typeof (decryptedData)}`);
