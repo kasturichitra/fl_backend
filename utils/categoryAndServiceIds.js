@@ -28,7 +28,19 @@ const SERVICES = {
     category: "GEO",
     serviceId: "",
   },
+  GEO_TAGGING_DISTANCE_CALCULATION: {
+    category: "GEO",
+    serviceId: "",
+  },
+  GEO_TAGGING: {
+    category: "GEO",
+    serviceId: "",
+  },
   PANBASIC: {
+    category: "PAN",
+    serviceId: "",
+  },
+  PAN_TAN_VERIFY: {
     category: "PAN",
     serviceId: "",
   },

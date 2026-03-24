@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const geoTaggingDetails = new mongoose.Schema({
+const geoTaggingDistanceCalculation = new mongoose.Schema({
   longitude: {
     type: String,
   },
@@ -39,4 +39,4 @@ const geoTaggingDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("geoTagging", geoTaggingDetails);
+module.exports = mongoose.model("geoTagDistanceCalculation", geoTaggingDistanceCalculation);

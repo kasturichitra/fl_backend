@@ -10,6 +10,7 @@ panRouter.post('/panNameMatch', panverificationController.verifyPanNameMatch);
 panRouter.post('/panName/DobVerify', panverificationController.verifyPanNameDob);
 panRouter.post('/knowDirector', panverificationController.panDirector);
 panRouter.post('/know/fatherName', panverificationController.panToFatherName);
+panRouter.post('/tan/verify', panverificationController.handlePanTanVerification);
 panRouter.post('/know/itdStatus/otp_generate', panverificationController.panItdStatusOtpGeneration);
 panRouter.post('/know/itdStatus/otp_validate', panverificationController.panItdStatusOtpVerification);
 

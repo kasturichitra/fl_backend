@@ -1,10 +1,7 @@
 const mongoose = require("mongoose");
 
-const geoTaggingDetails = new mongoose.Schema({
-  longitude: {
-    type: String,
-  },
-  latitude: {
+const panToGst_InDetails = new mongoose.Schema({
+  panNumber: {
     type: String,
   },
   response: {
@@ -39,4 +36,4 @@ const geoTaggingDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("geoTagging", geoTaggingDetails);
+module.exports = mongoose.model("panToGst_inDetails", panToGst_InDetails);

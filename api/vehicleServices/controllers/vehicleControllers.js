@@ -17,7 +17,8 @@ const {
   stolenVehicleVerificationServiceResponse,
   challanViaRcServiceResponse,
   drivingLicenseServiceResponse,
-} = require("../../GlobalApiserviceResponse/vehicleServiceResp");
+  vehicleRegisterationVerificationServiceResponse,
+} = require("../service/vehicleServiceResp");
 const { vehicleServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
@@ -25,6 +26,7 @@ const challanViaRcModel = require("../models/challanViaRcModel");
 const drivingLicenseModel = require("../models/drivingLicenseModel");
 const rcVerificationModel = require("../models/rcVerificationModel");
 const stolenVehicleModel = require("../models/stolenVehicleModel");
+const vehicleRegisterationModel = require("../models/vehicleRegisterationModel");
 
 exports.handleRcVerification = async (req, res) => {
   const data = req.body;
@@ -32,7 +34,7 @@ exports.handleRcVerification = async (req, res) => {
   const capitalRcNumber = rcNumber?.toUpperCase();
   console.log("req coming in rc verification ===>>", req?.baseUrl);
 
-  const isValid = handleValidation("RC", capitalRcNumber, res);
+  const isValid = handleValidation("rc", capitalRcNumber, res);
   if (!isValid) return;
 
   vehicleServiceLogger.info(
@@ -41,12 +43,14 @@ exports.handleRcVerification = async (req, res) => {
 
   const storingClient = req.clientId;
 
-  const {  idOfCategory, idOfService } =
-    getCategoryIdAndServiceId("RC_VERIFICATION", clientId);
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "RC_VERIFICATION",
+    storingClient,
+  );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
-  const categoryId = idOfCategory
-  const serviceId = idOfService
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     vehicleServiceLogger.info(
@@ -101,7 +105,7 @@ exports.handleRcVerification = async (req, res) => {
 
     const encryptedRc = encryptData(capitalRcNumber);
 
-    const existingRcNumber = await rcVerificationModel.findOne({
+    const existingVehicleNumber = await rcVerificationModel.findOne({
       rcNumber: encryptedRc,
     });
 
@@ -121,7 +125,7 @@ exports.handleRcVerification = async (req, res) => {
     );
     if (existingRcNumber) {
       const decryptedPanNumber = decryptData(existingRcNumber?.rcNumber);
-      const resOfPan = existingRcNumber?.response;
+      const resOfRc = existingRcNumber?.response;
 
       if (existingRcNumber?.status == 1) {
         const decryptedResponse = {
@@ -149,7 +153,7 @@ exports.handleRcVerification = async (req, res) => {
           serviceId,
           categoryId,
           clientId: storingClient,
-          result: resOfPan,
+          result: resOfRc,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
@@ -158,7 +162,7 @@ exports.handleRcVerification = async (req, res) => {
         );
         return res.json({
           message: "InValid",
-          data: resOfPan,
+          data: resOfRc,
           success: false,
         });
       }
@@ -183,14 +187,14 @@ exports.handleRcVerification = async (req, res) => {
     );
 
     vehicleServiceLogger.info(
-      `Response received from active service ${service.serviceFor}: ${rcNumberResponse?.message}`,
+      `Response received from active service ${rcNumberResponse?.service}: ${rcNumberResponse?.message}`,
     );
 
     if (rcNumberResponse?.message?.toUpperCase() == "VALID") {
       const encryptedRc = encryptData(rcNumberResponse?.result?.PAN);
       const encryptedResponse = {
         ...rcNumberResponse?.result,
-        PAN: encryptedRc,
+        rcNumber: encryptedRc,
       };
 
       const storingData = {
@@ -208,7 +212,7 @@ exports.handleRcVerification = async (req, res) => {
 
       await rcVerificationModel.create(storingData);
       vehicleServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
+        `Valid RC Verification response stored and sent to client: ${storingClient}`,
       );
 
       return res
@@ -237,6 +241,237 @@ exports.handleRcVerification = async (req, res) => {
           createApiResponse(
             404,
             { rcNumber: rcNumber, ...findingInValidResponses("rcNo") },
+            "InValid",
+          ),
+        );
+    }
+  } catch (error) {
+    vehicleServiceLogger.error(
+      `System error in RC verification for client ${storingClient}: ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.handleVehicleRegisteration = async (req, res) => {
+  const data = req.body;
+  const { RegistrationNumber, mobileNumber = "" } = data;
+  const capitalRegisterationNumber = RegistrationNumber?.toUpperCase();
+  const storingClient = req.clientId;
+
+  const isValid = handleValidation(
+    "vehicleNumber",
+    capitalRegisterationNumber,
+    res,
+    storingClient,
+  );
+  if (!isValid) return;
+
+  vehicleServiceLogger.info(
+    "All inputs in Rc verification are valid, continue processing...",
+  );
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "RC_VERIFICATION",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
+  try {
+    vehicleServiceLogger.info(
+      `Executing Rc verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+    );
+
+    // Always generate txnId
+    const tnId = genrateUniqueServiceId();
+    vehicleServiceLogger.info(
+      `Generated Rc verification txn Id: ${tnId} for the client: ${storingClient}`,
+    );
+
+    const identifierHash = hashIdentifiers({
+      vehicleNo: capitalRegisterationNumber,
+    });
+
+    const vehicleNoRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+    });
+
+    if (!vehicleNoRateLimitResult.allowed) {
+      vehicleServiceLogger.warn(
+        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: vehicleNoRateLimitResult.message,
+      });
+    }
+
+    const maintainanceResponse = await deductCredits(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment,
+    );
+
+    if (!maintainanceResponse?.result) {
+      vehicleServiceLogger.error(
+        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    const encryptedVehicleNo = encryptData(capitalRegisterationNumber);
+
+    const existingVehicleNumber = await vehicleRegisterationModel.findOne({
+      RegistrationNumber: encryptedVehicleNo,
+    });
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      storingClient,
+      serviceId,
+      categoryId,
+    );
+    if (!analyticsResult.success) {
+      vehicleServiceLogger.warn(
+        `Analytics update failed for PAN verification: client ${storingClient}, service ${serviceId}`,
+      );
+    }
+
+    vehicleServiceLogger.info(
+      `Checked for existing PAN record in DB: ${existingVehicleNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
+    );
+    if (existingVehicleNumber) {
+      const decryptedPanNumber = decryptData(existingVehicleNumber?.rcNumber);
+      const resOfvehicleRegister = existingVehicleNumber?.response;
+
+      if (existingVehicleNumber?.status == 1) {
+        const decryptedResponse = {
+          ...existingVehicleNumber?.response,
+          PAN: decryptedPanNumber,
+        };
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId: storingClient,
+          result: decryptedResponse,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        vehicleServiceLogger.info(
+          `Returning cached valid PAN response for client: ${storingClient}`,
+        );
+        return res.json({
+          message: "Valid",
+          data: decryptedResponse,
+          success: true,
+        });
+      } else {
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId: storingClient,
+          result: resOfvehicleRegister,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        vehicleServiceLogger.info(
+          `Returning cached invalid PAN response for client: ${storingClient}`,
+        );
+        return res.json({
+          message: "InValid",
+          data: resOfvehicleRegister,
+          success: false,
+        });
+      }
+    }
+
+    const service = await selectService(categoryId, serviceId);
+
+    if (!service) {
+      vehicleServiceLogger.warn(
+        `Active service not found for category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    vehicleServiceLogger.info(
+      `Active service selected for PAN verification: ${service.serviceFor}`,
+    );
+    let rcNumberResponse = await vehicleRegisterationVerificationServiceResponse(
+      rcNumber,
+      service,
+      0,
+      storingClient
+    );
+
+    vehicleServiceLogger.info(
+      `Response received from active service ${service.serviceFor}: ${rcNumberResponse?.message}`,
+    );
+
+    if (rcNumberResponse?.message?.toUpperCase() == "VALID") {
+      const encryptedRc = encryptData(rcNumberResponse?.result?.PAN);
+      const encryptedResponse = {
+        ...rcNumberResponse?.result,
+        PAN: encryptedRc,
+      };
+
+      const storingData = {
+        rcNumber: encryptedRc,
+        userName: rcNumberResponse?.result?.Name,
+        response: encryptedResponse,
+        serviceResponse: rcNumberResponse?.responseOfService,
+        status: 1,
+        mobileNumber,
+        serviceId: `${rcNumberResponse?.service}_rcVerify`,
+        serviceName: rcNumberResponse?.service,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await vehicleRegisterationModel.create(storingData);
+      vehicleServiceLogger.info(
+        `Valid PAN response stored and sent to client: ${storingClient}`,
+      );
+
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Valid"));
+    } else {
+      const storingData = {
+        rcNumber: encryptedRc,
+        userName: "",
+        response: { rcNumber: rcNumber, ...findingInValidResponses("rcNo") },
+        serviceResponse: rcNumberResponse?.responseOfService,
+        status: 2,
+        mobileNumber,
+        serviceId: `${rcNumberResponse?.service}_rcVerify`,
+        serviceName: rcNumberResponse?.service,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+      await vehicleRegisterationModel.create(storingData);
+      vehicleServiceLogger.info(
+        `Invalid PAN response received and sent to client: ${storingClient}`,
+      );
+      return res
+        .status(404)
+        .json(
+          createApiResponse(
+            404,
+            { rcNumber: rcNumber, ...findingInValidResponses("rcNo") },
             "Failed",
           ),
         );
@@ -253,23 +488,31 @@ exports.handleRcVerification = async (req, res) => {
 
 exports.handleStolenVehicleVerification = async (req, res) => {
   const data = req.body;
-  const {
-    vehicleRegisterationNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-  } = data;
+  const { vehicleRegisterationNumber, mobileNumber = "" } = data;
 
   const capitalVehicleNumber = vehicleRegisterationNumber?.toUpperCase();
+  const storingClient = req.clientId;
 
-  const isValid = handleValidation("vehicleNo", capitalVehicleNumber, res);
+  const isValid = handleValidation(
+    "vehicleNo",
+    capitalVehicleNumber,
+    res,
+    storingClient,
+  );
   if (!isValid) return;
 
   vehicleServiceLogger.info(
     "All inputs in pan are valid, continue processing...",
   );
 
-  const storingClient = req.clientId;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "RC_VERIFICATION",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     vehicleServiceLogger.info(
@@ -324,7 +567,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
 
     const encryptedVehicleNo = encryptData(capitalVehicleNumber);
 
-    const existingPanNumber = await stolenVehicleModel.findOne({
+    const existingVehicleNumber = await stolenVehicleModel.findOne({
       vehicleRegisterationNumber: encryptedVehicleNo,
     });
 
@@ -340,16 +583,16 @@ exports.handleStolenVehicleVerification = async (req, res) => {
     }
 
     vehicleServiceLogger.debug(
-      `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
+      `Checked for existing PAN record in DB: ${existingVehicleNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
-    if (existingPanNumber) {
-      const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-      const resOfPan = existingPanNumber?.response;
+    if (existingVehicleNumber) {
+      const decryptedVehicleNumber = decryptData(existingVehicleNumber?.vehicleRegisterationNumber);
+      const resOfPan = existingVehicleNumber?.response;
 
-      if (existingPanNumber?.status == 1) {
+      if (existingVehicleNumber?.status == 1) {
         const decryptedResponse = {
-          ...existingPanNumber?.response,
-          PAN: decryptedPanNumber,
+          ...existingVehicleNumber?.response,
+          PAN: decryptedVehicleNumber,
         };
         await responseModel.create({
           serviceId,
@@ -476,24 +719,26 @@ exports.handleStolenVehicleVerification = async (req, res) => {
 
 exports.handleChallanViaRc = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-  } = data;
-  const capitalPanNumber = panNumber?.toUpperCase();
+  const { rcNumber, mobileNumber = "", clientId = "" } = data;
+  const capitalRcNumber = rcNumber?.toUpperCase();
   console.log("req coming in pan ===>>", req?.baseUrl);
+  const storingClient = req.clientId || clientId;
 
-  const isValid = handleValidation("pan", capitalPanNumber, res);
+  const isValid = handleValidation("rc", capitalRcNumber, res, storingClient);
   if (!isValid) return;
 
   vehicleServiceLogger.info(
     "All inputs in pan are valid, continue processing...",
   );
 
-  const storingClient = req.clientId || clientId;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "RC_VERIFICATION",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     vehicleServiceLogger.info(
@@ -507,23 +752,23 @@ exports.handleChallanViaRc = async (req, res) => {
     );
 
     const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
+      rcNumber: capitalRcNumber,
     });
 
-    const panRateLimitResult = await checkingRateLimit({
+    const challanViaRcRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
     });
 
-    if (!panRateLimitResult.allowed) {
+    if (!challanViaRcRateLimitResult.allowed) {
       vehicleServiceLogger.warn(
         `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
-        message: panRateLimitResult.message,
+        message: challanViaRcRateLimitResult.message,
       });
     }
 
@@ -546,10 +791,10 @@ exports.handleChallanViaRc = async (req, res) => {
       });
     }
 
-    const encryptedPan = encryptData(capitalPanNumber);
+    const encryptedRc = encryptData(capitalRcNumber);
 
     const existingPanNumber = await challanViaRcModel.findOne({
-      panNumber: encryptedPan,
+      rcNumber: encryptedRc,
     });
 
     const analyticsResult = await AnalyticsDataUpdate(
@@ -567,7 +812,7 @@ exports.handleChallanViaRc = async (req, res) => {
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
-      const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
+      const decryptedPanNumber = decryptData(existingPanNumber?.rcNumber);
       const resOfPan = existingPanNumber?.response;
 
       if (existingPanNumber?.status == 1) {

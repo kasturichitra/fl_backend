@@ -1,12 +1,13 @@
-const { generateTransactionId } = require("../truthScreen/callTruthScreen");
-const { default: axios } = require("axios");
+const { contactServiceLogger } = require("../../Logger/logger");
+const { callTruthScreenAPI, generateTransactionId } = require("../../truthScreen/callTruthScreen");
 
-const mobileToUanActiveServiceResponse = async (
+const mobileToPanActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
+  client
 ) => {
-  console.log("mobileToUanActiveServiceResponse called");
+  console.log("mobileToPanActiveServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -15,46 +16,46 @@ const mobileToUanActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return mobileToUanActiveServiceResponse(data, services, index + 1);
+    return mobileToPanActiveServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(
-    `[mobileToUanActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    `[mobileToPanActiveServiceResponse] Trying service with priority ${index + 1}:`,
     newService,
   );
 
   try {
-    const res = await mobileToUanApiCall(data, serviceName, 0);
+    const res = await mobileToPanApiCall(data, serviceName, client);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
     console.log(
-      `[mobileToUanActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+      `[mobileToPanActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return mobileToUanActiveServiceResponse(data, services, index + 1);
+    return mobileToPanActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(
-      `[mobileToUanActiveServiceResponse] Error from ${serviceName}:`,
+      `[mobileToPanActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return mobileToUanActiveServiceResponse(data, services, index + 1);
+    return mobileToPanActiveServiceResponse(data, services, index + 1);
   }
 };
 
-const mobileToUanApiCall = async (data, service) => {
+const mobileToPanApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "526",
+        docType: "64",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
+      url: process.env.TRUTNSCREEN_UTILITY_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -66,6 +67,7 @@ const mobileToUanApiCall = async (data, service) => {
   if (!service?.trim()) {
     service = Object.keys(ApiData)[0];
     console.log("Empty provider → defaulting to:", service);
+    contactServiceLogger.info("Empty provider → defaulting to:", service);
   }
 
   const config = ApiData[service];
@@ -82,24 +84,24 @@ const mobileToUanApiCall = async (data, service) => {
         password: config.header.token,
       });
       console.log(
-        "[PanApiCall] TruthScreen API response:",
+        "[pan to gst api call] TruthScreen API response:",
         JSON.stringify(ApiResponse),
       );
     }
   } catch (error) {
-    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+    console.log(`[pan to gst api call] API Error in ${service}:`, error.message);
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse.data;
+  const obj = ApiResponse;
   console.log(
-    `[GSTApiCall] ${service} API Response Object:`,
+    `[pan to gst api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 
-  let returnedObj = {};
+   let returnedObj = {};
 
-  if (obj.response_code === "101") {
+  if (obj.status != "1") {
     return {
       success: false,
       data: {
@@ -114,22 +116,21 @@ const mobileToUanApiCall = async (data, service) => {
   switch (service) {
     case "TRUTHSCREEN":
       returnedObj = {
-        gstinNumber: obj?.result?.essentials?.gstin || "",
+        ...(obj?.msg || ""),
       };
       break;
   }
   return {
     success: true,
     data: {
-      gstinNumber: data || "",
       result: returnedObj,
       message: "Valid",
-      responseOfService: obj,
+      responseOfService: obj?.msg,
       service: service,
     },
   };
 };
 
 module.exports = {
-  mobileToUanActiveServiceResponse,
+ mobileToPanActiveServiceResponse
 };

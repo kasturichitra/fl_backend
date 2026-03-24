@@ -15,7 +15,7 @@ const handleValidation = require("../../../utils/lengthCheck");
 const {
   passportVerifyServiceResponse,
   voterIdVerifyServiceResponse,
-} = require("../../GlobalApiserviceResponse/governmentServicesResp");
+} = require("../service/governmentServicesResp");
 const { governmentServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");

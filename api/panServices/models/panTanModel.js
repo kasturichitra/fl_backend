@@ -1,24 +1,34 @@
 const mongoose = require("mongoose");
 
-const RapidApiIfscModel = mongoose.Schema(
+const panTanVerify = new mongoose.Schema(
   {
-    Ifsc: {
+    panNumber: {
+      type: String,
+    },
+    tanNumber: {
+      type: String,
+    },
+    mobileNumber: {
       type: String,
     },
     response: {
       type: Object,
     },
-    status: {
-      type: Number,
-    },
     serviceResponse: {
       type: Object,
+    },
+    status: {
+      type: Number,
     },
     serviceId: {
       type: String,
     },
     serviceName: {
       type: String,
+    },
+    userName: {
+      type: String,
+      required: false,
     },
     createdTime: {
       type: String,
@@ -29,7 +39,9 @@ const RapidApiIfscModel = mongoose.Schema(
       default: Date.now,
     },
   },
-  { timestamps: true },
+  {
+    timestamps: true,
+  },
 );
 
-module.exports = mongoose.model("ifscVerification", RapidApiIfscModel);
+module.exports = mongoose.model("panTanVerification", panTanVerify);

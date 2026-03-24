@@ -19,44 +19,31 @@ const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
-const chargesToBeDebited = require("../../../utils/chargesMaintainance");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
+const handleValidation = require("../../../utils/lengthCheck");
 
-function generateMerchantId() {
-  const now = moment();
-  const datePart = now.format("DDMMYYYY");
-  const dayPart = now.format("ddd").toUpperCase();
-  const timePart = now.format("HHmmss");
-  return `MER-${datePart}-${dayPart}-${timePart}`;
-}
-
-console.log(generateMerchantId());
-
+// aadhaar to masked pan
 exports.handleAadhaarMaskedVerify = async (req, res) => {
-  const {
-    aadharNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-  } = req.body;
+  const { aadharNumber, mobileNumber = "" } = req.body;
 
   const client_Id = req.clientId;
 
+  const isValid = handleValidation("aadhaar", aadharNumber, res, client_Id);
+  if (!isValid) return false;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "IFSC_SEARCH",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
+  aadhaarServiceLogger.info(
+    `Executing Aadhaar to Masked Pan Verification for client: ${client_Id}, service: ${serviceId}, category: ${categoryId}`,
+  );
   try {
-    aadhaarServiceLogger.info(
-      `Executing Aadhaar Masked Verification for client: ${client_Id}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    if (!aadharNumber) {
-      aadhaarServiceLogger.warn(
-        `Aadhaar number missing in request for client ${client_Id}`,
-      );
-      return res
-        .status(400)
-        .json(createApiResponse(400, [], "Invalid request parameters"));
-    }
-
     const identifierHash = hashIdentifiers({
       aadhaarNo: aadharNumber,
     });
@@ -151,7 +138,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
-  
+
         return res
           .status(200)
           .json(
@@ -171,27 +158,26 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     aadhaarServiceLogger.info(
       `Active service selected for Aadhaar Masked: ${service.serviceFor}`,
     );
-    const response = await AadhaarActiveServiceResponse(
+    const aadhaarResponse = await AadhaarActiveServiceResponse(
       { aadharNumber },
       service,
       0,
-      client_Id
+      client_Id,
     );
 
     aadhaarServiceLogger.info(
-      `Response received from active service ${service.serviceFor}: ${response?.message}`,
+      `Response received from active service ${aadhaarResponse?.service}: ${aadhaarResponse?.message}`,
     );
 
-    await adhaarverificattionwithoutoptModel.create({
-      aadhaarNumber: encryptedAadhaar,
-      response,
-      status: 1,
-      serviceName: response?.service,
-      message: response?.message || "Aadhaar verification completed",
-      success: response?.code === 200 && !!response?.result,
-    });
-
-    if (response?.code === 200 && response?.result) {
+    if (aadhaarResponse?.code === 200 && aadhaarResponse?.result) {
+      await adhaarverificattionwithoutoptModel.create({
+        aadhaarNumber: encryptedAadhaar,
+        response: aadhaarResponse,
+        status: 1,
+        serviceName: aadhaarResponse?.service,
+        ...(mobileNumber && { mobileNumber }),
+        message: aadhaarResponse?.message || "Aadhaar verification completed",
+      });
       aadhaarServiceLogger.info(
         `Aadhaar verified successfully for client: ${client_Id}`,
       );
@@ -199,6 +185,14 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
         .status(200)
         .json(createApiResponse(200, response?.result, "Valid"));
     } else {
+      await adhaarverificattionwithoutoptModel.create({
+        aadhaarNumber: encryptedAadhaar,
+        response: aadhaarResponse,
+        status: 2,
+        serviceName: aadhaarResponse?.service,
+        ...(mobileNumber && { mobileNumber }),
+        message: aadhaarResponse?.message || "Aadhaar verification completed",
+      });
       aadhaarServiceLogger.info(
         `Invalid Aadhaar response received for client: ${client_Id}`,
       );
@@ -214,6 +208,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
   }
 };
 
+// aadhaar digilocker step 1, step 2
 exports.initiateAadhaarDigilocker = async (req, res) => {
   const {
     callback_url,
@@ -230,12 +225,12 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
 
   const tnId = genrateUniqueServiceId();
   const maintainanceResponse = await deductCredits(
-        storingClient,
-        serviceId,
-        categoryId,
-        tnId,
-        req.environment,
-      );
+    storingClient,
+    serviceId,
+    categoryId,
+    tnId,
+    req.environment,
+  );
 
   if (!maintainanceResponse?.result) {
     aadhaarServiceLogger.error(
@@ -380,8 +375,6 @@ exports.checkAadhaarDigilockerStatus = async (req, res) => {
     aadhaarServiceLogger.info(
       `Extracted Aadhaar Details: ${JSON.stringify(aadhaarDetails)}`,
     );
-    const MerchantId = generateMerchantId();
-    console.log("Generated Merchant ID:", MerchantId);
 
     if (response?.status === 1) {
       const updatedRecord =
@@ -391,7 +384,6 @@ exports.checkAadhaarDigilockerStatus = async (req, res) => {
             aadhaarDetails,
             status: "verified",
             response,
-            MerchantId,
           },
           { new: true },
         );

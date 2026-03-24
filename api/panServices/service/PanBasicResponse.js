@@ -1,5 +1,5 @@
-const { panServiceLogger } = require("../Logger/logger");
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { panServiceLogger } = require("../../Logger/logger");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
 const PanActiveServiceResponse = async (data, services=[], index = 0, client) => {

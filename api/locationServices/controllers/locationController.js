@@ -15,7 +15,8 @@ const {
   longLatToDigiPinActiveServiceResponse,
   digipinToLongLatActiveServiceResponse,
   addressToDigiPinActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/locationServicesResp");
+  geoTaggingActiveServiceResponse,
+} = require("../service/locationServicesResp");
 const { locationServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
@@ -1095,6 +1096,484 @@ exports.handleAddressToDigiPin = async (req, res) => {
           createdDate: new Date().toLocaleDateString(),
         });
         const dataToShow = existingGstin?.response;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      }
+    }
+
+    // Get All Active Services
+    const service = await selectService(idOfCategory, idOfService);
+    if (!service) {
+      locationServiceLogger.warn(
+        `Active service not found for Address to digipin of category ${idOfCategory}, service ${idOfService}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    locationServiceLogger.info(
+      `Active service selected for Address to digipin: ${JSON.stringify(service)}`,
+    );
+
+    //  get Acitve Service Response
+    let response = await addressToDigiPinActiveServiceResponse(
+      address,
+      service,
+      0,
+      clientId,
+    );
+    locationServiceLogger.info(
+      `Response received from active service ${response?.service}: ${response?.message}`,
+    );
+
+    // Response form Active Service if response message is Valid
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        gstinNumber: encryptedGst,
+      };
+      await responseModel.create({
+        serviceId: idOfService,
+        categoryId: idOfCategory,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        digiPin: encryptedGst,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await addressToDigiPinModel.create(storingData);
+      locationServiceLogger.info(
+        `Valid GSTIN response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId: idOfService,
+        categoryId: idOfCategory,
+        clientId,
+        result: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("AddressToDigiPin"),
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        gstinNumber: encryptedGst,
+        response: {
+          digiPin: digiPin,
+          ...findingInValidResponses("AddressToDigiPin"),
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await addressToDigiPinModel.create(storingData);
+      locationServiceLogger.info(
+        `Invalid GSTIN response received and sent to client: ${clientId}`,
+      );
+      return res.status(404).json(
+        createApiResponse(
+          404,
+          {
+            digiPin: digiPin,
+            ...findingInValidResponses("AddressToDigiPin"),
+          },
+          "InValid",
+        ),
+      );
+    }
+  } catch (error) {
+    locationServiceLogger.error(
+      `System error in Address to digipin for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.handleGeoTagging = async (req, res) => {
+  const { latitude, longitude, mobileNumber = "" } = req.body;
+
+  const clientId = req.clientId || "CID-6140971541";
+
+  locationServiceLogger.info(
+    `latitude and longitude Details ===>> longitude: ${longitude} and latitude: ${latitude} for this client: ${clientId}`,
+  );
+
+  const isLatValid = handleValidation("latitude", latitude, res, clientId);
+  if (!isLatValid) return;
+  const isLongValid = handleValidation("longitude", longitude, res, clientId);
+  if (!isLongValid) return;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "GEO_TAGGING",
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  locationServiceLogger.info(
+    `Executing longLat geofencing for client: ${clientId}, service: ${idOfService}, category: ${idOfCategory}`,
+  );
+  try {
+    const identifierHash = hashIdentifiers({
+      lat: latitude,
+      long: longitude,
+    });
+
+    const geoTaggingRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId: idOfService,
+      categoryId: idOfCategory,
+      clientId: clientId,
+    });
+
+    if (!geoTaggingRateLimitResult.allowed) {
+      locationServiceLogger.info(
+        `Rate limit exceeded for GSTIN verification: client ${clientId}, service ${idOfService}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: geoTaggingRateLimitResult.message,
+      });
+    }
+
+    const tnId = genrateUniqueServiceId();
+    locationServiceLogger.info(
+      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
+    );
+
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      idOfService,
+      idOfCategory,
+      tnId,
+      req.environment,
+    );
+
+    if (!maintainanceResponse?.result) {
+      locationServiceLogger.info(
+        `[FAILED] Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    const encryptedLatitude = encryptData(latitude);
+    const encryptedLongitude = encryptData(longitude);
+
+    // Check if the record is present in the DB
+    const existingGstin = await longLatToDigiPinModel.findOne({
+      longitude: encryptedLongitude,
+      latitude: encryptedLatitude,
+    });
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.warn(
+        `Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`,
+      );
+    }
+
+    locationServiceLogger.debug(
+      `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+    );
+    if (existingGstin) {
+      if (existingGstin?.status == 1) {
+        locationServiceLogger.info(
+          `Returning cached GSTIN response for client: ${clientId}`,
+        );
+
+        const decrypted = {
+          ...existingGstin?.response,
+          gstinNumber: gstinNumber,
+        };
+        await responseModel.create({
+          serviceId: idOfService,
+          categoryId: idOfCategory,
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        locationServiceLogger.info(
+          `Returning cached GSTIN response for client: ${clientId}`,
+        );
+        await responseModel.create({
+          serviceId: idOfService,
+          categoryId: idOfCategory,
+          clientId,
+          result: existingGstin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingGstin?.response;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      }
+    }
+
+    // Get All Active Services
+    const service = await selectService(idOfCategory, idOfService);
+    if (!service) {
+      locationServiceLogger.warn(
+        `Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    locationServiceLogger.info(
+      `Active service selected for GSTIN verification: ${service.serviceFor}`,
+    );
+
+    //  get Acitve Service Response
+    let response = await geoTaggingActiveServiceResponse(
+      { longitude, latitude },
+      service,
+      0,
+      clientId,
+    );
+    locationServiceLogger.info(
+      `Response received from active service ${response?.service}: ${response?.message}`,
+    );
+
+    // Response form Active Service if response message is Valid
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        gstinNumber: encryptedGst,
+      };
+      await responseModel.create({
+        serviceId: idOfService,
+        categoryId: idOfCategory,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        gstinNumber: encryptedGst,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await longLatToDigiPinModel.create(storingData);
+      locationServiceLogger.info(
+        `Valid GSTIN response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId: idOfService,
+        categoryId: idOfCategory,
+        clientId,
+        result: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        gstinNumber: encryptedGst,
+        response: {
+          gstinNumber: gstinNumber,
+          ...findingInValidResponses("gstIn"),
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await longLatToDigiPinModel.create(storingData);
+      locationServiceLogger.info(
+        `Invalid GSTIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { gstinNumber }, "Failed"));
+    }
+  } catch (error) {
+    locationServiceLogger.error(
+      `System error in long lat to digiPin for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
+  const { address, latitude, longitude, mobileNumber = "" } = req.body;
+
+  const clientId = req.clientId || "CID-6140971541";
+
+  locationServiceLogger.info(
+    `digiPin Details ===>> digiPin: ${digiPin} for this client: ${clientId}`,
+  );
+
+  const isValid = handleValidation("address", address, res, clientId);
+  if (!isValid) return;
+  const isLatValid = handleValidation("latitude", latitude, res, clientId);
+  if (!isLatValid) return;
+  const isLongValid = handleValidation("longitude", longitude, res, clientId);
+  if (!isLongValid) return;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "GEO_TAGGING_DISTANCE_CALCULATION",
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  locationServiceLogger.info(
+    `Executing longLat geofencing for client: ${clientId}, service: ${idOfService}, category: ${idOfCategory}`,
+  );
+  try {
+    const identifierHash = hashIdentifiers({
+      digiPin: digiPin,
+    });
+
+    const geoTaggingDistanceCalculationRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId: idOfService,
+      categoryId: idOfCategory,
+      clientId: clientId,
+    });
+
+    if (!geoTaggingDistanceCalculationRateLimitResult.allowed) {
+      locationServiceLogger.info(
+        `Rate limit exceeded for GSTIN verification: client ${clientId}, service ${idOfService}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: geoTaggingDistanceCalculationRateLimitResult.message,
+      });
+    }
+
+    const tnId = genrateUniqueServiceId();
+    locationServiceLogger.info(
+      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
+    );
+
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      idOfService,
+      idOfCategory,
+      tnId,
+      req.environment,
+    );
+
+    if (!maintainanceResponse?.result) {
+      locationServiceLogger.info(
+        `[FAILED] Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    const encryptedLatitude = encryptData(latitude);
+    const encryptedLongitude = encryptData(longitude);
+
+    // Check if the record is present in the DB
+    const existingDistance = await addressToDigiPinModel.findOne({
+      longitude: encryptedLongitude,
+      latitude: encryptedLatitude,
+    });
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.warn(
+        `Analytics update failed for Address to digipin: client ${clientId}, service ${serviceId}`,
+      );
+    }
+
+    locationServiceLogger.debug(
+      `Checked for existing Address to digipin record in DB: ${existingDistance ? "Found" : "Not Found"} for this client: ${clientId}`,
+    );
+    if (existingDistance) {
+      if (existingDistance?.status == 1) {
+        locationServiceLogger.info(
+          `Returning cached Address to digipin response for client: ${clientId}`,
+        );
+
+        const decrypted = {
+          ...existingDistance?.response,
+          gstinNumber: gstinNumber,
+        };
+        await responseModel.create({
+          serviceId: idOfService,
+          categoryId: idOfCategory,
+          clientId,
+          result: existingDistance?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        locationServiceLogger.info(
+          `Returning cached Address to digipin response for client: ${clientId}`,
+        );
+        await responseModel.create({
+          serviceId: idOfService,
+          categoryId: idOfCategory,
+          clientId,
+          result: existingDistance?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingDistance?.response;
         return res
           .status(200)
           .json(createApiResponse(200, dataToShow, "Valid"));

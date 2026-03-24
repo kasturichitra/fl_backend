@@ -109,6 +109,28 @@ const ID_RULES = {
     regex: /^[A-Za-z0-9\s,.\-/#()]+$/,
     displayName: "Address",
   },
+  rc: {
+    min: 10,
+    max: 15,
+    regex: /^[A-Z0-9]+$/,
+    displayName: "RC Number",
+  },
+  vehicleNumber: {
+    min: 9,
+    max: 13,
+    regex: /^[A-Z]{2}[0-9]{1,2}[A-Z]{1,2}[0-9]{4}$/,
+    displayName: "Vehicle Registration Number",
+  },
+  chassisNumber: {
+    length: 17,
+    regex: /^[A-HJ-NPR-Z0-9]{17}$/,
+    displayName: "Chassis Number",
+  },
+  tan: {
+  length: 10,
+  regex: /^[A-Z]{4}[0-9]{5}[A-Z]{1}$/,
+  displayName: "TAN Number",
+},
 };
 
 const validateId = (type, value, clientId) => {

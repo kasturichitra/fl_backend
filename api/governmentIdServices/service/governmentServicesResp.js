@@ -1,7 +1,8 @@
+const { governmentServiceLogger } = require("../../Logger/logger");
 const {
   callTruthScreenAPI,
   generateTransactionId,
-} = require("../truthScreen/callTruthScreen");
+} = require("../../truthScreen/callTruthScreen");
 
 const voterIdVerifyServiceResponse = async (
   data,
@@ -28,7 +29,7 @@ const voterIdVerifyServiceResponse = async (
   );
 
   try {
-    const res = await voterIdApiCall(data, serviceName, 0);
+    const res = await voterIdApiCall(data, serviceName, client);
 
     if (res?.data) {
       return res.data;
@@ -46,8 +47,7 @@ const voterIdVerifyServiceResponse = async (
     return voterIdVerifyServiceResponse(data, services, index + 1);
   }
 };
-
-const voterIdApiCall = async (data, service) => {
+const voterIdApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -174,7 +174,7 @@ const passportVerifyServiceResponse = async (
   );
 
   try {
-    const res = await passportApiCall(data, serviceName, 0);
+    const res = await passportApiCall(data, serviceName, client);
 
     if (res?.data) {
       return res.data;
@@ -192,8 +192,7 @@ const passportVerifyServiceResponse = async (
     return passportVerifyServiceResponse(data, services, index + 1);
   }
 };
-
-const passportApiCall = async (data, service) => {
+const passportApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -215,6 +214,7 @@ const passportApiCall = async (data, service) => {
   if (!service?.trim()) {
     service = Object.keys(ApiData)[0];
     console.log("Empty provider → defaulting to:", service);
+    governmentServiceLogger.info("Empty provider → defaulting to:", service);
   }
 
   const config = ApiData[service];

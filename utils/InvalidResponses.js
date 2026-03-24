@@ -1,5 +1,5 @@
 const inValidResponses = [
-  // pan services
+  // pan services ---------------------->>
 
   // pan basic
   {
@@ -32,6 +32,7 @@ const inValidResponses = [
       name_match_score: "",
     },
   },
+  // pan name dob 
   {
     service: "panNameDob",
     InValidResponse: {
@@ -40,6 +41,7 @@ const inValidResponses = [
       "Given DOB matches with the ITD Records": "",
     },
   },
+  // pan to gst
   {
     service: "panToGst",
     InValidResponse: {
@@ -78,7 +80,7 @@ const inValidResponses = [
       din: "",
     },
   },
-  // business services
+  // business services --------------------------->>>
 
   // cin search
   {
@@ -157,7 +159,9 @@ const inValidResponses = [
       Issuer: "",
     },
   },
-  // vehicle services
+  // vehicle services ------------------->>
+
+  // driving license
   {
     service: "license",
     InValidResponse: {
@@ -203,7 +207,9 @@ const inValidResponses = [
       imgurl: "",
     },
   },
-  // government services
+  // government services ---------------------->>
+
+  // voter id
   {
     service: "voterId",
     InValidResponse: {
@@ -230,6 +236,7 @@ const inValidResponses = [
       status: "",
     },
   },
+  // passport with file no
   {
     service: "passport",
     InValidResponse: {
@@ -241,7 +248,9 @@ const inValidResponses = [
       "Date of Birth": "",
     },
   },
-  // location services
+  // location services ----------------------------->>
+  
+  // lat long geofencing
   {
     service: "latLong",
     InValidResponse: {
@@ -256,6 +265,7 @@ const inValidResponses = [
       Tier: " ",
     },
   },
+  // pincode geofencing
   {
     service: "pincode",
     InValidResponse: {

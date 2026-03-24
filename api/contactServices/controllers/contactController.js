@@ -1,6 +1,6 @@
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
-const { mobileToPanActiveServiceResponse } = require("../../GlobalApiserviceResponse/contactServicesResp");
+const { mobileToPanActiveServiceResponse } = require("../service/contactServicesResp");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 

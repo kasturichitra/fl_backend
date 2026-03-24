@@ -1,8 +1,8 @@
-const { locationServiceLogger } = require("../Logger/logger");
+const { locationServiceLogger } = require("../../Logger/logger");
 const {
   generateTransactionId,
   callTruthScreenAPI,
-} = require("../truthScreen/callTruthScreen");
+} = require("../../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
 const pincodeGeofencingActiveServiceResponse = async (

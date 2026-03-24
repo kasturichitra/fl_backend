@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 
-const geoTaggingDetails = new mongoose.Schema({
-  longitude: {
+const vehicleverificationDetails = new mongoose.Schema({
+  RegistrationNumber: {
     type: String,
   },
-  latitude: {
+  mobileNumber: {
     type: String,
   },
   response: {
@@ -12,9 +12,6 @@ const geoTaggingDetails = new mongoose.Schema({
   },
   serviceResponse:{
     type: Object,
-  },
-   mobileNumber:{
-    type: Number,
   },
   status:{
     type: Number,
@@ -39,4 +36,4 @@ const geoTaggingDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("geoTagging", geoTaggingDetails);
+module.exports = mongoose.model("vehicleVerification", vehicleverificationDetails);

@@ -1,8 +1,18 @@
-const { generateTransactionId } = require("../truthScreen/callTruthScreen");
+const { bankServiceLogger } = require("../Logger/logger");
+const {
+  generateTransactionId,
+  callTruthScreenAPI,
+} = require("../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
-const IfscActiveServiceResponse = async (data, services=[], index = 0) => {
-  console.log('IfscActiveServiceResponse called');
+const IfscActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  client,
+) => {
+  console.log("IfscActiveServiceResponse called");
+  bankServiceLogger.info(`IfscActiveServiceResponse called for this client: ${client}`);
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -15,31 +25,51 @@ const IfscActiveServiceResponse = async (data, services=[], index = 0) => {
   }
 
   const serviceName = newService.providerId || "";
-  console.log(`[IfscActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+  console.log(
+    `[IfscActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
 
   try {
-    const res = await ifscApiCall(data, serviceName, 0);
+    const res = await ifscApiCall(data, serviceName, client);
 
     if (res?.success) {
       return res.data;
     }
 
-    console.log(`[IfscActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+    console.log(
+      `[IfscActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
     return IfscActiveServiceResponse(data, services, index + 1);
   } catch (err) {
-    console.log(`[IfscActiveServiceResponse] Error from ${serviceName}:`, err.message);
+    console.log(
+      `[IfscActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
     return IfscActiveServiceResponse(data, services, index + 1);
   }
 };
 
-const ifscApiCall = async (data, service) => {
-
+const ifscApiCall = async (data, service, CID) => {
+  const tskId = await generateTransactionId(12);
   const ApiData = {
     RAPID: {
       url: `https://ifsc-lookup-api.p.rapidapi.com/`,
       header: {
         "x-rapidapi-key": process.env.RAPID_API_KEY,
         "x-rapidapi-host": process.env.RAPID_API_BANK_HOST,
+      },
+    },
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: 123,
+        docNumber: data,
+      },
+      url: process.env.TRUTHSCREEN_IFSC_SEARCH, // DIN URL is similar to the Tin
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
       },
     },
   };
@@ -56,20 +86,49 @@ const ifscApiCall = async (data, service) => {
   let ApiResponse;
 
   try {
-    const urlWithCard = `${config.url}${data}`;
-    ApiResponse = await axios.get(urlWithCard, { headers: config.header });
-    console.log(`[ifscApiCall] ${service} API response success:`, JSON.stringify(ApiResponse.data));
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+        cId: CID,
+      });
+      console.log(
+        "[ifscApiCall] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    } else {
+      const urlWithCard = `${config.url}${data}`;
+      ApiResponse = await axios.get(urlWithCard, { headers: config.header });
+      console.log(
+        `[ifscApiCall] ${service} API response success:`,
+        JSON.stringify(ApiResponse.data),
+      );
+    }
   } catch (error) {
     console.log(`[ifscApiCall] API Error in ${service}:`, error.message);
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse.data;
+  const obj = ApiResponse.data || ApiResponse;
   console.log(`[ifscApiCall] ${service} Response Object:`, JSON.stringify(obj));
   // Format responses by provider
   let returnedObj = {};
 
   if (obj.response_code === "101") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  if (obj.status != 1) {
     return {
       success: false,
       data: {
@@ -89,6 +148,14 @@ const ifscApiCall = async (data, service) => {
         response: obj,
       };
       break;
+
+    case "TRUTHSCREEN":
+      returnedObj = {
+        panNumber: data,
+        aadhaarNumber: obj?.result?.aadhaar,
+        response: obj,
+      };
+      break;
   }
 
   return {
@@ -96,7 +163,7 @@ const ifscApiCall = async (data, service) => {
     data: {
       result: returnedObj,
       message: "Valid",
-      responseOfService: obj?.result,
+      responseOfService: obj?.result || obj,
       service: service,
     },
   };

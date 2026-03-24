@@ -32,7 +32,6 @@ const GSTActiveServiceResponse = async (data, services, index = 0) => {
         return GSTActiveServiceResponse(data, services, index + 1);
     }
 };
-
 const GSTApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
 
@@ -223,7 +222,6 @@ const GSTtoPANActiveServiceResponse = async (
     return GSTtoPANActiveServiceResponse(data, services, index + 1);
   }
 };
-
 const GSTToPANApiCall = async (data, service) => {
   const tskId = generateTransactionId(12);
 

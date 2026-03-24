@@ -1,9 +1,7 @@
 const mongoose = require("mongoose");
 
-const AdhaarSchema = new mongoose.Schema({
-    MerchantId:{
-      type: String
-    },
+const AdhaarSchema = new mongoose.Schema(
+  {
     trans_id: {
       type: String,
     },
@@ -17,29 +15,26 @@ const AdhaarSchema = new mongoose.Schema({
       type: String,
     },
     aadhaarDetails: {
-      name: { type: String},
-      fatherName: { type: String},
-      dob: { type: String},
-      aadhar_number: { type: String},
-      gender: { type: String},
-      address: { type: String},
-      co: { type: String},
-      photo: { type: String},
+      name: { type: String },
+      fatherName: { type: String },
+      dob: { type: String },
+      aadhar_number: { type: String },
+      gender: { type: String },
+      address: { type: String },
+      co: { type: String },
+      photo: { type: String },
     },
     response: {
       type: Object,
       default: {},
     },
- address: { type: Object },
+    address: { type: Object },
+  },
+  {
+    timestamps: true,
+  },
+);
 
- 
-},
-{
-  timestamps: true,
-});
+const aadhaar = mongoose.model("Adhaardetailswith_opt", AdhaarSchema);
 
-
-
-const aadhaar = mongoose.model("Adhaardetailswith_opt", AdhaarSchema); 
-
-module.exports = aadhaar
+module.exports = aadhaar;
