@@ -9,6 +9,6 @@ businessRouters.post('/getpanwithgstin', handleGST_INtoPANDetails);
 businessRouters.post('/gstIn/TaxPayer/verify', gstInTaxPayerVerification);
 businessRouters.post('/Cin/verify', handleCINVerification);
 businessRouters.post('/tin/verify', handleTINVerification);
-businessRouters.post('/udyam/verify/', udyamNumberVerfication);
+businessRouters.post('/udyam/verify', udyamNumberVerfication);
 
 module.exports = businessRouters;

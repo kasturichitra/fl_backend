@@ -1,6 +1,7 @@
 const CATEGORIES = {
   PAN: "PANSERVICES",
   GEO: "GEOLOCATION",
+  Business:"BUSINESSANDCOMPANY",
 };
 
 const SERVICES = {
@@ -16,9 +17,21 @@ const SERVICES = {
     category: "PAN",
     serviceId: "",
   },
+  CIN:{
+    category: "Business",
+    serviceId: "CIN Search",
+  },
+  CompanyName:{
+    category: "Business",
+    serviceId: "CIN Based Company Search",
+  },
+  DIN:{
+    category: "Business",
+    serviceId: "Din",
+  },
 };
 
-const getCategoryIdAndServiceId = (type) => {
+exports.getCategoryIdAndServiceId = (type) => {
   if (!type) return { categoryId: "", serviceId: "" };
 
   const key = type.toUpperCase();

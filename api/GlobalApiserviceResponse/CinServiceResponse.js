@@ -2,7 +2,7 @@
 const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const CinActiveServiceResponse = async (data, services, index = 0, client) => {
+const CinActiveServiceResponse = async (data, services, ActiveSerice, index = 0, client) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -18,9 +18,25 @@ const CinActiveServiceResponse = async (data, services, index = 0, client) => {
     console.log(`[CinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await CinApiCall(data, serviceName);
+        // const res = await CinApiCall(data, serviceName);
+
+        let res;
+        switch (ActiveSerice) {
+            case "CIN":
+                res = await CinApiCall(data, serviceName);
+                break;
+            case "CompanyListApiCall":
+                res = await CinCompanyApiCall(data, serviceName);
+                break;
+            case "CompanySearchApiCall":
+                res = await CompanySearchApiCall(data, serviceName);
+                break;
+        }
 
         if (res?.success) {
+            if (typeof res.data === 'object' && res.data !== null && !Array.isArray(res.data)) {
+                return { ...res.data, success: true };
+            }
             return res.data;
         }
 
@@ -33,25 +49,122 @@ const CinActiveServiceResponse = async (data, services, index = 0, client) => {
     }
 };
 
+// ActiveService
 const CinApiCall = async (data, service) => {
-    console.log('[CinApiCall] Triggered with data:', data);
+    console.log('[CompanySearchApiCall] Triggered with data:', data);
     const tskId = generateTransactionId(12);
 
     const ApiData = {
-        "INVINCIBLE": {
-            BodyData: { CIN: data },
-            url: process.env.INVINCIBLE_CIN_URL,
-            header: {
-                accept: "application/json",
-                clientId: process.env.INVINCIBLE_CLIENT_ID,
-                secretKey: process.env.INVINCIBLE_SECRET_KEY,
-            }
-        },
         "TRUTHSCREEN": {
             BodyData: {
                 transID: tskId,
-                docType: 15,     // CIN docType
+                docType: 15,     // company docType
                 docNumber: data
+            },
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
+            header: {
+                username: process.env.TRUTHSCREEN_USERNAME,
+                password: process.env.TRUTHSCREEN_TOKEN
+            }
+        }
+    };
+
+    if (!service?.trim()) {
+        service = Object.keys(ApiData)[0];
+        console.log("Empty provider → defaulting to:", service);
+    }
+
+    const config = ApiData[service];
+    if (!config) throw new Error(`Invalid service: ${service}`);
+
+    let ApiResponse;
+
+    try {
+        if (service === "TRUTHSCREEN") {
+            ApiResponse = await callTruthScreenAPI({
+                url: config.url,
+                payload: config.BodyData,
+                username: config.header.username,
+                password: config.header.password
+            });
+        } else {
+            ApiResponse = await axios.post(
+                config.url,
+                config.BodyData,
+                { headers: config.header }
+            );
+        }
+
+    } catch (error) {
+        console.log(`[CompanySearchApiCall] API Error in ${service}:`, error.message);
+        return { success: false, data: null };
+    }
+
+    const obj = ApiResponse?.data || ApiResponse;
+    console.log(`[CompanySearchApiCall] ${service} Response Object:`, JSON.stringify(obj));
+
+
+    // If truthscreen/others return invalid code
+    if (obj?.response_code === "101") {
+        return {
+            success: false,
+            data: {
+                result: "NoDataFound",
+                message: "Invalid",
+                responseOfService: obj,
+                service,
+            }
+        };
+    }
+
+    /** -------------------------
+     *  RESULT NORMALIZATION
+     * ------------------------- */
+
+    let returnedObj = {};
+
+    if (service === "TRUTHSCREEN") {
+        const msg = obj?.msg;
+
+        if (!msg || msg?.STATUS === "INVALID") {
+            return invalidResponse(service, msg);
+        }
+
+        returnedObj = msg
+
+        return {
+            success: true,
+            data: {
+                result: returnedObj,
+                message: "Valid",
+                responseOfService: msg,
+                service:service,
+            }
+        };
+    }
+    console.log('[CompanySearchApiCall] Returned Object:', JSON.stringify(returnedObj));
+    return {
+        success: true,
+        data: {
+            cinNumber: returnedObj.CIN || "",
+            result: returnedObj,
+            message: "Valid",
+            responseOfService: obj,
+            service,
+        }
+    };
+};
+
+const CinCompanyApiCall = async (data, service) => {
+    console.log('[CinCompanyApiCall] Triggered with data:', data);
+    const tskId = generateTransactionId(12);
+
+    const ApiData = {
+        "TRUTHSCREEN": {
+            BodyData: {
+                transID: tskId,
+                docType: 382,     // CIN company docType
+                "name": data
             },
             url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
             header: {
@@ -89,12 +202,12 @@ const CinApiCall = async (data, service) => {
         }
 
     } catch (error) {
-        console.log(`[CinApiCall] API Error in ${service}:`, error.message);
+        console.log(`[CinCompanyApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
     const obj = ApiResponse?.data || ApiResponse;
-    console.log(`[CinApiCall] ${service} Response Object:`, JSON.stringify(obj));
+    console.log(`[CinCompanyApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
 
     // If truthscreen/others return invalid code
@@ -116,26 +229,26 @@ const CinApiCall = async (data, service) => {
 
     let returnedObj = {};
 
-    switch (service) {
+    if (service === "TRUTHSCREEN") {
+        const msg = obj?.msg;
 
-        case "INVINCIBLE":
-            returnedObj = {
-                CIN: obj?.result?.data?.CIN || "",
-                CompanyName: obj?.result?.data?.COMPANY_NAME || "",
-                status: obj?.result?.data?.COMPANY_STATUS || "",
-            };
-            break;
+        if (!msg || msg?.STATUS === "INVALID") {
+            return invalidResponse(service, msg);
+        }
 
-        case "TRUTHSCREEN":
-            returnedObj = {
-                CIN: obj?.result?.companyCIN || "",
-                CompanyName: obj?.result?.companyName || "",
-                status: obj?.result?.companyStatus || "",
-            };
-            break;
+        returnedObj = msg
+
+        return {
+            success: true,
+            data: {
+                result: returnedObj,
+                message: "Valid",
+                responseOfService: msg,
+                service:service,
+            }
+        };
     }
-
-    console.log('[CinApiCall] Returned Object:', JSON.stringify(returnedObj));
+    console.log('[CinCompanyApiCall] Returned Object:', JSON.stringify(returnedObj));
     return {
         success: true,
         data: {
@@ -147,6 +260,124 @@ const CinApiCall = async (data, service) => {
         }
     };
 };
+
+const CompanySearchApiCall = async (data, service) => {
+    console.log('[CompanySearchApiCall] Triggered with data:', data);
+    const tskId = generateTransactionId(12);
+
+    const ApiData = {
+        "TRUTHSCREEN": {
+            BodyData: {
+                transID: tskId,
+                docType: 52,     // company docType
+                docName: data
+            },
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
+            header: {
+                username: process.env.TRUTHSCREEN_USERNAME,
+                password: process.env.TRUTHSCREEN_TOKEN
+            }
+        }
+    };
+
+
+    if (!service?.trim()) {
+        service = Object.keys(ApiData)[0];
+        console.log("Empty provider → defaulting to:", service);
+    }
+
+    const config = ApiData[service];
+    if (!config) throw new Error(`Invalid service: ${service}`);
+
+    let ApiResponse;
+
+    try {
+        if (service === "TRUTHSCREEN") {
+            ApiResponse = await callTruthScreenAPI({
+                url: config.url,
+                payload: config.BodyData,
+                username: config.header.username,
+                password: config.header.password
+            });
+        } else {
+            ApiResponse = await axios.post(
+                config.url,
+                config.BodyData,
+                { headers: config.header }
+            );
+        }
+
+    } catch (error) {
+        console.log(`[CompanySearchApiCall] API Error in ${service}:`, error.message);
+        return { success: false, data: null };
+    }
+
+    const obj = ApiResponse?.data || ApiResponse;
+    console.log(`[CompanySearchApiCall] ${service} Response Object:`, JSON.stringify(obj));
+
+
+    // If truthscreen/others return invalid code
+    if (obj?.response_code === "101") {
+        return {
+            success: false,
+            data: {
+                result: "NoDataFound",
+                message: "Invalid",
+                responseOfService: obj,
+                service,
+            }
+        };
+    }
+
+    /** -------------------------
+     *  RESULT NORMALIZATION
+     * ------------------------- */
+
+    let returnedObj = {};
+
+    if (service === "TRUTHSCREEN") {
+        const msg = obj?.msg;
+
+        if (!msg || msg?.STATUS === "INVALID") {
+            return invalidResponse(service, msg);
+        }
+
+        returnedObj = msg
+
+        return {
+            success: true,
+            data: {
+                result: returnedObj,
+                message: "Valid",
+                responseOfService: msg,
+                service:service,
+            }
+        };
+    }
+    console.log('[CompanySearchApiCall] Returned Object:', JSON.stringify(returnedObj));
+    return {
+        success: true,
+        data: {
+            cinNumber: returnedObj.CIN || "",
+            result: returnedObj,
+            message: "Valid",
+            responseOfService: obj,
+            service,
+        }
+    };
+};
+
+
+// INVALID RESPONSE
+const invalidResponse = (service, raw) => ({
+    success: false,
+    data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: raw || {},
+        service,
+    }
+});
 
 module.exports = {
     CinActiveServiceResponse
