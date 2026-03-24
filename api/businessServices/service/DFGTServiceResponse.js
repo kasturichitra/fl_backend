@@ -1,38 +1,38 @@
-const { dinServiceLogger } = require("../Logger/logger");
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { businessServiceLogger } = require("../../Logger/logger");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const DinActiveServiceResponse = async (data, services=[], index = 0) => {
+const DGFTActiveServiceResponse = async (data, services=[], index = 0) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
     const newService = services?.find((ser) => ser.priority === index + 1);
-    console.log("[DinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    dinServiceLogger.info("[DinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    console.log("[DGFTActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    businessServiceLogger.info("[DGFTActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return DinActiveServiceResponse(data, services, index + 1);
+        return DGFTActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`[DinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-    dinServiceLogger.info(`[DinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    console.log(`[DGFTActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    businessServiceLogger.info(`[DGFTActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await DinApiCall(data, serviceName);
+        const res = await DGFTApiCall(data, serviceName);
 
         if (res?.success) {
             return res.data;
         }
 
-        console.log(`[DinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return DinActiveServiceResponse(data, services, index + 1);
+        console.log(`[DGFTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+        return DGFTActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`[DinActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return DinActiveServiceResponse(data, services, index + 1);
+        console.log(`[DGFTActiveServiceResponse] Error from ${serviceName}:`, err.message);
+        return DGFTActiveServiceResponse(data, services, index + 1);
     }
 };
 
@@ -40,16 +40,17 @@ const DinActiveServiceResponse = async (data, services=[], index = 0) => {
 //         TIN API CALL (ALL SERVICES)
 // =======================================
 
-const DinApiCall = async (data, service) => {
+const DGFTApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
                 transID: tskId,
-                docType: 14,
+                docType: "504",
                 docNumber: data,
+                iec_code:"TRI"
             },
-            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // DIN URL is similar to the Tin
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // IEC URL is similar to the Tin
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,
@@ -76,7 +77,7 @@ const DinApiCall = async (data, service) => {
                 username: config.header.username,
                 password: config.header.token,
             });
-            console.log('[DinApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
+            console.log('[DGFTApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 
         } else {
             ApiResponse = await axios.post(
@@ -85,9 +86,9 @@ const DinApiCall = async (data, service) => {
                 { headers: config.header }
             );
         }
-        console.log(`[DinApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
+        console.log(`[DGFTApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
     } catch (error) {
-        console.log(`[DinApiCall] API Error in ${service}:`, error.message);
+        console.log(`[DGFTApiCall] API Error in ${service}:`, error.message);
         return { success: false };
     }
 
@@ -154,7 +155,6 @@ const invalidResponse = (service, raw) => ({
 });
 
 
-
 module.exports = {
-    DinActiveServiceResponse,
+    DGFTActiveServiceResponse,
 };
