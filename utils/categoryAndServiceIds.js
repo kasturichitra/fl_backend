@@ -4,6 +4,7 @@ const CATEGORIES = {
   PAN: "PANSERVICES",
   GEO: "GEOLOCATION",
   VEHICLE: "VEHICLE_TRANSPORT",
+  Business: "BUSINESSANDCOMPANY",
 };
 
 const SERVICES = {
@@ -34,6 +35,18 @@ const SERVICES = {
   RC_VERIFICATION: {
     category: "VEHICLE",
     serviceId: "",
+  },
+  CIN: {
+    category: "Business",
+    serviceId: "CIN Search",
+  },
+  CompanyName: {
+    category: "Business",
+    serviceId: "CIN Based Company Search",
+  },
+  DIN: {
+    category: "Business",
+    serviceId: "Din",
   },
 };
 
