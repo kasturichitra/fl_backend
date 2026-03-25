@@ -1,5 +1,5 @@
 
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
 const CinActiveServiceResponse = async (data, services, ActiveSerice, index = 0, client) => {

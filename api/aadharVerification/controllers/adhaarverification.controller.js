@@ -148,7 +148,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     }
 
     const service = await selectService(categoryId, serviceId);
-    if (!service) {
+    if (!service.length) {
       aadhaarServiceLogger.warn(
         `Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`,
       );
@@ -156,7 +156,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     }
 
     aadhaarServiceLogger.info(
-      `Active service selected for Aadhaar Masked: ${service.serviceFor}`,
+      `Active service selected for Aadhaar Masked: ${service}`,
     );
     const aadhaarResponse = await AadhaarActiveServiceResponse(
       { aadharNumber },

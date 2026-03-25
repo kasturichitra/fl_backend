@@ -1,38 +1,38 @@
-const { dinServiceLogger } = require("../Logger/logger");
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { businessServiceLogger } = require("../../Logger/logger");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const TinActiveServiceResponse = async (data, services=[], index = 0) => {
+const IecActiveServiceResponse = async (data, services=[], index = 0) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
     const newService = services?.find((ser) => ser.priority === index + 1);
-    console.log("[TinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    dinServiceLogger.info("[TinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    console.log("[IecActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    businessServiceLogger.info("[IecActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return TinActiveServiceResponse(data, services, index + 1);
+        return IecActiveServiceResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`[TinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-    dinServiceLogger.info(`[TinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    console.log(`[IecActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    businessServiceLogger.info(`[IecActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await TinApiCall(data, serviceName);
+        const res = await IecApiCall(data, serviceName);
 
         if (res?.success) {
             return res.data;
         }
 
-        console.log(`[TinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return TinActiveServiceResponse(data, services, index + 1);
+        console.log(`[IecActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+        return IecActiveServiceResponse(data, services, index + 1);
 
     } catch (err) {
-        console.log(`[TinActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return TinActiveServiceResponse(data, services, index + 1);
+        console.log(`[IecActiveServiceResponse] Error from ${serviceName}:`, err.message);
+        return IecActiveServiceResponse(data, services, index + 1);
     }
 };
 
@@ -40,16 +40,16 @@ const TinActiveServiceResponse = async (data, services=[], index = 0) => {
 //         TIN API CALL (ALL SERVICES)
 // =======================================
 
-const TinApiCall = async (data, service) => {
+const IecApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
                 transID: tskId,
-                docType: 16,
+                docType: 28,
                 docNumber: data,
             },
-            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // TIN URL is similar to the Tin
+            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // IEC URL is similar to the Tin
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,
@@ -76,7 +76,7 @@ const TinApiCall = async (data, service) => {
                 username: config.header.username,
                 password: config.header.token,
             });
-            console.log('[TinApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
+            console.log('[IecApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 
         } else {
             ApiResponse = await axios.post(
@@ -85,9 +85,9 @@ const TinApiCall = async (data, service) => {
                 { headers: config.header }
             );
         }
-        console.log(`[TinApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
+        console.log(`[IecApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
     } catch (error) {
-        console.log(`[TinApiCall] API Error in ${service}:`, error.message);
+        console.log(`[IecApiCall] API Error in ${service}:`, error.message);
         return { success: false };
     }
 
@@ -154,7 +154,6 @@ const invalidResponse = (service, raw) => ({
 });
 
 
-
 module.exports = {
-    TinActiveServiceResponse,
+    IecActiveServiceResponse,
 };

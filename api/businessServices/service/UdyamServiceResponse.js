@@ -1,5 +1,5 @@
-const { businessServiceLogger } = require("../Logger/logger");
-const { generateTransactionId } = require("../truthScreen/callTruthScreen")
+const { businessServiceLogger } = require("../../Logger/logger");
+const { generateTransactionId } = require("../../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
 const udyamActiveServiceResponse = async (data, services=[], index = 0, client) => {
@@ -214,4 +214,4 @@ const udyamApiCall = async (data, service, client) => {
 
 module.exports = {
     udyamActiveServiceResponse,
-}
+};
