@@ -1,5 +1,5 @@
-const { dinServiceLogger } = require("../Logger/logger");
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { dinServiceLogger } = require("../../Logger/logger");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
 const TinActiveServiceResponse = async (data, services=[], index = 0) => {

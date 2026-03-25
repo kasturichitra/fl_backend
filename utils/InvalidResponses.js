@@ -32,6 +32,7 @@ const inValidResponses = [
       name_match_score: "",
     },
   },
+  // panNameDob
   {
     service: "panNameDob",
     InValidResponse: {
@@ -40,6 +41,7 @@ const inValidResponses = [
       "Given DOB matches with the ITD Records": "",
     },
   },
+  // panToGst
   {
     service: "panToGst",
     InValidResponse: {
@@ -84,11 +86,74 @@ const inValidResponses = [
   {
     service: "cin",
     InValidResponse: {
-      PAN: "",
-      Name: "",
-      PAN_Status: "",
-      PAN_Holder_Type: "",
+      "status": 1,
+      "msg": {
+        "cin": "",
+        "company_name": "",
+        "roc_code": "",
+        "company_status": "",
+        "last_update": "",
+        "registration_no": "",
+        "company_category": "",
+        "company_sub_category": "",
+        "class_of_company": "",
+        "authorised_capital": "",
+        "paid_up_capital": "",
+        "date_of_incorporation": "",
+        "registered_address": "",
+        "email_id": "",
+        "whether_listed_or_not": "",
+        "date_of_last_agm": "",
+        "date_of_balance_sheet": "",
+        "address_line1": null,
+        "address_line2": null,
+        "address_state": "",
+        "address_city": "",
+        "address_country": null,
+        "address_pincode": "",
+        "assets_under_charge": "",
+        "charge_amount": "",
+        "date_of_creation": "",
+        "date_of_modification": "",
+        "status": "",
+        "Director": [
+          {
+            "din": "",
+            "name": "",
+            "begin_date": "",
+            "end_date": ""
+          },
+          {
+            "din": "",
+            "name": "",
+            "begin_date": "",
+            "end_date": ""
+          }
+        ]
+      }
     },
+  },
+  // CIN TO COMPANYS
+  {
+    service: 'cinCompanys',
+    InValidResponse: [
+      {
+        "label": "",
+        "value": ""
+      },
+      {
+        "label": "",
+        "value": ""
+      },
+    ]
+  },
+  // COMPANY SEARCH BY NAME ( CIN )
+  {
+    service: 'CompanySearch',
+    InValidResponse: {
+      "cin": "",
+      "company_name": ""
+    }
   },
   // udyam
   {
@@ -135,6 +200,87 @@ const inValidResponses = [
       },
     },
   },
+  // GstinToPan
+  {
+    service: 'GstinToPan',
+    InValidResponse: {
+      "S.No": "",
+      "GST/UIN": "",
+      "GSTIN/UIN Status": "",
+      "State": "",
+      "GSTIN/ UIN": "",
+      "Legal Name of Business": "",
+      "Centre Jurisdiction": "",
+      "State Jurisdiction": "",
+      "Date of registration": "",
+      "Constitution of Business": "",
+      "Taxpayer Type": "",
+      "GSTIN / UIN Status": "",
+      "Date of Cancellation": "",
+      "NatureOfBusinessActivities": "",
+      "proprietor_name": "",
+      "field_visit_conducted": "",
+      "company_name": "",
+      "division": "",
+      "segment": "",
+      "sub_segment": "",
+      "placeOfBusinessData": [
+        {
+          "type": "",
+          "nature_of_business_activities": "",
+          "address": "",
+          "contact_details": ""
+        },
+        {
+          "type": "",
+          "nature_of_business_activities": "",
+          "address": "",
+          "contact_details": ""
+        },
+        {
+          "type": "",
+          "nature_of_business_activities": "",
+          "address": "",
+          "contact_details": ""
+        }
+      ]
+    }
+  },
+  // Gstingtaxpayer
+  {
+    service: 'GstinTaxPayer',
+    InvalidResponse: {
+      "gstin": "",
+      "legal_name_of_business": "",
+      "centre_jurisdiction": "",
+      "state_jurisdiction": "",
+      "date_of_registration": "",
+      "constitution_of_business": "",
+      "taxpayer_type": "",
+      "gstin_status": "",
+      "date_of_cancellation": "",
+      "last_updated_date": "",
+      "state_jurisdiction_code": "",
+      "centre_jurisdiction_code": "",
+      "trade_name": "",
+      "address": [
+        {
+          "building_name": "",
+          "street": "",
+          "location": "",
+          "door_number": "",
+          "state_name": "",
+          "floor_number": "",
+          "lattitude": "",
+          "longitude": "",
+          "pin_code": ""
+        }
+      ],
+      "nature_of_pricipal_place_of_business": "",
+      "Principal Place of Business Address": ""
+    }
+  },
+  //aadhaartopan
   {
     service: "aadhaarToPan",
     InValidResponse: {
@@ -145,6 +291,7 @@ const inValidResponses = [
       },
     },
   },
+  // fullcard
   {
     service: "fullCard",
     InValidResponse: {
@@ -230,6 +377,7 @@ const inValidResponses = [
       status: "",
     },
   },
+  //passport
   {
     service: "passport",
     InValidResponse: {
@@ -256,6 +404,7 @@ const inValidResponses = [
       Tier: " ",
     },
   },
+  //pincode
   {
     service: "pincode",
     InValidResponse: {
@@ -304,6 +453,282 @@ const inValidResponses = [
       ],
     },
   },
+  // Din
+  {
+    service: 'Din',
+    InValidResponse: {
+      "status": 1,
+      "msg": {
+        "din": "",
+        "name": "",
+        "company_name": "",
+        "company_address": null,
+        "cin": "",
+        "email": "",
+        "date_of_incorporation": "",
+        "roc_code": "",
+        "director_status": "",
+        "last_updated": ""
+      }
+    }
+  },
+  //Tin
+  {
+    service: 'Tin',
+    InvalidResponse: {
+      "TIN": "",
+      "CST Number": "",
+      "Dealer Name": "",
+      "Dealer Address": "",
+      "Date of Registration under CST Act": "",
+      "State Name": "",
+      "PAN": "",
+      "Dealer Registration Status under CST Act": "",
+      "This record is valid as on": ""
+    }
+  },
+  // IEC 
+  {
+    service: 'Iec',
+    InvalidResponse: {
+      "IEC detail": {
+        "IE Code": "",
+        "Name": "",
+        "Address": "",
+        "IEC Status": "",
+        "Assessee Code": "",
+        "IEC Cancelled date": "",
+        "File Number": "",
+        "Nature of concern/Firm": "",
+        "IEC Suspended date": "",
+        "File Date": "",
+        "Category of Exporters": "",
+        "Date of Birth / Incorporation": "",
+        "DEL Status": "",
+        "DGFT RA Office": "",
+        "IEC issuance date": ""
+      },
+      "Branch detail": {
+        "1": {
+          "Branch Code": "",
+          "GSTIN": "",
+          "Address": ""
+        },
+        "2": {
+          "Branch Code": "",
+          "GSTIN": "",
+          "Address": ""
+        }
+      },
+      "Proprietor detail": {
+        "1": {
+          "name": "",
+          "pan": ""
+        },
+        "2": {
+          "name": "",
+          "pan": ""
+        }
+      },
+      "RCMC Detail": {
+        "1": {
+          "RCMC Number": "",
+          "Issue Date": "",
+          "Issue Authority": "",
+          "Expiry Date": "",
+          "Status": "",
+          "Exporter Type": "",
+          "Status From EPC": ""
+        },
+        "12": {
+          "RCMC Number": "",
+          "Issue Date": "",
+          "Issue Authority": "",
+          "Expiry Date": "",
+          "Status": "",
+          "Exporter Type": "",
+          "Status From EPC": ""
+        }
+      }
+    }
+  },
+  // DFGT
+  {
+    service: 'DFGT',
+    InvalidResponse: {
+      "branch_details": [
+        {
+          "s_no": "",
+          "branch_gstin": "",
+          "branch_address": ""
+        }
+      ],
+      "director_details ": [
+        {
+          "s_no": "",
+          "director_name": "",
+          "pan_no": ""
+        },
+        {
+          "s_no": "",
+          "director_name": "",
+          "pan_no": ""
+        }
+      ],
+      "iec_details": {
+        "address": "",
+        "category_of_exporters": "",
+        "del_status": "",
+        "dgft_ra_office": "",
+        "dob_incorporation": "",
+        "file_date": "",
+        "file_number": "",
+        "firm_name": "",
+        "iec_cancelled_date": "",
+        "iec_issuance_date": "",
+        "iec_number": "",
+        "iec_status": "",
+        "iec_suspended_date": "",
+        "nature_of_concern": "",
+        "pan_number": ""
+      }
+    }
+  },
+  // LEI
+  {
+    service: 'LEI',
+    InvalidResponse: {
+      "leiDetails": {
+        "lei_code": {
+          "lei": "",
+          "legal_name": "",
+          "registered_at": "",
+          "registered_as": "",
+          "jurisdiction_of_formation": "",
+          "general_category": "",
+          "entity_legal_form": "",
+          "entity_status": "",
+          "BIC_code": null
+        },
+        "addresses": {
+          "legal_address": {
+            "address_lines": [],
+            "postal_code": "",
+            "city": "",
+            "region": "",
+            "country": ""
+          },
+          "headquarters_address": {
+            "address_lines": [],
+            "postal_code": "",
+            "city": "",
+            "region": "",
+            "country": ""
+          }
+        },
+        "registration_details": {
+          "registration_date": "",
+          "last_update": "",
+          "status": "",
+          "next_renewal": "",
+          "lei_issuer": "",
+          "corroboration_level": "",
+          "data_validated_at": "",
+          "data_validated_as": ""
+        }
+      }
+    }
+  },
+  // UAM
+  {
+    service: 'UAM',
+    InvalidResponse: {
+      "udyog_aadhaar_array": {
+        "enterprise_name": "",
+        "major_activity": "",
+        "social_category": "",
+        "enterprise_type": "",
+        "date_of_commencement": "",
+        "dic_name": "",
+        "state": "",
+        "applied_date": ""
+      },
+      "nic_code": {
+        "nic_2_digit": "",
+        "nic_4_digit": "",
+        "nic_5_digit": "",
+        "activity_type": ""
+      },
+      "plant_location_detail": [
+        {
+          "label": "",
+          "value": ""
+        },
+        {
+          "label": "",
+          "value": ""
+        },
+        {
+          "label": "",
+          "value": ""
+        },
+        {
+          "label": "",
+          "value": ""
+        }
+      ]
+    }
+  },
+  // UAM with phone
+  {
+    service: 'UAMPhone',
+    InvalidResponse: {
+      "Driving License Number": "",
+      "Owner's Name": "",
+      "Father's Name": "",
+      "Date of Birth": "",
+      "Address": "",
+      "Blood group": "",
+      "Gender": "",
+      "Status": "",
+      "RTO (Issued At)": "",
+      "LicenseDetails": [
+        {
+          "License Type": "",
+          "Issue Date From": "",
+          "Issue Date To": ""
+        },
+        {
+          "License Type": "",
+          "Issue Date From": "",
+          "Issue Date To": ""
+        },
+        {
+          "License Type": "",
+          "Issue Date From": "",
+          "Issue Date To": ""
+        },
+        {
+          "License Type": "",
+          "Issue Date From": "",
+          "Issue Date To": ""
+        }
+      ],
+      "CovDetails": [
+        {
+          "Vehicle Type": "",
+          "Vehicle Class": "",
+          "COV Issue Date": ""
+        },
+        {
+          "Vehicle Type": "",
+          "Vehicle Class": "",
+          "COV Issue Date": ""
+        }
+      ],
+      "imgurl": ""
+    }
+  }
 ];
 
 export const findingInValidResponses = (serviceName) => {
