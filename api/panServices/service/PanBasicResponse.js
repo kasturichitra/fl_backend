@@ -9,10 +9,11 @@ const PanActiveServiceResponse = async (data, services=[], index = 0, client) =>
 
     const newService = services?.find((ser) => ser.priority === index + 1);
     console.log("[PanActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    panServiceLogger.info("[PanActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    panServiceLogger.info(`[PanActiveServiceResponse] incoming data for this client: ${client}===>>`, JSON.stringify(data))
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
+        panServiceLogger.info(`No service with priority ${index + 1}, trying next for this client: ${client}`);
         return PanActiveServiceResponse(data, services, index + 1);
     }
 
@@ -21,7 +22,7 @@ const PanActiveServiceResponse = async (data, services=[], index = 0, client) =>
     panServiceLogger.info(`[PanActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await PanApiCall(data, serviceName);
+        const res = await PanApiCall(data, serviceName, client);
 
         if (res?.success) {
             return res.data;
@@ -40,7 +41,7 @@ const PanActiveServiceResponse = async (data, services=[], index = 0, client) =>
 //         PAN API CALL (ALL SERVICES)
 // =======================================
 
-const PanApiCall = async (data, service) => {
+const PanApiCall = async (data, service, CID) => {
     const tskId = await generateTransactionId(12);
     const ApiData = {
         ZOOP: {
@@ -102,6 +103,7 @@ const PanApiCall = async (data, service) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                cId: CID
             });
             console.log('[PanApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 
@@ -117,7 +119,7 @@ const PanApiCall = async (data, service) => {
         console.log(`[PanApiCall] API Error in ${service}:`, error.message);
         console.log(`[PanApiCall] API Error Response in ${service}:`, error.response);
         console.log(`[PanApiCall] API Error Response in ${service}:`, JSON.stringify(error.response));
-        panServiceLogger.info(`[PanApiCall] API Error Response in ${service}:`, error.response);
+        panServiceLogger.info(`[PanApiCall] API Error Response in with service: ${service} for this client: ${CID}`, error.response);
         return { success: false };
     }
 
@@ -217,8 +219,6 @@ const invalidResponse = (service, raw) => ({
         service,
     }
 });
-
-
 
 module.exports = {
     PanActiveServiceResponse,

@@ -90,7 +90,7 @@ const BSAViaNBApiCall = async (data, service) => {
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse.data;
+  const obj = ApiResponse;
   console.log(
     `[GSTApiCall] ${service} API Response Object:`,
     JSON.stringify(obj),
@@ -98,7 +98,7 @@ const BSAViaNBApiCall = async (data, service) => {
 
   let returnedObj = {};
 
-  if (obj.response_code === "101") {
+  if (obj.status == "0" && obj?.msg?.toLowerCase() == "no record found.") {
     return {
       success: false,
       data: {

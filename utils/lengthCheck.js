@@ -127,10 +127,16 @@ const ID_RULES = {
     displayName: "Chassis Number",
   },
   tan: {
-  length: 10,
-  regex: /^[A-Z]{4}[0-9]{5}[A-Z]{1}$/,
-  displayName: "TAN Number",
-},
+    length: 10,
+    regex: /^[A-Z]{4}[0-9]{5}[A-Z]{1}$/,
+    displayName: "TAN Number",
+  },
+  email: {
+    min: 5,
+    max: 254,
+    regex: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,
+    displayName: "Email Address",
+  },
 };
 
 const validateId = (type, value, clientId) => {
@@ -168,7 +174,8 @@ const validateId = (type, value, clientId) => {
 
 const handleValidation = (type, value, res, storingClient) => {
   const rule = ID_RULES[type];
-  if (!value?.trim()) {
+  const stringValue = String(value || "").trim();
+  if (!stringValue?.trim() && !["email", "domain"].includes(type)) {
     res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
       response: `${rule.displayName} is Missing 🤦‍♂️`,

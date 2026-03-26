@@ -518,7 +518,7 @@ const drivingLicenseApiCall = async (data, service) => {
 
   let returnedObj = {};
 
-  if (obj.status != "1" || obj.msg == "No record found") {
+  if (obj.status == 0 && obj?.msg?.toLowerCase() == "no record found.") {
     return {
       success: false,
       data: {

@@ -21,6 +21,7 @@ const bankingRouter = require("../api/bankingServices/routes/bankingRoutes");
 const contactRouter = require("../api/contactServices/routes/contactRoute");
 const governmentIdRouter = require("../api/governmentIdServices/routes/governmentIdRoutes");
 const locationRouter = require("../api/locationServices/routes/locationRoutes.js");
+const riskRouter = require("../api/riskServices/routes/riskRoutes.js");
 
 //Routes
 mainRouter.use("/pan", panRouter);
@@ -42,6 +43,7 @@ mainRouter.use("/bank", bankingRouter);
 mainRouter.use("/contact", contactRouter);
 mainRouter.use("/government", governmentIdRouter);
 mainRouter.use("/location", locationRouter);
+mainRouter.use("/diligence", riskRouter);
 
 
 // no middleware checking for this

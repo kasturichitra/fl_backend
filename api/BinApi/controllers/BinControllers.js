@@ -7,10 +7,10 @@ const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { bankServiceLogger } = require("../../Logger/logger");
 const {
   BinActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/BinServiceResponse");
+} = require("../service/BinServiceResponse");
 const {
   IfscActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/IfscActiveServiceResponse");
+} = require("../service/IfscActiveServiceResponse");
 const { deductCredits } = require("../../../services/CreditService");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");

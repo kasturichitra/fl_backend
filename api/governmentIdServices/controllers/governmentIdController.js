@@ -221,14 +221,13 @@ exports.handleVoterIdVerify = async (req, res) => {
         clientId: storingClient,
         result: {
           voterId: voterId,
-          ...findingInValidResponses("voterId"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
       const storingData = {
         voterId: encryptedVoterId,
-        response: { voterId: voterId, ...findingInValidResponses("voterId") },
+        response: { voterId: voterId },
         serviceResponse: {},
         status: 2,
         ...(mobileNumber && { mobileNumber }),
@@ -243,13 +242,7 @@ exports.handleVoterIdVerify = async (req, res) => {
       );
       return res
         .status(404)
-        .json(
-          createApiResponse(
-            404,
-            { voterId: voterId, ...findingInValidResponses("voterId") },
-            "InValid",
-          ),
-        );
+        .json(createApiResponse(404, { voterId: voterId }, "InValid"));
     }
   } catch (error) {
     governmentServiceLogger.error(

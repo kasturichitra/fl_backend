@@ -5,9 +5,34 @@ const CATEGORIES = {
   GEO: "GEOLOCATION",
   VEHICLE: "VEHICLE_TRANSPORT",
   Business: "BUSINESSANDCOMPANY",
+  GST: "GSTSERVICES",
+  CONTACT: "CONTACTCOMMUNICATION"
 };
 
 const SERVICES = {
+  // pan Services
+  PANBASIC: {
+    category: "PAN",
+    serviceId: "PAN",
+  },
+  PAN_TAN_VERIFY: {
+    category: "PAN",
+    serviceId: "PANTANVERIFICATION",
+  },
+  PAN_NAME_MATCH: {
+    category: "PAN",
+    serviceId: "PANNAMEMATCH",
+  },
+  PAN_NAME_DOB: {
+    category: "PAN",
+    serviceId: "PANNAMEDOB",
+  },
+  PAN_FATHER_NAME: {
+    category: "PAN",
+    serviceId: "PANTOFATHERNAME",
+  },
+
+  // geo and location
   PINCODE_GEOFENCING: {
     category: "GEO",
     serviceId: "PINCODEGEOFENCINGAPI",
@@ -36,18 +61,30 @@ const SERVICES = {
     category: "GEO",
     serviceId: "",
   },
-  PANBASIC: {
-    category: "PAN",
-    serviceId: "",
-  },
-  PAN_TAN_VERIFY: {
-    category: "PAN",
+
+  // vehicle services
+  RC_VERIFICATION: {
+    category: "VEHICLE",
     serviceId: "",
   },
   RC_VERIFICATION: {
     category: "VEHICLE",
     serviceId: "",
   },
+  RC_VERIFICATION: {
+    category: "VEHICLE",
+    serviceId: "",
+  },
+  RC_VERIFICATION: {
+    category: "VEHICLE",
+    serviceId: "",
+  },
+  CHALLAN_VIA_RC: {
+    category: "VEHICLE",
+    serviceId: "",
+  },
+
+  // business services
   CIN: {
     category: "Business",
     serviceId: "CIN Search",
@@ -59,6 +96,20 @@ const SERVICES = {
   DIN: {
     category: "Business",
     serviceId: "Din",
+  },
+  GSTIN: {
+    category: "GST",
+    serviceId: "GSTINVERIFICATIONAPI",
+  },
+
+  // contact services
+   MOBILE_TO_PAN: {
+    category: "CONTACT",
+    serviceId: "MOBILETOPAN",
+  },
+   MOBILE_TO_UAN: {
+    category: "CONTACT",
+    serviceId: "MOBILETOUAN",
   },
 };
 

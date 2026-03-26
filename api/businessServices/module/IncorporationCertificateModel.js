@@ -14,9 +14,6 @@ const IncorporationCertificate = new mongoose.Schema(
       type: Number,
     },
     mobileNumber: { type: String },
-    serviceId: {
-      type: String,
-    },
     serviceResponse: {
       type: Object,
     },

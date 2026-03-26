@@ -22,9 +22,6 @@ const panItdStatusDetails = new mongoose.Schema({
   mobileNumber:{
     type: Number,
   },
-  serviceId:{
-    type: String,
-  },
   serviceName:{
     type: String
   },

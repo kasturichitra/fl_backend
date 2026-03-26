@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { bankServiceLogger } = require("../Logger/logger");
+const { bankServiceLogger } = require("../../Logger/logger");
 
 const BinActiveServiceResponse = async (data, services=[], index = 0, clientId) => {
   console.log('BinActiveServiceResponse called');

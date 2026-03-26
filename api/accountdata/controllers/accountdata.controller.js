@@ -10,8 +10,10 @@ const { ERROR_CODES, mapError } = require("../../../utils/errorCodes");
 const handleValidation = require("../../../utils/lengthCheck");
 const {
   accountPennyDropSerciveResponse,
+} = require("../service/accountPennyDropSerciveResponse");
+const {
   accountPennyLessSerciveResponse,
-} = require("../../GlobalApiserviceResponse/accountPennyDropSerciveResponse");
+} = require("../service/accountPennyLessSerciveResponse");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { deductCredits } = require("../../../services/CreditService");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
@@ -147,7 +149,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       { account_no, ifsc },
       service,
       0,
-      storingClient
+      storingClient,
     );
 
     bankServiceLogger.info(
@@ -351,7 +353,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       { account_no, ifsc },
       service,
       0,
-      storingClient
+      storingClient,
     );
 
     bankServiceLogger.info(
@@ -387,6 +389,14 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
         .status(200)
         .json(createApiResponse(200, response?.result, "Valid"));
     } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       const objectToStoreInDb = {
         accountNo: encryptedAccountNumber,
         accountIFSCCode: ifsc,
@@ -396,19 +406,10 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
         ...(mobileNumber && { mobileNumber }),
         responseData: {
           account_no: account_no,
-          ...findingInValidResponses("accountPennyLess"),
         },
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
       };
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: response?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
       await accountdataModel.create(objectToStoreInDb);
       bankServiceLogger.info(
         `Invalid Penny Less response received and sent to client: ${storingClient}`,

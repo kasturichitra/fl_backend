@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 
-const mobileToPan = new mongoose.Schema({
+const domainVerification = new mongoose.Schema({
+  domain: {
+    type: String,
+  },
   mobileNumber: {
     type: String,
   },
@@ -12,9 +15,6 @@ const mobileToPan = new mongoose.Schema({
   },
   status:{
     type: Number,
-  },
-  serviceId:{
-    type: String,
   },
   serviceName:{
     type: String
@@ -33,4 +33,4 @@ const mobileToPan = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("mobileToPan", mobileToPan);
+module.exports = mongoose.model("domainVerification", domainVerification);

@@ -1,5 +1,5 @@
 
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const crypto = require("crypto");
 const axios = require("axios");
 

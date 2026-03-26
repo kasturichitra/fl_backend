@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const mobileToPan = new mongoose.Schema({
+const mobileToUan = new mongoose.Schema({
   mobileNumber: {
     type: String,
   },
@@ -33,4 +33,4 @@ const mobileToPan = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("mobileToPan", mobileToPan);
+module.exports = mongoose.model("mobileToUan", mobileToUan);

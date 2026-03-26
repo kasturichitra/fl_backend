@@ -12,7 +12,7 @@ const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { selectService } = require("../../service/serviceSelector");
 const {
   AadhaarActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/aadhaarServiceResp");
+} = require("../service/aadhaarServiceResp");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
@@ -106,12 +106,12 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
     }
 
     aadhaarServiceLogger.debug(
-      `Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"}`,
+      `Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"} for this client: ${client_Id}`,
+    );
+    aadhaarServiceLogger.info(
+      `Returning cached Aadhaar response for client: ${client_Id}`,
     );
     if (isExistAadhaar) {
-      aadhaarServiceLogger.info(
-        `Returning cached Aadhaar response for client: ${client_Id}`,
-      );
       if (isExistAadhaar?.status == 1) {
         await responseModel.create({
           serviceId,
@@ -140,9 +140,9 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
         });
 
         return res
-          .status(200)
+          .status(404)
           .json(
-            createApiResponse(200, isExistAadhaar?.response?.result, "Valid"),
+            createApiResponse(404, isExistAadhaar?.response?.result, "InValid"),
           );
       }
     }
@@ -196,7 +196,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       aadhaarServiceLogger.info(
         `Invalid Aadhaar response received for client: ${client_Id}`,
       );
-      return res.status(200).json(createApiResponse(200, {}, "Invalid"));
+      return res.status(404).json(createApiResponse(404, {}, "Invalid"));
     }
   } catch (err) {
     aadhaarServiceLogger.error(

@@ -1,5 +1,5 @@
 
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const crypto = require("crypto");
 const axios = require("axios");
 const EASEBUZZ_KEY = process.env.EASEBUZZ_KEY;
@@ -7,37 +7,39 @@ const EASEBUZZ_SALT = process.env.EASEBUZZ_SALT;
 const ZOOPClientId = process.env.ZOOP_APP_ID;
 const ZOOP_API_KEY = process.env.ZOOP_API_KEY;
 
-const accountActiveServiceResponse = async (data, services, index = 0) => {
-    if (index >= services?.length) {
+const accountPennyDropSerciveResponse = async (data, services=[], index = 0) => {
+    console.log('accountPennyDropSerciveResponse called');
+    if (index >= services.length) {
         return { success: false, message: "All services failed" };
     }
 
-    const newService = services?.find((ser) => ser.priority === index + 1);
+    const newService = services.find((ser) => ser.priority === index + 1);
 
     if (!newService) {
-        console.log(`[accountActiveServiceResponse] No service with priority ${index + 1}, trying next`);
-        return accountActiveServiceResponse(data, services, index + 1);
+        console.log(`No service with priority ${index + 1}, trying next`);
+        return accountPennyDropSerciveResponse(data, services, index + 1);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`[accountActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    console.log(`[accountPennyDropSerciveResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await accountApiCall(data, serviceName);
+        const res = await accountPennyDropApiCall(data, serviceName);
 
         if (res?.success) {
             return res.data;
         }
 
-        console.log(`[accountActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return accountActiveServiceResponse(data, services, index + 1);
+        console.log(`[accountPennyDropSerciveResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+        return accountPennyDropSerciveResponse(data, services, index + 1);
 
     } catch (err) {
-        return accountActiveServiceResponse(data, services, index + 1);
+        console.log(`[accountPennyDropSerciveResponse] Error from ${serviceName}:`, err.message);
+        return accountPennyDropSerciveResponse(data, services, index + 1);
     }
 };
 
-const accountApiCall = async (data, service) => {
+const accountPennyDropApiCall = async (data, service) => {
     const tskId = await generateTransactionId(12);
     const { account_no, ifsc } = data;
     const hashString = `${EASEBUZZ_KEY}|${account_no}|${ifsc}|${EASEBUZZ_SALT}`;
@@ -147,12 +149,12 @@ const accountApiCall = async (data, service) => {
         }
 
     } catch (error) {
-        console.log(`[accountApiCall] API Error in ${service}:`, error.message);
+        console.log(`[accountPennyDropApiCall] API Error in ${service}:`, error.message);
         return { success: false, data: null };
     }
 
     const obj = ApiResponse?.data || ApiResponse;
-    console.log(`[accountApiCall] ${service} Response Object:`, JSON.stringify(obj));
+    console.log(`[accountPennyDropApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
 
     // If truthscreen/others return invalid code
@@ -245,5 +247,5 @@ const accountApiCall = async (data, service) => {
 };
 
 module.exports = {
-    accountActiveServiceResponse
+    accountPennyDropSerciveResponse
 };

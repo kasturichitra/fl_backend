@@ -162,7 +162,6 @@ const verifyFullCardNumber = async (req, res, next) => {
       const objectToBeStored = {
         cardNumber: encryptedNumber,
         response: cardNumberResponse?.result,
-        serviceId: `${cardNumberResponse?.service}_fullCard`,
         serviceName: cardNumberResponse?.service,
         serviceResponse: cardNumberResponse?.responseOfService,
         status: 1,
@@ -187,7 +186,6 @@ const verifyFullCardNumber = async (req, res, next) => {
       const objectToBeStored = {
         cardNumber: encryptedNumber,
         response: cardNumberResponse?.result,
-        serviceId: `${cardNumberResponse?.service}_fullCard`,
         serviceName: cardNumberResponse?.service,
         serviceResponse: cardNumberResponse?.responseOfService,
         status: 2,

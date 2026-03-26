@@ -1,5 +1,4 @@
 const axios = require("axios");
-const { findingInValidResponses } = require("../../utils/InvalidResponses");
 const { bankServiceLogger } = require("../Logger/logger");
 
 const fullNumberServiceResponse = async (
@@ -117,7 +116,7 @@ const FullNumberApiCall = async (data, service) => {
       return {
         success: false,
         data: {
-          result: findingInValidResponses("fullCard"),
+          result: "No Data Found",
           message: "Invalid",
           responseOfService: error || {},
           service,
@@ -190,7 +189,7 @@ const FullNumberApiCall = async (data, service) => {
 const invalidResponse = (service, raw) => ({
   success: false,
   data: {
-    result: findingInValidResponses("fullCard"),
+    result: "No Data Found",
     message: "Invalid",
     responseOfService: raw || {},
     service,

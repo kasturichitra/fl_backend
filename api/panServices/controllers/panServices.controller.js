@@ -1,6 +1,5 @@
 const panverificationModel = require("../models/panBasic.model");
 const panToAadhaarModel = require("../models/panToAadhaarModel");
-const axios = require("axios");
 require("dotenv").config();
 const { panServiceLogger } = require("../../Logger/logger");
 const {
@@ -11,9 +10,7 @@ const { selectService } = require("../../service/serviceSelector");
 const { ERROR_CODES, mapError } = require("../../../utils/errorCodes");
 const handleValidation = require("../../../utils/lengthCheck");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
-const {
-  PanActiveServiceResponse,
-} = require("../service/PanBasicResponse");
+const { PanActiveServiceResponse } = require("../service/PanBasicResponse");
 const {
   PantoAadhaarActiveServiceResponse,
 } = require("../service/PantoAadhaarRes");
@@ -52,14 +49,102 @@ const reusablePanNumberFieldVerification = (panNo, client, res) => {
   return capitalPanNumber;
 };
 
+async function handlePanService({
+  req,
+  res,
+  serviceKey,
+  model,
+  activeServiceFn,
+  invalidResponseFn
+}) {
+  const { panNumber, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
+
+  const validatedPan = reusablePanNumberFieldVerification(
+    panNumber,
+    clientId,
+    res
+  );
+  if (!validatedPan) return;
+
+  const { idOfCategory, idOfService } =
+    getCategoryIdAndServiceId(serviceKey, clientId);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
+  const now = new Date();
+  const createdTime = now.toLocaleTimeString();
+  const createdDate = now.toLocaleDateString();
+
+  try {
+    const identifierHash = hashIdentifiers({ panNo: validatedPan });
+
+    const rateLimit = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId
+    });
+
+    if (!rateLimit.allowed) {
+      return res.status(429).json({ success: false, message: rateLimit.message });
+    }
+
+    const txnId = genrateUniqueServiceId();
+
+    const credit = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      txnId,
+      req.environment
+    );
+
+    if (!credit?.result) {
+      return res.status(500).json({ success: false });
+    }
+
+    const encryptedPan = encryptData(validatedPan);
+
+    const existing = await model.findOne({ panNumber: encryptedPan });
+
+    // 🔁 CACHE HIT
+    if (existing) {
+      return handleCachedResponse(existing, res, serviceId, categoryId, clientId);
+    }
+
+    const service = await selectService(categoryId, serviceId);
+    if (!service) return res.status(404).json(ERROR_CODES.NOT_FOUND);
+
+    const response = await activeServiceFn(validatedPan, service, 0, clientId);
+
+    if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
+    return handleNewResponse({
+      response,
+      model,
+      res,
+      clientId,
+      serviceId,
+      categoryId,
+      mobileNumber,
+      createdTime,
+      createdDate,
+      invalidResponseFn
+    });
+
+  } catch (err) {
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+}
+
 exports.verifyPanNumber = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-  } = data;
+  const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId;
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
@@ -69,6 +154,14 @@ exports.verifyPanNumber = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_BASIC",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
   try {
     panServiceLogger.info(
       `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -105,7 +198,7 @@ exports.verifyPanNumber = async (req, res) => {
     const maintainanceResponse = await deductCredits(
       storingClient,
       serviceId,
-      "PANSERVICES",
+      categoryId,
       tnId,
       req.environment,
     );
@@ -161,11 +254,9 @@ exports.verifyPanNumber = async (req, res) => {
         panServiceLogger.info(
           `Returning cached valid PAN response for client: ${storingClient}`,
         );
-        return res.json({
-          message: "Valid",
-          data: decryptedResponse,
-          success: true,
-        });
+        return res
+          .status(200)
+          .json(createApiResponse(200, decryptedResponse, "Valid"));
       } else {
         await responseModel.create({
           serviceId,
@@ -178,11 +269,9 @@ exports.verifyPanNumber = async (req, res) => {
         panServiceLogger.info(
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
-        return res.json({
-          message: "InValid",
-          data: resOfPan,
-          success: false,
-        });
+        return res
+          .status(404)
+          .json(createApiResponse(404, resOfPan, "InValid"));
       }
     }
 
@@ -192,7 +281,7 @@ exports.verifyPanNumber = async (req, res) => {
       panServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+      return res.status(500).json(ERROR_CODES?.SERVICE_UNAVAILABLE);
     }
 
     panServiceLogger.info(
@@ -235,8 +324,7 @@ exports.verifyPanNumber = async (req, res) => {
         response: encryptedResponse,
         serviceResponse: panNumberResponse?.responseOfService,
         status: 1,
-        mobileNumber,
-        serviceId: `${panNumberResponse?.service}_panBasic`,
+        ...(mobileNumber && { mobileNumber }),
         serviceName: panNumberResponse?.service,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
@@ -255,18 +343,17 @@ exports.verifyPanNumber = async (req, res) => {
         serviceId,
         categoryId,
         clientId: storingClient,
-        result: { pan: panNumber, ...findingInValidResponses("panBasic") },
+        result: { pan: panNumber },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
       const storingData = {
         panNumber: encryptedPan,
         userName: "",
-        response: findingInValidResponses("panBasic"),
+        response: { pan: panNumber },
         serviceResponse: panNumberResponse?.responseOfService,
         status: 2,
-        mobileNumber,
-        serviceId: `${panNumberResponse?.service}_panBasic`,
+        ...(mobileNumber && { mobileNumber }),
         serviceName: panNumberResponse?.service,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
@@ -277,13 +364,7 @@ exports.verifyPanNumber = async (req, res) => {
       );
       return res
         .status(404)
-        .json(
-          createApiResponse(
-            404,
-            { pan: panNumber, ...findingInValidResponses("panBasic") },
-            "Failed",
-          ),
-        );
+        .json(createApiResponse(404, { pan: panNumber }, "InValid"));
     }
   } catch (error) {
     panServiceLogger.error(
@@ -297,14 +378,8 @@ exports.verifyPanNumber = async (req, res) => {
 
 exports.verifyPanToAadhaar = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-  } = data;
-  const storingClient = req.clientId || clientId;
+  const { panNumber, mobileNumber = "" } = data;
+  const storingClient = req.clientId;
   const capitalPanNumber = reusablePanNumberFieldVerification(
     panNumber,
     storingClient,
@@ -312,6 +387,14 @@ exports.verifyPanToAadhaar = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_TO_AADHAAR",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
   try {
     panServiceLogger.info(
       `Executing PAN to Aadhaar verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -404,8 +487,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
           categoryId,
           clientId: storingClient,
           result: {
-            pan: panNumber,
-            ...findingInValidResponses("panToAadhaar"),
+            pan: panNumber
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -413,14 +495,15 @@ exports.verifyPanToAadhaar = async (req, res) => {
         panServiceLogger.info(
           `Returning cached invalid PAN to Aadhaar response for client: ${storingClient}`,
         );
-        return res.json({
-          message: "InValid",
-          success: false,
-          data: {
-            pan: panNumber,
-            ...findingInValidResponses("panToAadhaar"),
-          },
-        });
+        return res.status(404).json(
+          createApiResponse(
+            404,
+            {
+              pan: panNumber,
+            },
+            "InValid",
+          ),
+        );
       }
     }
 
@@ -469,6 +552,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
         response: encryptedResponse,
         aadhaarNumber: response?.result?.aadhaarNumber,
         serviceResponse: response?.responseOfService,
+        ...(mobileNumber && { mobileNumber }),
         status: 1,
         serviceName: response?.service,
         createdDate: new Date().toLocaleDateString(),
@@ -488,17 +572,29 @@ exports.verifyPanToAadhaar = async (req, res) => {
         clientId: storingClient,
         result: {
           panNumber: panNumber,
-          ...findingInValidResponses("panToAadhaar"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
+      const storingData = {
+        panNumber: encryptedPan,
+        response: {
+          panNumber: panNumber,
+        },
+        aadhaarNumber: response?.result?.aadhaarNumber,
+        serviceResponse: {},
+        ...(mobileNumber && { mobileNumber }),
+        status: 2,
+        serviceName: response?.service,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+      await panToAadhaarModel.create(storingData);
       return res.status(404).json(
         createApiResponse(
           404,
           {
             panNumber: panNumber,
-            ...findingInValidResponses("panToAadhaar"),
           },
           "InValid",
         ),
@@ -518,9 +614,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
   const data = req.body;
   const {
     panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
   const storingClient = req.clientId || "CID-6140971541";
 
@@ -531,6 +625,16 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_TO_GST_IN_NUBER",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
   try {
     panServiceLogger.info(
       `Executing PAN to GST verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -706,7 +810,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         serviceId,
         categoryId,
         clientId: storingClient,
-        result: { pan: panNumber, ...findingInValidResponses("panToGst") },
+        result: { pan: panNumber },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
@@ -715,7 +819,6 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         panNumber: encryptedPan,
         response: {
           pan: panNumber,
-          ...findingInValidResponses("panToGst"),
         },
         status: 2,
         serviceResponse: {},
@@ -734,7 +837,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         .json(
           createApiResponse(
             404,
-            { pan: panNumber, ...findingInValidResponses("panToGst") },
+            { pan: panNumber },
             "InValid",
           ),
         );
@@ -753,9 +856,7 @@ exports.verifyPantoGst = async (req, res) => {
   const data = req.body;
   const {
     panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
   const storingClient = req.clientId || "CID-6140971541";
 
@@ -766,6 +867,14 @@ exports.verifyPantoGst = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_TO_GST",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
   try {
     panServiceLogger.info(
       `Executing PAN to GST verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -941,7 +1050,7 @@ exports.verifyPantoGst = async (req, res) => {
         serviceId,
         categoryId,
         clientId: storingClient,
-        result: { pan: panNumber, ...findingInValidResponses("panToGst") },
+        result: { pan: panNumber },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
@@ -989,9 +1098,7 @@ exports.verifyPanNameMatch = async (req, res) => {
   const {
     panNumber,
     nameToMatch,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
 
   const storingClient = req.clientId || "CID-6140971541";
@@ -1002,6 +1109,15 @@ exports.verifyPanNameMatch = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_NAME_MATCH",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     panServiceLogger.info(
@@ -1098,7 +1214,6 @@ exports.verifyPanNameMatch = async (req, res) => {
           clientId: storingClient,
           result: {
             pan: panNumber,
-            ...findingInValidResponses("panToAadhaar"),
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -1111,7 +1226,6 @@ exports.verifyPanNameMatch = async (req, res) => {
           success: false,
           data: {
             pan: panNumber,
-            ...findingInValidResponses("panNameMatch"),
           },
         });
       }
@@ -1184,7 +1298,6 @@ exports.verifyPanNameMatch = async (req, res) => {
         result: {
           panNumber: panNumber,
           nameToMatch,
-          ...findingInValidResponses("panNameMatch"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -1194,7 +1307,6 @@ exports.verifyPanNameMatch = async (req, res) => {
         response: {
           panNumber: panNumber,
           nameToMatch,
-          ...findingInValidResponses("panNameMatch"),
         },
         ...(mobileNumber && { mobileNumber }),
         nameToMatch,
@@ -1214,7 +1326,6 @@ exports.verifyPanNameMatch = async (req, res) => {
           {
             panNumber: panNumber,
             nameToMatch,
-            ...findingInValidResponses("panNameMatch"),
           },
           "InValid",
         ),
@@ -1236,9 +1347,7 @@ exports.verifyPanNameDob = async (req, res) => {
     panNumber,
     fullName,
     dateOfBirth,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
   const storingClient = req.clientId || "CID-6140971541";
   const isDobValid = await handleValidation(
@@ -1255,6 +1364,15 @@ exports.verifyPanNameDob = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_TO_AADHAAR",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     panServiceLogger.info(
@@ -1354,7 +1472,6 @@ exports.verifyPanNameDob = async (req, res) => {
           clientId: storingClient,
           result: {
             pan: panNumber,
-            ...findingInValidResponses("panNameDob"),
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -1435,7 +1552,6 @@ exports.verifyPanNameDob = async (req, res) => {
         clientId: storingClient,
         result: {
           panNumber: panNumber,
-          ...findingInValidResponses("panNameDob"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -1446,7 +1562,6 @@ exports.verifyPanNameDob = async (req, res) => {
         dateOfBirth,
         response: {
           panNumber: panNumber,
-          ...findingInValidResponses("panNameDob"),
         },
         ...(mobileNumber && { mobileNumber }),
         serviceResponse: {},
@@ -1464,7 +1579,6 @@ exports.verifyPanNameDob = async (req, res) => {
           404,
           {
             panNumber: panNumber,
-            ...findingInValidResponses("panNameDob"),
           },
           "InValid",
         ),
@@ -1484,9 +1598,7 @@ exports.panDirector = async (req, res) => {
   const data = req.body;
   const {
     panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
   const storingClient = req.clientId;
 
@@ -1497,6 +1609,14 @@ exports.panDirector = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_DIRECTOR",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
   try {
     panServiceLogger.info(
       `Executing PAN NameDob verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -1588,7 +1708,6 @@ exports.panDirector = async (req, res) => {
           clientId: storingClient,
           result: {
             pan: panNumber,
-            ...findingInValidResponses("panNameDob"),
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -1712,11 +1831,9 @@ exports.panToFatherName = async (req, res) => {
   const data = req.body;
   const {
     panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
-  const storingClient = req.clientId;
+  const storingClient = req.clientId || "CID-6140971541";
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
     panNumber,
@@ -1725,6 +1842,14 @@ exports.panToFatherName = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_TO_FATHER_NAME",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
   try {
     panServiceLogger.info(
       `Executing PAN To Father name for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -1818,7 +1943,6 @@ exports.panToFatherName = async (req, res) => {
           clientId: storingClient,
           result: {
             pan: panNumber,
-            ...findingInValidResponses("panNameDob"),
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -1899,7 +2023,6 @@ exports.panToFatherName = async (req, res) => {
         clientId: storingClient,
         result: {
           panNumber: panNumber,
-          ...findingInValidResponses("panToFather"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -1924,7 +2047,6 @@ exports.panToFatherName = async (req, res) => {
           404,
           {
             panNumber: panNumber,
-            ...findingInValidResponses("panToFather"),
           },
           "InValid",
         ),
@@ -1944,7 +2066,7 @@ exports.handlePanTanVerification = async (req, res) => {
   const data = req.body;
   const { panNumber, tanNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId;
-  
+
   const isTanValid = await handleValidation(
     "tan",
     tanNumber,
@@ -1952,13 +2074,13 @@ exports.handlePanTanVerification = async (req, res) => {
     storingClient,
   );
   if (!isTanValid) return;
-  
+
   const capitalPanNumber = reusablePanNumberFieldVerification(
     panNumber,
     storingClient,
     res,
   );
-  
+
   if (!capitalPanNumber) return;
   const capitalTanNumber = tanNumber?.toUpperCase();
 
@@ -1977,7 +2099,7 @@ exports.handlePanTanVerification = async (req, res) => {
 
     const identifierHash = hashIdentifiers({
       panNo: capitalPanNumber,
-      tanNo: capitalTanNumber
+      tanNo: capitalTanNumber,
     });
 
     const panTanRateLimitResult = await checkingRateLimit({
@@ -2025,7 +2147,7 @@ exports.handlePanTanVerification = async (req, res) => {
 
     const existingPanTanResponse = await panTanModel.findOne({
       panNumber: encryptedPan,
-      tanNumber: encryptedTan
+      tanNumber: encryptedTan,
     });
 
     panServiceLogger.debug(
@@ -2058,7 +2180,9 @@ exports.handlePanTanVerification = async (req, res) => {
         );
         return res
           .status(200)
-          .json(createApiResponse(200, existingPanTanResponse?.response, "Valid"));
+          .json(
+            createApiResponse(200, existingPanTanResponse?.response, "Valid"),
+          );
       } else {
         await responseModel.create({
           serviceId,
@@ -2074,7 +2198,9 @@ exports.handlePanTanVerification = async (req, res) => {
 
         return res
           .status(404)
-          .json(createApiResponse(404, existingPanTanResponse?.response, "InValid"));
+          .json(
+            createApiResponse(404, existingPanTanResponse?.response, "InValid"),
+          );
       }
     }
 
@@ -2144,18 +2270,16 @@ exports.handlePanTanVerification = async (req, res) => {
         clientId: storingClient,
         result: {
           panNumber: panNumber,
-          ...findingInValidResponses("panTan"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
       const storingData = {
         panNumber: encryptedPan,
-        response:   {
-            panNumber: panNumber,
-            tanNumber: tanNumber,
-            ...findingInValidResponses("panTan"),
-          },
+        response: {
+          panNumber: panNumber,
+          tanNumber: tanNumber,
+        },
         aadhaarNumber: response?.result?.aadhaarNumber,
         serviceResponse: response?.responseOfService,
         ...(mobileNumber && { mobileNumber }),
@@ -2173,7 +2297,6 @@ exports.handlePanTanVerification = async (req, res) => {
           404,
           {
             panNumber: panNumber,
-            ...findingInValidResponses("panTan"),
           },
           "InValid",
         ),
@@ -2193,9 +2316,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
   const data = req.body;
   const {
     panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
   const storingClient = req.clientId;
 
@@ -2206,6 +2327,14 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_ITD_OTP_GENRATE",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
   try {
     panServiceLogger.info(
       `Executing PAN To Father name for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -2299,7 +2428,6 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
           clientId: storingClient,
           result: {
             pan: panNumber,
-            ...findingInValidResponses("panNameDob"),
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -2379,7 +2507,6 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
         clientId: storingClient,
         result: {
           panNumber: panNumber,
-          ...findingInValidResponses("panToFather"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -2423,9 +2550,7 @@ exports.panItdStatusOtpVerification = async (req, res) => {
   const data = req.body;
   const {
     panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
   const storingClient = req.clientId;
 
@@ -2436,6 +2561,14 @@ exports.panItdStatusOtpVerification = async (req, res) => {
   );
 
   if (!capitalPanNumber) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PAN_ITD_OTP_VERIFY",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
   try {
     panServiceLogger.info(
       `Executing PAN To Father name for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
@@ -2529,7 +2662,6 @@ exports.panItdStatusOtpVerification = async (req, res) => {
           clientId: storingClient,
           result: {
             pan: panNumber,
-            ...findingInValidResponses("panNameDob"),
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),

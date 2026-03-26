@@ -20,9 +20,6 @@ const panTanVerify = new mongoose.Schema(
     status: {
       type: Number,
     },
-    serviceId: {
-      type: String,
-    },
     serviceName: {
       type: String,
     },
