@@ -39,6 +39,8 @@ const { shopActiveServiceResponse } = require("../service/ShopResponse.js");
 const shopestablishmentModel = require("../module/shopestablishment.model.js");
 const { TinActiveServiceResponse } = require("../service/tinServiceResponse.js");
 const { UamActiveServiceResponse } = require("../service/UAMServiceResponse.js");
+const GstinViewTrackModel = require("../module/GstinViewTrack.model.js");
+const { GstInViewAndTrackActiveServiceRes } = require("../service/gstinviewandtrack.js");
 
 // DIN VERIFICATION
 exports.dinVerification = async (req, res) => {
@@ -50,7 +52,7 @@ exports.dinVerification = async (req, res) => {
     }
     businessServiceLogger.info(`DIN NUMBER Details: ${dinNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('DIN', clientId);
+        const { idOfCategory:categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('DIN', clientId);
 
         const isValid = handleValidation("din", dinNumber, res, clientId);
         if (!isValid) return;
@@ -159,8 +161,8 @@ exports.dinVerification = async (req, res) => {
                 });
                 const dataToShow = existingDin?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -222,8 +224,7 @@ exports.dinVerification = async (req, res) => {
                 categoryId,
                 clientId,
                 result: {
-                    dinNumber: dinNumber,
-                    ...findingInValidResponses("Din"),
+                    dinNumber: dinNumber
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -232,8 +233,7 @@ exports.dinVerification = async (req, res) => {
                 status: 2,
                 dinNumber: encryptedDin,
                 response: {
-                    dinNumber: dinNumber,
-                    ...findingInValidResponses("Din"),
+                    dinNumber: dinNumber
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -264,10 +264,7 @@ exports.dinVerification = async (req, res) => {
 
 // GST IN VERIFY
 exports.gstinverify = async (req, res, next) => {
-    const {
-        gstinNumber,
-        mobileNumber = "",
-    } = req.body;
+    const {gstinNumber, mobileNumber = ""} = req.body;
     const clientId = req.clientId;
 
     if (!gstinNumber) {
@@ -275,7 +272,7 @@ exports.gstinverify = async (req, res, next) => {
     }
     businessServiceLogger.info(`GSTIN NUMBER Details: ${gstinNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
 
         const capitalGstNumber = gstinNumber?.toUpperCase();
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -388,8 +385,8 @@ exports.gstinverify = async (req, res, next) => {
                 });
                 const dataToShow = existingGstin?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -452,7 +449,6 @@ exports.gstinverify = async (req, res, next) => {
                 clientId,
                 result: {
                     gstinNumber: gstinNumber,
-                    ...findingInValidResponses("gstIn"),
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -461,8 +457,7 @@ exports.gstinverify = async (req, res, next) => {
                 status: 2,
                 gstinNumber: encryptedGst,
                 response: {
-                    gstinNumber: gstinNumber,
-                    ...findingInValidResponses("gstIn"),
+                    gstinNumber: gstinNumber
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -503,7 +498,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     }
     businessServiceLogger.info(`gstin NUMBER Details: ${gstinNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', clientId);
 
         const capitalGstNumber = gstinNumber?.toUpperCase();
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -601,8 +596,8 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
                 });
                 const dataToShow = existingGstin?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -654,8 +649,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
                 categoryId,
                 clientId: clientId,
                 result: {
-                    gstinNumber: gstinNumber,
-                    ...findingInValidResponses("GstinToPan"),
+                    gstinNumber: gstinNumber
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -664,8 +658,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
                 status: 2,
                 gstinNumber: encryptedGst,
                 response: {
-                    gstinNumber: gstinNumber,
-                    ...findingInValidResponses("GstinToPan"),
+                    gstinNumber: gstinNumber
                 },
                 serviceResponse: response?.responseOfService,
                 serviceName: response?.service,
@@ -686,8 +679,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
 
 // GSTIN TAXPAYER
 exports.gstInTaxPayerVerification = async (req, res) => {
-    const { gstinNumber,
-        mobileNumber = "", } = req.body;
+    const { gstinNumber, mobileNumber = "", } = req.body;
     const clientId = req.clientId;
     const isClient = req.role;
     if (!gstinNumber) {
@@ -697,7 +689,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         `GSTIN TAXPAYER VERIFICATION, CLIENTID:${clientId}, SERVICEID:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`,
     );
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', clientId);
         const capitalGstNumber = gstinNumber?.toUpperCase();
 
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -794,8 +786,8 @@ exports.gstInTaxPayerVerification = async (req, res) => {
                 });
                 const dataToShow = existingGstin?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -860,8 +852,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
                 categoryId,
                 clientId,
                 result: {
-                    gstinNumber: gstinNumber,
-                    ...findingInValidResponses("gstin"),
+                    gstinNumber: gstinNumber
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -870,8 +861,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
                 status: 2,
                 gstinNumber: encryptedGst,
                 response: {
-                    gstinNumber: gstinNumber,
-                    ...findingInValidResponses("gstin"),
+                    gstinNumber: gstinNumber
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -899,6 +889,216 @@ exports.gstInTaxPayerVerification = async (req, res) => {
     }
 };
 
+// GSTIN VIEW AND TRACK RETURN
+exports.gstinViewAndTrack = async (req,res)=>{
+    const {gstinNumber, Financialyear, mobileNumber} = req.body;
+    const clientId = req.clientId;
+    if(!gstinNumber || !Financialyear){
+        return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+    };
+    businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION, CLIENTID:${clientId}, SERVICEiD:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`)
+    try{
+        const {categoryId, serviceId} = await getCategoryIdAndServiceId('GSTINVIEWANDTRACK', clientId);
+        const capitalGstNumber = gstinNumber?.toUpperCase();
+        
+        const isValid = handleValidation('gstin',capitalGstNumber,req,clientId);
+        if(!isValid) return;
+
+        // 1. HASH THE DATA
+        const identifierHash = hashIdentifiers({
+            gstNo: capitalGstNumber,
+            Financialyear
+        });
+
+        // 2. CHECK THE RATE LIMIT AND CHECK IS PRODUCT IS SUBSCRIBE
+        const gstRateLimitResult = await checkingRateLimit({
+            identifiers: { identifierHash },
+            serviceId,
+            categoryId,
+            clientId
+        });
+
+        if (!gstRateLimitResult.allowed) {
+            return res.status(429).json(createApiResponse(429, null, gstRateLimitResult?.message))
+        };
+
+        const tnId = genrateUniqueServiceId();
+        businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION txnID:${tnId}, CLIENTID:${clientId}`);
+
+        // 3. DEBIT THE WALLET AMOUNT ON THE USEAGE
+        const maintainanceResponse = await deductCredits(
+            req.clientId,
+            serviceId,
+            categoryId,
+            tnId,
+            req.environment
+        );
+        businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION txnID:${tnId}, CLIENTID:${clientId}, maintainanceResponse:${JSON.stringify(maintainanceResponse)}`);
+
+        if (!maintainanceResponse?.result) {
+            return res.status(500).json(createApiResponse(500, {}, maintainanceResponse?.message || 'Invalid'))
+        };
+
+        // 4. CHECK THE DATA IS PRESENT 
+        const encryptedGst = encryptData(gstinNumber);
+
+        const existingGstin = await GstinViewTrackModel.findOne({ gstinNumber: encryptedGst,Financialyear });
+
+        // 5. UPDATE TO THE ANALYTICS COLLECTION
+        const analyticsResult = await AnalyticsDataUpdate(
+            clientId,
+            serviceId,
+            categoryId,
+        );
+        if (!analyticsResult.success) {
+            businessServiceLogger.warn(
+                `Analytics update failed for GSTIN VIEWANDTRACK verification: client ${clientId}, service ${serviceId}`,
+            );
+        }
+
+        businessServiceLogger.info(
+            `Checked for existing GSTIN VIEWANDTRACK record in DB: ${existingGstin ? "Found" : "Not Found"}, `,
+        );
+
+        if (existingGstin) {
+            if (existingGstin?.status == 1) {
+                businessServiceLogger.info(
+                    `Returning cached GSTIN VIEWANDTRACK Taxpayers response for client: ${clientId}`,
+                );
+
+                const decrypted = {
+                    ...existingGstin?.response,
+                    gstinNumber: gstinNumber,
+                };
+                await responseModel.create({
+                    serviceId,
+                    categoryId,
+                    clientId,
+                    result: existingGstin?.response,
+                    createdTime: new Date().toLocaleTimeString(),
+                    createdDate: new Date().toLocaleDateString(),
+                });
+                const dataToShow = decrypted;
+                return res
+                    .status(200)
+                    .json(createApiResponse(200, dataToShow, "Valid"));
+            } else {
+                businessServiceLogger.info(
+                    `Returning cached GSTIN VIEWANDTRACK response for client: ${clientId}`,
+                );
+                await responseModel.create({
+                    serviceId,
+                    categoryId,
+                    clientId,
+                    result: existingGstin?.response,
+                    createdTime: new Date().toLocaleTimeString(),
+                    createdDate: new Date().toLocaleDateString(),
+                });
+                const dataToShow = existingGstin?.response;
+                return res
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
+            }
+        }
+
+        //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
+        const service = await selectService(categoryId, serviceId);
+
+        businessServiceLogger.info(
+            `Active service selected for GSTIN VIEWANDTRACK verification: ${service.serviceFor}`,
+        );
+        if (!service.length) {
+            businessServiceLogger.warn(
+                `Active service not found for GSTIN VIEWANDTRACK Taxpayers category ${categoryId}, service ${serviceId}`,
+            );
+            return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+        }
+        businessServiceLogger.info(
+            `GSTIN VIEWANDTRACK inverify activer service ${JSON.stringify(service)}`,
+        );
+
+        // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+        let response = await GstInViewAndTrackActiveServiceRes({gstinNumber,Financialyear}, service, 0);
+        businessServiceLogger.info(
+            `Response received from active service ${service.serviceFor}: ${response?.message}`,
+        );
+
+        // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+        if (response?.message?.toUpperCase() == "VALID") {
+            const encryptedResponse = {
+                ...response?.result,
+                gstinNumber: encryptedGst,
+            };
+            await responseModel.create({
+                serviceId,
+                categoryId,
+                clientId,
+                result: response?.result,
+                createdTime: new Date().toLocaleTimeString(),
+                createdDate: new Date().toLocaleDateString(),
+            });
+            const storingData = {
+                status: 1,
+                gstinNumber: encryptedGst,
+                Financialyear,
+                response: encryptedResponse,
+                serviceResponse: response?.responseOfService,
+                serviceName: response?.service,
+                message: response?.message,
+                mobileNumber,
+                createdDate: new Date().toLocaleDateString(),
+                createdTime: new Date().toLocaleTimeString(),
+            };
+
+            await GstinViewTrackModel.create(storingData);
+            businessServiceLogger.info(
+                `Valid GSTIN VIEWANDTRACK response stored and sent to client: ${clientId}`,
+            );
+            return res
+                .status(200)
+                .json(createApiResponse(200, response?.result, "Success"));
+        } else {
+            await responseModel.create({
+                serviceId,
+                categoryId,
+                clientId,
+                result: {
+                    gstinNumber: gstinNumber
+                },
+                createdTime: new Date().toLocaleTimeString(),
+                createdDate: new Date().toLocaleDateString(),
+            });
+            const storingData = {
+                status: 2,
+                gstinNumber: encryptedGst,
+                response: {
+                    gstinNumber: gstinNumber
+                },
+                serviceResponse: {},
+                serviceName: response?.service,
+                mobileNumber,
+                message: response?.message,
+                createdDate: new Date().toLocaleDateString(),
+                createdTime: new Date().toLocaleTimeString(),
+            };
+
+            await gstInTaxpayer.create(storingData);
+            businessServiceLogger.info(
+                `Invalid GSTIN VIEWANDTRACK response received and sent to client: ${clientId}`,
+            );
+            return res
+                .status(404)
+                .json(createApiResponse(404, { gstinNumber: gstinNumber }, "Failed"));
+        };
+
+    }catch (error) {
+        businessServiceLogger.info(
+            `GSTIN VIEWANDTRACK VERIFICATION, GSTNO:${gstinNumber}, ERRORMESSAGE;${error.message}`,
+        );
+        return res.status(500).json(createApiResponse(500, null, 'SERVER ERROR'));
+    }
+}
+
 // CIN DOC:15 VERIFICATION (CIN Search)
 exports.handleCINVerification = async (req, res, next) => {
     const { CIN, mobileNumber = "" } = req.body;
@@ -910,7 +1110,7 @@ exports.handleCINVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CIN NUMBER Details: ${CIN}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('CIN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CIN', clientId);
 
         const isCinValid = handleValidation("cin", CIN, res, clientId);
         if (!isCinValid) return;
@@ -1021,8 +1221,8 @@ exports.handleCINVerification = async (req, res, next) => {
                 });
                 const dataToShow = existingCIN?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -1087,8 +1287,7 @@ exports.handleCINVerification = async (req, res, next) => {
                 categoryId,
                 clientId: clientId,
                 result: {
-                    cinNumber: CIN,
-                    ...findingInValidResponses("Cin"),
+                    cinNumber: CIN
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -1098,8 +1297,7 @@ exports.handleCINVerification = async (req, res, next) => {
                 status: 2,
                 cinNumber: encryptedCIN,
                 response: {
-                    cinNumber: CIN,
-                    ...findingInValidResponses("Cin"),
+                    cinNumber: CIN
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -1137,7 +1335,7 @@ exports.CompanVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CompanyName List Details: ${CompanyName}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('CompanyNamelist', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyNamelist', clientId);
 
         const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
         if (!isCompanyNameValid) return;
@@ -1248,8 +1446,8 @@ exports.CompanVerification = async (req, res, next) => {
                 });
                 const dataToShow = existingCompanyName?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -1314,8 +1512,7 @@ exports.CompanVerification = async (req, res, next) => {
                 categoryId,
                 clientId: clientId,
                 result: {
-                    CompanyName: CompanyName,
-                    ...findingInValidResponses("CompanyName"),
+                    CompanyName: CompanyName
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -1325,8 +1522,7 @@ exports.CompanVerification = async (req, res, next) => {
                 status: 2,
                 CompanyName: encryptedCompanyName,
                 response: {
-                    CompanyName: CompanyName,
-                    ...findingInValidResponses("CompanyName"),
+                    CompanyName: CompanyName
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -1354,7 +1550,7 @@ exports.CompanVerification = async (req, res, next) => {
 };
 
 // CIN DOC:52 VERIFICATION (company to CIN Search)
-exports.CompanVerification = async (req, res, next) => {
+exports.CompanSearchVerification = async (req, res, next) => {
     const { CompanyName, mobileNumber = "" } = req.body;
     const clientId = req.clientId;
 
@@ -1364,7 +1560,7 @@ exports.CompanVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CompanyName Details: ${CompanyName}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
 
         const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
         if (!isCompanyNameValid) return;
@@ -1475,8 +1671,8 @@ exports.CompanVerification = async (req, res, next) => {
                 });
                 const dataToShow = existingCompanyName?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -1541,8 +1737,7 @@ exports.CompanVerification = async (req, res, next) => {
                 categoryId,
                 clientId: clientId,
                 result: {
-                    CompanyName: CompanyName,
-                    ...findingInValidResponses("CompanyName"),
+                    CompanyName: CompanyName
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -1552,8 +1747,7 @@ exports.CompanVerification = async (req, res, next) => {
                 status: 2,
                 CompanyName: encryptedCompanyName,
                 response: {
-                    CompanyName: CompanyName,
-                    ...findingInValidResponses("CompanyName"),
+                    CompanyName: CompanyName
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -1593,7 +1787,7 @@ exports.handleTINVerification = async (req, res) => {
     businessServiceLogger.info(`TIN Number Details: ${TIN}`);
     try {
 
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('TIN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', clientId);
 
         businessServiceLogger.info(
             `Executing TIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
@@ -1699,8 +1893,8 @@ exports.handleTINVerification = async (req, res) => {
                 });
                 const dataToShow = existingTin?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         };
 
@@ -1762,8 +1956,7 @@ exports.handleTINVerification = async (req, res) => {
                 categoryId,
                 clientId,
                 result: {
-                    tinNumber: tinNumber,
-                    // ...findingInValidResponses("Tin"),
+                    tinNumber: tinNumber
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -1772,8 +1965,7 @@ exports.handleTINVerification = async (req, res) => {
                 status: 2,
                 tinNumber: encryptedtTIN,
                 response: {
-                    tinNumber: tinNumber,
-                    // ...findingInValidResponses("Tin"),
+                    tinNumber: tinNumber
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -1813,7 +2005,7 @@ exports.handleIECVerification = async (req, res) => {
 
     businessServiceLogger.info(`IEC Number Details: ${IEC}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('IEC', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('IEC', clientId);
         businessServiceLogger.info(`Executing IEC verfication for client:${clientId}, service: ${serviceId}, category: ${categoryId}`)
 
         //1. HASH IEC NUMBER
@@ -1914,8 +2106,8 @@ exports.handleIECVerification = async (req, res) => {
                 });
                 const dataToShow = existingIEC?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         };
 
@@ -1977,8 +2169,7 @@ exports.handleIECVerification = async (req, res) => {
                 categoryId,
                 clientId,
                 result: {
-                    iecNumber: IEC,
-                    // ...findingInValidResponses("Iec"),
+                    iecNumber: IEC
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -1987,8 +2178,7 @@ exports.handleIECVerification = async (req, res) => {
                 status: 2,
                 iecNumber: encryptedIEC,
                 response: {
-                    iecNumber: IEC,
-                    // ...findingInValidResponses("Iec"),
+                    iecNumber: IEC
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -2037,7 +2227,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
     );
 
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', clientId);
         businessServiceLogger.info(
             `Executing Udyam verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
         );
@@ -2131,7 +2321,6 @@ exports.udyamNumberVerfication = async (req, res, next) => {
                     categoryId,
                     clientId: clientId,
                     result: {
-                        ...findingInValidResponses("udyam"),
                         udyam: udyamNumber,
                     },
                     createdTime: new Date().toLocaleTimeString(),
@@ -2140,11 +2329,10 @@ exports.udyamNumberVerfication = async (req, res, next) => {
                 businessServiceLogger.info(
                     `Returning cached invalid Udyam response for client: ${clientId}`,
                 );
-                return res.status(200).json(
+                return res.status(404).json(
                     createApiResponse(
-                        200,
+                        404,
                         {
-                            ...findingInValidResponses("udyam"),
                             udyam: udyamNumber,
                         },
                         "InValid",
@@ -2205,7 +2393,6 @@ exports.udyamNumberVerfication = async (req, res, next) => {
         } else {
             const InValidData = {
                 response: {
-                    ...findingInValidResponses("udyam"),
                     udyam: udyamNumber,
                 },
                 serviceResponse: {},
@@ -2229,7 +2416,6 @@ exports.udyamNumberVerfication = async (req, res, next) => {
                 createApiResponse(
                     404,
                     {
-                        ...findingInValidResponses("udyam"),
                         udyam: udyamNumber,
                     },
                     "InValid",
@@ -2256,7 +2442,7 @@ exports.DGFTVerification = async (req, res) => {
     }
     businessServiceLogger.info(`DGFT NUMBER Details: ${DGFT}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('DGFT', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('DGFT', clientId);
 
         const isValid = handleValidation("DGFT", DGFT, res, clientId);
         if (!isValid) return;
@@ -2365,8 +2551,8 @@ exports.DGFTVerification = async (req, res) => {
                 });
                 const dataToShow = existingDGFT?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -2428,8 +2614,7 @@ exports.DGFTVerification = async (req, res) => {
                 categoryId,
                 clientId,
                 result: {
-                    DGFT: DGFT,
-                    ...findingInValidResponses("DGFT"),
+                    DGFT: DGFT
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -2438,8 +2623,7 @@ exports.DGFTVerification = async (req, res) => {
                 status: 2,
                 DGFT: encryptedDGFT,
                 response: {
-                    DGFT: DGFT,
-                    ...findingInValidResponses("DGFT"),
+                    DGFT: DGFT
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -2477,7 +2661,7 @@ exports.LEIVerification = async (req, res) => {
     }
     businessServiceLogger.info(`LEI NUMBER Details: ${CompanyName}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('LEI', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('LEI', clientId);
 
         const isValid = handleValidation("LEI", CompanyName, res, clientId);
         if (!isValid) return;
@@ -2586,8 +2770,8 @@ exports.LEIVerification = async (req, res) => {
                 });
                 const dataToShow = existingLEI?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -2649,8 +2833,7 @@ exports.LEIVerification = async (req, res) => {
                 categoryId,
                 clientId,
                 result: {
-                    CompanyName: CompanyName,
-                    // ...findingInValidResponses("LEI"),
+                    CompanyName: CompanyName
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -2659,8 +2842,7 @@ exports.LEIVerification = async (req, res) => {
                 status: 2,
                 CompanyName: encryptedLEI,
                 response: {
-                    CompanyName: CompanyName,
-                    // ...findingInValidResponses("LEI"),
+                    CompanyName: CompanyName
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -2699,7 +2881,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
     }
     businessServiceLogger.info(`UAM NUMBER Details: ${UAMNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('UAM', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UAM', clientId);
 
         const isValid = handleValidation("UAM", UAMNumber, res, clientId);
         if (!isValid) return;
@@ -2808,8 +2990,8 @@ exports.udyogAadhaarVerification = async (req, res) => {
                 });
                 const dataToShow = existingUAM?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -2826,7 +3008,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-        let response = await UamActiveServiceResponse(UAMNumber, service,'UamApiCall', 0);
+        let response = await UamActiveServiceResponse(UAMNumber, service, 'UamApiCall', 0);
 
         businessServiceLogger.info(
             `Active service selected for UAMverification service ${service.serviceFor}: ${response?.message}`,
@@ -2871,8 +3053,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
                 categoryId,
                 clientId,
                 result: {
-                    UAMNumber: UAMNumber,
-                    ...findingInValidResponses("UAM"),
+                    UAMNumber: UAMNumber
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -2881,8 +3062,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
                 status: 2,
                 UAMNumber: encryptedUAM,
                 response: {
-                    UAMNumber: UAMNumber,
-                    ...findingInValidResponses("UAM"),
+                    UAMNumber: UAMNumber
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -2921,7 +3101,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
     }
     businessServiceLogger.info(`UAM Aadhaar using phone NUMBER Details: ${UAMNumber}, number:${customerNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('UAMPhone', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UAMPhone', clientId);
 
         const isValid = handleValidation("UAMPhone", UAMNumber, res, clientId);
         if (!isValid) return;
@@ -3031,8 +3211,8 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
                 });
                 const dataToShow = existingUAM?.response;
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, dataToShow, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
             }
         }
 
@@ -3049,7 +3229,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-        let response = await UamActiveServiceResponse({UAMNumber,customerNumber}, service,'UamwithPhoneApiCall', 0);
+        let response = await UamActiveServiceResponse({ UAMNumber, customerNumber }, service, 'UamwithPhoneApiCall', 0);
 
         businessServiceLogger.info(
             `Active service selected for UAMverification service ${service.serviceFor}: ${response?.message}`,
@@ -3096,8 +3276,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
                 clientId,
                 result: {
                     UAMNumber: UAMNumber,
-                    customerNumber: customerNumber,
-                    ...findingInValidResponses("UAMPhone"),
+                    customerNumber: customerNumber
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -3108,8 +3287,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
                 customerNumber: customerNumber,
                 response: {
                     UAMNumber: UAMNumber,
-                    customerNumber: customerNumber,
-                    ...findingInValidResponses("UAMPhone"),
+                    customerNumber: customerNumber
                 },
                 serviceResponse: {},
                 serviceName: response?.service,
@@ -3151,7 +3329,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
     businessServiceLogger.info(`Shop Establishment Details ===>> registrationNumber: ${registrationNumber} --- state: ${state}`);
 
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('SHOP', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('SHOP', clientId);
 
         businessServiceLogger.info(
             `Executing Shop Establishment verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
@@ -3252,8 +3430,8 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
                     createdDate: new Date().toLocaleDateString(),
                 });
                 return res
-                    .status(200)
-                    .json(createApiResponse(200, existingDetails?.response, "Valid"));
+                    .status(404)
+                    .json(createApiResponse(404, existingDetails?.response, "inValid"));
             }
         }
 
@@ -3307,8 +3485,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
                 categoryId,
                 clientId: clientId,
                 result: {
-                    registrationNumber: registrationNumber,
-                    ...findingInValidResponses("shop"),
+                    registrationNumber: registrationNumber
                 },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString(),
@@ -3317,8 +3494,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
                 status: 2,
                 registrationNumber: encryptedRegistration,
                 response: {
-                    registrationNumber: registrationNumber,
-                    ...findingInValidResponses("shop"),
+                    registrationNumber: registrationNumber
                 },
                 serviceResponse: response?.responseOfService || {},
                 serviceName: response?.service || "Unknown",

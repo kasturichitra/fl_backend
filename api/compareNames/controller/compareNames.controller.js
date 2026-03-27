@@ -1,11 +1,17 @@
 const { deductCredits } = require("../../../services/CreditService");
+const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+const { createApiResponse } = require("../../../utils/ApiResponseHandler");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const { ERROR_CODES } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const handleValidation = require("../../../utils/lengthCheck");
 const { otherServiceLogger } = require("../../Logger/logger");
+const { selectService } = require("../../service/serviceSelector");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const comparingNamesModel = require("../models/compareName.model");
+const { NameMatchActiveServiceResponse } = require("../services/services");
 
 async function checkCompareNames(firstName, secondName) {
   console.log("firstName, secondName===>", firstName, secondName);
@@ -28,7 +34,7 @@ async function checkCompareNames(firstName, secondName) {
     sortedFirstName,
     sortedSecondName,
   );
-  logger.info(
+  console.log(
     "sortedFirstName === sortedSecondName===>",
     sortedFirstName,
     sortedSecondName,
@@ -100,7 +106,7 @@ function removeTitle(name) {
 
 exports.compareNames = async (req, res, next) => {
   console.log("Compare Name is triggred");
-  otherServiceLogger.info("Compare Name is triggred");
+  console.log("Compare Name is triggred");
 
   const {
     firstName,
@@ -110,7 +116,7 @@ exports.compareNames = async (req, res, next) => {
     categoryId = "",
   } = req.body;
   console.log("firstName and secondName ===>>", secondName, firstName);
-  otherServiceLogger.info("firstName and secondName ===>>", secondName, firstName);
+  console.log("firstName and secondName ===>>", secondName, firstName);
   const capitalFirstName = firstName?.toUpperCase();
   const capitalSecondName = secondName?.toUpperCase();
   const isFirstValid = handleValidation("firstName", capitalFirstName, res);
@@ -142,7 +148,7 @@ exports.compareNames = async (req, res, next) => {
 
   const tnId = genrateUniqueServiceId();
   console.log("NAME txn Id ===>>", tnId);
-  otherServiceLogger.info("NAME txn Id ===>>", tnId);
+  console.log("NAME txn Id ===>>", tnId);
   const maintainanceResponse = await deductCredits(
     storingClient,
     serviceId,
@@ -152,7 +158,7 @@ exports.compareNames = async (req, res, next) => {
   );
 
   if (!maintainanceResponse?.result) {
-    otherServiceLogger.error(
+    console.error(
       `Credit deduction failed for Card BIN check: client ${storingClient}, txnId ${tnId}`,
     );
     return res.status(500).json({
@@ -180,7 +186,7 @@ exports.compareNames = async (req, res, next) => {
         capitalSecondName,
       );
       console.log("======>>>>>result in compareNames", result);
-      logger.info("result from compareNames in name match ===>>", result);
+      console.log("result from compareNames in name match ===>>", result);
 
       const { reverseSimilarity, similarity } = result;
 
@@ -189,7 +195,7 @@ exports.compareNames = async (req, res, next) => {
         similarity,
         reverseSimilarity,
       );
-      logger.info(
+      console.log(
         "reverseSimilarity and similarity in name match api ===>>",
         similarity,
         reverseSimilarity,
@@ -206,7 +212,7 @@ exports.compareNames = async (req, res, next) => {
           similarity,
           reverseSimilarity,
         );
-        logger.info(
+        console.log(
           "reverseSimilarity and similarity ===>>",
           similarity,
           reverseSimilarity,
@@ -243,3 +249,420 @@ exports.compareNames = async (req, res, next) => {
     return next(errorMessage);
   }
 };
+
+exports.compareNamesWithServices = async (req, res) => {
+  const { firstName, secondName, mobileNumber } = req.body;
+  const clientId = req.clientId;
+
+  if (!firstName || !secondName) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+  otherServiceLogger.info(`Compare name with services details firstName:${firstName}, secondName:${secondName}`);
+  try {
+    const { categoryId, serviceId } = await getCategoryIdAndServiceId('CompareNamewithService', clientId)
+
+    const isFistNameValid = handleValidation('Names', firstName, res, clientId);
+    const isSecondNameValid = handleValidation('Names', secondName, res, clientId);
+
+    if (!isFistNameValid || !isSecondNameValid) return;
+
+    otherServiceLogger.info(`Executing CompareNames with service for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+
+    //1. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
+    const NameMatchRateLimit = await checkingRateLimit({
+      identifiers: { firstName, secondName },
+      serviceId,
+      categoryId,
+      clientId
+    });
+
+    if (!NameMatchRateLimit.allowed) {
+      otherServiceLogger.info(`[FAILED]: Rate limit exceeded for namematch verification: client ${clientId}, service: ${serviceId}`);
+      return res.status(429).json({
+        success: false,
+        message: NameMatchRateLimit.message
+      })
+    };
+
+    const tnId = genrateUniqueServiceId();
+    otherServiceLogger.info(`Generated NameMatch Txn id: ${tnId}`);
+
+    // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
+    const maintainanceResponse = await deductCredits(clientId, serviceId, categoryId, tnId, req.environment);
+
+    if (!maintainanceResponse?.result) {
+      otherServiceLogger.info(`[FAILED]: Credit deduction failed for Compare names verfication client: ${clientId}, txnId: ${tnId}`);
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {}
+      })
+    };
+
+    // 3. CHECK IN THE DB IS DATA PRESENT
+    const existingNames = await Names_verifyModel.findOne({ firstName, secondName });
+
+    // 4. UPDATE TO THE ANALYTICS COLLECTION
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId
+    );
+
+    if (!analyticsResult?.success) {
+      otherServiceLogger.info(`[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`);
+    };
+
+    otherServiceLogger.info(`checked for existing Names in DB Records: ${existingNames ? "Found" : "NotFound"}`)
+
+    //5. IF DATA IS PRESENT THEN REUTRN THE RESPONSE
+
+    if (existingNames) {
+      if (existingNames?.status == 1) {
+        otherServiceLogger.info(`Returning Cached Din Response for Client: ${clientId}`);
+
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          result: existingNames?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+
+        return res.status(200).json(createApiResponse(200, existingNames?.response, "Valid"));
+      } else {
+        otherServiceLogger.info(`Returning cached Name response for client ${clientId}`);
+
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingNames?.response,
+          createdTime: new Date().toLocaleDateString(),
+          createdDate: new Date().toLocaleDateString()
+        });
+        const dataToShow = existingNames?.response;
+        return res.status(404).json(createApiResponse(404, dataToShow, "inValid"))
+      }
+
+    }
+
+    // 6.IF NO DATA FOUND THEN CALL TO SERVICE PROVIDERS
+    const service = await selectService(categoryId, serviceId);
+    if (!service.length) {
+      otherServiceLogger.info(
+        `[FAILED]: Active service not found for CompareName category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    // 7. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    let response = await NameMatchActiveServiceResponse({ firstName, secondName }, service, 0);
+
+    otherServiceLogger.info(
+      `Active service selected for Nameverification service ${service.serviceFor}: ${response?.message}`,
+    );
+
+    // 8. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    if (response?.message?.toUpperCase() == "VALID") {
+      // const encryptedResponse = {
+      //   ...response?.result,
+      //   dinNumber: encryptedFSSAI,
+      // };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        firstName,
+        secondName,
+        response: response?.result,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await Names_verifyModel.create(storingData);
+      otherServiceLogger.info(
+        `Valid NameMatch response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: {
+          firstName,
+          secondName
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        firstName,
+        secondName,
+        response: {
+          firstName,
+          secondName
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await Names_verifyModel.create(storingData);
+      otherServiceLogger.info(
+        `Invalid Name match response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { firstName, secondName }, "Failed"));
+    }
+
+
+  } catch (error) {
+    otherServiceLogger.error(
+      `System error in compare Name with services verification for client ${clientId}: ${error.message}`,
+      error
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+}
+
+//362 FSSAI Verification
+exports.FSSAIVerification = async (req, res) => {
+  const { FSSAINumber, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
+
+  if (!FSSAINumber) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+  otherServiceLogger.info(`FSSAINumber NUMBER Details: ${FSSAINumber}`);
+  try {
+    const { categoryId, serviceId } = await getCategoryIdAndServiceId('FSSAINumber', clientId);
+
+    const isValid = handleValidation("FSSAINumber", FSSAINumber, res, clientId);
+    if (!isValid) return;
+
+    otherServiceLogger.info(
+      `Executing FSSAINumber verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+    );
+
+    //1. HASH FSSAINumber NUMBER
+    const indetifierHash = hashIdentifiers({
+      FSSAINumber
+    });
+
+    //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
+    const FSSAIRateLimitResult = await checkingRateLimit({
+      identifiers: { indetifierHash },
+      serviceId,
+      categoryId,
+      clientId
+    });
+
+    if (!FSSAIRateLimitResult.allowed) {
+      otherServiceLogger.info(`[FAILED]: Rate limit exceeded for FSSAI verification: client ${clientId}, service ${serviceId}`);
+      return res.status(429).json({
+        success: false,
+        message: FSSAIRateLimitResult.message,
+      });
+    };
+
+    const tnId = genrateUniqueServiceId();
+    otherServiceLogger.info(`Generated FSSAI txn Id: ${tnId}`);
+
+    // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment
+    );
+
+    if (!maintainanceResponse?.result) {
+      otherServiceLogger.info(`[FAILED]: Credit deduction failed for FSSAI verification: client ${clientId}, txnId ${tnId}`);
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    // 4. CHECK IN THE DB IS DATA PRESENT 
+    const encryptedFSSAI = encryptData(FSSAINumber);
+
+    const existingFssai = await FSSAI_verifyModel.findOne({ FSSAINumber: encryptedFSSAI })
+
+    // 5. UPDATE TO THE ANALYTICS COLLECTION
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+    );
+    if (!analyticsResult.success) {
+      otherServiceLogger.info(
+        `[FAILED]: Analytics update failed for FSSAI verification: client ${clientId}, service ${serviceId}`,
+      );
+    }
+
+    otherServiceLogger.info(
+      `Checked for existing FSSAI record in DB: ${existingFssai ? "Found" : "Not Found"}, `,
+    );
+
+    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
+    if (existingFssai) {
+      if (existingFssai?.status == 1) {
+        otherServiceLogger.info(
+          `Returning cached FSSAI response for client: ${clientId}`,
+        );
+
+        const decrypted = {
+          ...existingFssai?.response,
+          FSSAINumber,
+        };
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingFssai?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        otherServiceLogger.info(
+          `Returning cached FSSAI response for client: ${clientId}`,
+        );
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingFssai?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingFssai?.response;
+        return res
+          .status(404)
+          .json(createApiResponse(404, dataToShow, "inValid"));
+      }
+    }
+
+    //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
+    const service = await selectService(categoryId, serviceId);
+    if (!service.length) {
+      otherServiceLogger.info(
+        `[FAILED]: Active service not found for FSSAI category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+    otherServiceLogger.info(
+      `Active service selected for FSSAI verification: ${service.serviceFor}`,
+    );
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    let response = await FSSAIActiveServiceResponse(FSSAINumber, service, 0);
+
+    otherServiceLogger.info(
+      `Active service selected for FSSAI verification service ${service.serviceFor}: ${response?.message}`,
+    );
+
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        FSSAINumber: encryptedFSSAI,
+      };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        FSSAINumber: encryptedFSSAI,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await FSSAI_verifyModel.create(storingData);
+      otherServiceLogger.info(
+        `Valid FSSAI response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: {
+          FSSAINumber: FSSAINumber
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        FSSAINumber: encryptedFSSAI,
+        response: {
+          FSSAINumber: FSSAINumber
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await din_verifyModel.create(storingData);
+      otherServiceLogger.info(
+        `Invalid DIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { FSSAINumber: FSSAINumber }, "Failed"));
+    }
+
+  } catch (error) {
+    otherServiceLogger.error(
+      `System error in DIN verification for client ${clientId}: ${error.message}`,
+      error
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+}
+
+
