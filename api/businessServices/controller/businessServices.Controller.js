@@ -39,6 +39,8 @@ const { shopActiveServiceResponse } = require("../service/ShopResponse.js");
 const shopestablishmentModel = require("../module/shopestablishment.model.js");
 const { TinActiveServiceResponse } = require("../service/tinServiceResponse.js");
 const { UamActiveServiceResponse } = require("../service/UAMServiceResponse.js");
+const GstinViewTrackModel = require("../module/GstinViewTrack.model.js");
+const { GstInViewAndTrackActiveServiceRes } = require("../service/gstinviewandtrack.js");
 
 // DIN VERIFICATION
 exports.dinVerification = async (req, res) => {
@@ -50,7 +52,7 @@ exports.dinVerification = async (req, res) => {
     }
     businessServiceLogger.info(`DIN NUMBER Details: ${dinNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('DIN', clientId);
+        const { idOfCategory:categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('DIN', clientId);
 
         const isValid = handleValidation("din", dinNumber, res, clientId);
         if (!isValid) return;
@@ -262,10 +264,7 @@ exports.dinVerification = async (req, res) => {
 
 // GST IN VERIFY
 exports.gstinverify = async (req, res, next) => {
-    const {
-        gstinNumber,
-        mobileNumber = "",
-    } = req.body;
+    const {gstinNumber, mobileNumber = ""} = req.body;
     const clientId = req.clientId;
 
     if (!gstinNumber) {
@@ -273,7 +272,7 @@ exports.gstinverify = async (req, res, next) => {
     }
     businessServiceLogger.info(`GSTIN NUMBER Details: ${gstinNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
 
         const capitalGstNumber = gstinNumber?.toUpperCase();
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -499,7 +498,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     }
     businessServiceLogger.info(`gstin NUMBER Details: ${gstinNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', clientId);
 
         const capitalGstNumber = gstinNumber?.toUpperCase();
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -680,8 +679,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
 
 // GSTIN TAXPAYER
 exports.gstInTaxPayerVerification = async (req, res) => {
-    const { gstinNumber,
-        mobileNumber = "", } = req.body;
+    const { gstinNumber, mobileNumber = "", } = req.body;
     const clientId = req.clientId;
     const isClient = req.role;
     if (!gstinNumber) {
@@ -691,7 +689,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         `GSTIN TAXPAYER VERIFICATION, CLIENTID:${clientId}, SERVICEID:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`,
     );
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', clientId);
         const capitalGstNumber = gstinNumber?.toUpperCase();
 
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -891,6 +889,216 @@ exports.gstInTaxPayerVerification = async (req, res) => {
     }
 };
 
+// GSTIN VIEW AND TRACK RETURN
+exports.gstinViewAndTrack = async (req,res)=>{
+    const {gstinNumber, Financialyear, mobileNumber} = req.body;
+    const clientId = req.clientId;
+    if(!gstinNumber || !Financialyear){
+        return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+    };
+    businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION, CLIENTID:${clientId}, SERVICEiD:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`)
+    try{
+        const {categoryId, serviceId} = await getCategoryIdAndServiceId('GSTINVIEWANDTRACK', clientId);
+        const capitalGstNumber = gstinNumber?.toUpperCase();
+        
+        const isValid = handleValidation('gstin',capitalGstNumber,req,clientId);
+        if(!isValid) return;
+
+        // 1. HASH THE DATA
+        const identifierHash = hashIdentifiers({
+            gstNo: capitalGstNumber,
+            Financialyear
+        });
+
+        // 2. CHECK THE RATE LIMIT AND CHECK IS PRODUCT IS SUBSCRIBE
+        const gstRateLimitResult = await checkingRateLimit({
+            identifiers: { identifierHash },
+            serviceId,
+            categoryId,
+            clientId
+        });
+
+        if (!gstRateLimitResult.allowed) {
+            return res.status(429).json(createApiResponse(429, null, gstRateLimitResult?.message))
+        };
+
+        const tnId = genrateUniqueServiceId();
+        businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION txnID:${tnId}, CLIENTID:${clientId}`);
+
+        // 3. DEBIT THE WALLET AMOUNT ON THE USEAGE
+        const maintainanceResponse = await deductCredits(
+            req.clientId,
+            serviceId,
+            categoryId,
+            tnId,
+            req.environment
+        );
+        businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION txnID:${tnId}, CLIENTID:${clientId}, maintainanceResponse:${JSON.stringify(maintainanceResponse)}`);
+
+        if (!maintainanceResponse?.result) {
+            return res.status(500).json(createApiResponse(500, {}, maintainanceResponse?.message || 'Invalid'))
+        };
+
+        // 4. CHECK THE DATA IS PRESENT 
+        const encryptedGst = encryptData(gstinNumber);
+
+        const existingGstin = await GstinViewTrackModel.findOne({ gstinNumber: encryptedGst,Financialyear });
+
+        // 5. UPDATE TO THE ANALYTICS COLLECTION
+        const analyticsResult = await AnalyticsDataUpdate(
+            clientId,
+            serviceId,
+            categoryId,
+        );
+        if (!analyticsResult.success) {
+            businessServiceLogger.warn(
+                `Analytics update failed for GSTIN VIEWANDTRACK verification: client ${clientId}, service ${serviceId}`,
+            );
+        }
+
+        businessServiceLogger.info(
+            `Checked for existing GSTIN VIEWANDTRACK record in DB: ${existingGstin ? "Found" : "Not Found"}, `,
+        );
+
+        if (existingGstin) {
+            if (existingGstin?.status == 1) {
+                businessServiceLogger.info(
+                    `Returning cached GSTIN VIEWANDTRACK Taxpayers response for client: ${clientId}`,
+                );
+
+                const decrypted = {
+                    ...existingGstin?.response,
+                    gstinNumber: gstinNumber,
+                };
+                await responseModel.create({
+                    serviceId,
+                    categoryId,
+                    clientId,
+                    result: existingGstin?.response,
+                    createdTime: new Date().toLocaleTimeString(),
+                    createdDate: new Date().toLocaleDateString(),
+                });
+                const dataToShow = decrypted;
+                return res
+                    .status(200)
+                    .json(createApiResponse(200, dataToShow, "Valid"));
+            } else {
+                businessServiceLogger.info(
+                    `Returning cached GSTIN VIEWANDTRACK response for client: ${clientId}`,
+                );
+                await responseModel.create({
+                    serviceId,
+                    categoryId,
+                    clientId,
+                    result: existingGstin?.response,
+                    createdTime: new Date().toLocaleTimeString(),
+                    createdDate: new Date().toLocaleDateString(),
+                });
+                const dataToShow = existingGstin?.response;
+                return res
+                    .status(404)
+                    .json(createApiResponse(404, dataToShow, "inValid"));
+            }
+        }
+
+        //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
+        const service = await selectService(categoryId, serviceId);
+
+        businessServiceLogger.info(
+            `Active service selected for GSTIN VIEWANDTRACK verification: ${service.serviceFor}`,
+        );
+        if (!service.length) {
+            businessServiceLogger.warn(
+                `Active service not found for GSTIN VIEWANDTRACK Taxpayers category ${categoryId}, service ${serviceId}`,
+            );
+            return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+        }
+        businessServiceLogger.info(
+            `GSTIN VIEWANDTRACK inverify activer service ${JSON.stringify(service)}`,
+        );
+
+        // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+        let response = await GstInViewAndTrackActiveServiceRes({gstinNumber,Financialyear}, service, 0);
+        businessServiceLogger.info(
+            `Response received from active service ${service.serviceFor}: ${response?.message}`,
+        );
+
+        // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+        if (response?.message?.toUpperCase() == "VALID") {
+            const encryptedResponse = {
+                ...response?.result,
+                gstinNumber: encryptedGst,
+            };
+            await responseModel.create({
+                serviceId,
+                categoryId,
+                clientId,
+                result: response?.result,
+                createdTime: new Date().toLocaleTimeString(),
+                createdDate: new Date().toLocaleDateString(),
+            });
+            const storingData = {
+                status: 1,
+                gstinNumber: encryptedGst,
+                Financialyear,
+                response: encryptedResponse,
+                serviceResponse: response?.responseOfService,
+                serviceName: response?.service,
+                message: response?.message,
+                mobileNumber,
+                createdDate: new Date().toLocaleDateString(),
+                createdTime: new Date().toLocaleTimeString(),
+            };
+
+            await GstinViewTrackModel.create(storingData);
+            businessServiceLogger.info(
+                `Valid GSTIN VIEWANDTRACK response stored and sent to client: ${clientId}`,
+            );
+            return res
+                .status(200)
+                .json(createApiResponse(200, response?.result, "Success"));
+        } else {
+            await responseModel.create({
+                serviceId,
+                categoryId,
+                clientId,
+                result: {
+                    gstinNumber: gstinNumber
+                },
+                createdTime: new Date().toLocaleTimeString(),
+                createdDate: new Date().toLocaleDateString(),
+            });
+            const storingData = {
+                status: 2,
+                gstinNumber: encryptedGst,
+                response: {
+                    gstinNumber: gstinNumber
+                },
+                serviceResponse: {},
+                serviceName: response?.service,
+                mobileNumber,
+                message: response?.message,
+                createdDate: new Date().toLocaleDateString(),
+                createdTime: new Date().toLocaleTimeString(),
+            };
+
+            await gstInTaxpayer.create(storingData);
+            businessServiceLogger.info(
+                `Invalid GSTIN VIEWANDTRACK response received and sent to client: ${clientId}`,
+            );
+            return res
+                .status(404)
+                .json(createApiResponse(404, { gstinNumber: gstinNumber }, "Failed"));
+        };
+
+    }catch (error) {
+        businessServiceLogger.info(
+            `GSTIN VIEWANDTRACK VERIFICATION, GSTNO:${gstinNumber}, ERRORMESSAGE;${error.message}`,
+        );
+        return res.status(500).json(createApiResponse(500, null, 'SERVER ERROR'));
+    }
+}
+
 // CIN DOC:15 VERIFICATION (CIN Search)
 exports.handleCINVerification = async (req, res, next) => {
     const { CIN, mobileNumber = "" } = req.body;
@@ -902,7 +1110,7 @@ exports.handleCINVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CIN NUMBER Details: ${CIN}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('CIN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CIN', clientId);
 
         const isCinValid = handleValidation("cin", CIN, res, clientId);
         if (!isCinValid) return;
@@ -1127,7 +1335,7 @@ exports.CompanVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CompanyName List Details: ${CompanyName}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('CompanyNamelist', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyNamelist', clientId);
 
         const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
         if (!isCompanyNameValid) return;
@@ -1342,7 +1550,7 @@ exports.CompanVerification = async (req, res, next) => {
 };
 
 // CIN DOC:52 VERIFICATION (company to CIN Search)
-exports.CompanVerification = async (req, res, next) => {
+exports.CompanSearchVerification = async (req, res, next) => {
     const { CompanyName, mobileNumber = "" } = req.body;
     const clientId = req.clientId;
 
@@ -1352,7 +1560,7 @@ exports.CompanVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CompanyName Details: ${CompanyName}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
 
         const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
         if (!isCompanyNameValid) return;
@@ -1579,7 +1787,7 @@ exports.handleTINVerification = async (req, res) => {
     businessServiceLogger.info(`TIN Number Details: ${TIN}`);
     try {
 
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('TIN', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', clientId);
 
         businessServiceLogger.info(
             `Executing TIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
@@ -1797,7 +2005,7 @@ exports.handleIECVerification = async (req, res) => {
 
     businessServiceLogger.info(`IEC Number Details: ${IEC}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('IEC', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('IEC', clientId);
         businessServiceLogger.info(`Executing IEC verfication for client:${clientId}, service: ${serviceId}, category: ${categoryId}`)
 
         //1. HASH IEC NUMBER
@@ -2019,7 +2227,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
     );
 
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', clientId);
         businessServiceLogger.info(
             `Executing Udyam verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
         );
@@ -2234,7 +2442,7 @@ exports.DGFTVerification = async (req, res) => {
     }
     businessServiceLogger.info(`DGFT NUMBER Details: ${DGFT}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('DGFT', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('DGFT', clientId);
 
         const isValid = handleValidation("DGFT", DGFT, res, clientId);
         if (!isValid) return;
@@ -2453,7 +2661,7 @@ exports.LEIVerification = async (req, res) => {
     }
     businessServiceLogger.info(`LEI NUMBER Details: ${CompanyName}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('LEI', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('LEI', clientId);
 
         const isValid = handleValidation("LEI", CompanyName, res, clientId);
         if (!isValid) return;
@@ -2673,7 +2881,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
     }
     businessServiceLogger.info(`UAM NUMBER Details: ${UAMNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('UAM', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UAM', clientId);
 
         const isValid = handleValidation("UAM", UAMNumber, res, clientId);
         if (!isValid) return;
@@ -2893,7 +3101,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
     }
     businessServiceLogger.info(`UAM Aadhaar using phone NUMBER Details: ${UAMNumber}, number:${customerNumber}`);
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('UAMPhone', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UAMPhone', clientId);
 
         const isValid = handleValidation("UAMPhone", UAMNumber, res, clientId);
         if (!isValid) return;
@@ -3121,7 +3329,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
     businessServiceLogger.info(`Shop Establishment Details ===>> registrationNumber: ${registrationNumber} --- state: ${state}`);
 
     try {
-        const { categoryId, serviceId } = await getCategoryIdAndServiceId('SHOP', clientId);
+        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('SHOP', clientId);
 
         businessServiceLogger.info(
             `Executing Shop Establishment verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,

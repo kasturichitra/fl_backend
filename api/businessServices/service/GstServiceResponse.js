@@ -69,8 +69,8 @@ const GSTApiCall = async (data, service) => {
         "TRUTHSCREEN": {
             BodyData: {
                 transID: tskId,
-                "docType": "23",
-                "docNumber": data
+                docType: 23,
+                docNumber: data
             },
             url: process.env.TRUTHSCREEN_API_URL,
             header: {

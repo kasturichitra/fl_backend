@@ -33,7 +33,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 //   user: process.env.MONGODB_USERNAME_UAT,
 //   pass: process.env.MONGODB_PASSWORD_UAT,
 // };
-uatdatabase = {
+const uatdatabase = {
   host: process.env.MONGODB_HOST_UAT,
   port: process.env.MONGODB_PORT_UAT,
   db: process.env.MONGODB_DB_UAT,

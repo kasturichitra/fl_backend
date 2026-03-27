@@ -47,7 +47,7 @@ const SERVICES = {
   DIN: {
     category: "Business",
     serviceId: "Din",
-  },
+  }
 };
 
 const getCategoryIdAndServiceId = (type, client) => {
