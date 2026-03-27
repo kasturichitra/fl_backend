@@ -63,7 +63,7 @@ exports.handleBSAViaNetBanking = async (req, res) => {
     //   );
     //   return res.status(500).json({
     //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
+    //     message: maintainanceResponse?.message || "Invalid",
     //     response: {},
     //   });
     // }
@@ -126,7 +126,7 @@ exports.handleBSAViaNetBanking = async (req, res) => {
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           data: resOfPan,
           success: false,
         });

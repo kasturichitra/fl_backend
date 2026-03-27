@@ -12,6 +12,7 @@ async function selectService(servicecategory, serviceName) {
     };
     }catch(error){
         console.log('SelectService Error:',error);
+        return [];
     }
 }
 

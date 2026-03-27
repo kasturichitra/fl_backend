@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const passportDetails = new mongoose.Schema(
+const electricityBillDetails = new mongoose.Schema(
   {
     passportFileNo: {
       type: String,
@@ -37,4 +37,4 @@ const passportDetails = new mongoose.Schema(
   },
 );
 
-module.exports = mongoose.model("passportVerification", passportDetails);
+module.exports = mongoose.model("electricityBill", electricityBillDetails);

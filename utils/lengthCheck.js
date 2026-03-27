@@ -31,7 +31,7 @@ const ID_RULES = {
   aadhaar: { length: 12, regex: /^\d{12}$/, displayName: "Aadhaar Number" },
   cin: {
     length: 21,
-    regex: /^[A-Z]{1}[0-9]{5}[A-Z]{2}[0-9]{4}[A-Z]{3}[0-9]{6}$/,
+    regex: /^[A-Za-z]{1}[0-9]{5}[A-Za-z]{2}[0-9]{4}[A-Za-z]{3}[0-9]{6}$/,
     displayName: "CIN",
   },
   bin: {

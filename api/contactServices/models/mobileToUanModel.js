@@ -1,11 +1,9 @@
 const mongoose = require("mongoose");
 
-const mobileToUanDetails = new mongoose.Schema({
-  uanNumber: {
-    type: String,
-  },
+const mobileToUan = new mongoose.Schema({
   mobileNumber: {
     type: String,
+    unique: true
   },
   response: {
     type: Object,
@@ -36,4 +34,4 @@ const mobileToUanDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("mobileToUan", mobileToUanDetails);
+module.exports = mongoose.model("mobileToUan", mobileToUan);

@@ -4,13 +4,13 @@ const {
   generateTransactionId,
 } = require("../../truthScreen/callTruthScreen");
 
-const voterIdVerifyServiceResponse = async (
+const domainVerifyActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
   client,
 ) => {
-  console.log("voterIdVerifyServiceResponse called");
+  console.log("domainVerifyActiveServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -19,35 +19,35 @@ const voterIdVerifyServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return voterIdVerifyServiceResponse(data, services, index + 1);
+    return domainVerifyActiveServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(
-    `[voterIdVerifyServiceResponse] Trying service with priority ${index + 1}:`,
+    `[domainVerifyActiveServiceResponse] Trying service with priority ${index + 1}:`,
     newService,
   );
 
   try {
-    const res = await voterIdApiCall(data, serviceName, client);
+    const res = await domainApiCall(data, serviceName, client);
 
     if (res?.data) {
       return res.data;
     }
 
     console.log(
-      `[voterIdVerifyServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+      `[domainVerifyActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return voterIdVerifyServiceResponse(data, services, index + 1);
+    return domainVerifyActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(
-      `[voterIdVerifyServiceResponse] Error from ${serviceName}:`,
+      `[domainVerifyActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return voterIdVerifyServiceResponse(data, services, index + 1);
+    return domainVerifyActiveServiceResponse(data, services, index + 1);
   }
 };
-const voterIdApiCall = async (data, service, CID) => {
+const domainApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -149,13 +149,13 @@ const voterIdApiCall = async (data, service, CID) => {
   };
 };
 
-const passportVerifyServiceResponse = async (
+const advanceProfileServiceResponse = async (
   data,
   services = [],
   index = 0,
   client,
 ) => {
-  console.log("passportVerifyServiceResponse called");
+  console.log("advanceProfileServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -164,35 +164,35 @@ const passportVerifyServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return passportVerifyServiceResponse(data, services, index + 1);
+    return advanceProfileServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(
-    `[passportVerifyServiceResponse] Trying service with priority ${index + 1}:`,
+    `[advanceProfileServiceResponse] Trying service with priority ${index + 1}:`,
     newService,
   );
 
   try {
-    const res = await passportApiCall(data, serviceName, client);
+    const res = await advanceProfileApiCall(data, serviceName, client);
 
     if (res?.data) {
       return res.data;
     }
 
     console.log(
-      `[passportVerifyServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+      `[advanceProfileServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return passportVerifyServiceResponse(data, services, index + 1);
+    return advanceProfileServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(
-      `[passportVerifyServiceResponse] Error from ${serviceName}:`,
+      `[advanceProfileServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return passportVerifyServiceResponse(data, services, index + 1);
+    return advanceProfileServiceResponse(data, services, index + 1);
   }
 };
-const passportApiCall = async (data, service, CID) => {
+const advanceProfileApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -295,13 +295,13 @@ const passportApiCall = async (data, service, CID) => {
   };
 };
 
-const electricityBillServiceResponse = async (
+const courtRecordCheckServiceResponse = async (
   data,
   services = [],
   index = 0,
   client,
 ) => {
-  console.log("electricityBillServiceResponse called");
+  console.log("courtRecordCheckServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -310,35 +310,35 @@ const electricityBillServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return electricityBillServiceResponse(data, services, index + 1);
+    return courtRecordCheckServiceResponse(data, services, index + 1);
   }
 
   const serviceName = newService.providerId || "";
   console.log(
-    `[electricityBillServiceResponse] Trying service with priority ${index + 1}:`,
+    `[courtRecordCheckServiceResponse] Trying service with priority ${index + 1}:`,
     newService,
   );
 
   try {
-    const res = await electricityBillApiCall(data, serviceName, client);
+    const res = await courtRecordCheckApiCall(data, serviceName, client);
 
     if (res?.data) {
       return res.data;
     }
 
     console.log(
-      `[electricityBillServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+      `[courtRecordCheckServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return electricityBillServiceResponse(data, services, index + 1);
+    return courtRecordCheckServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(
-      `[electricityBillServiceResponse] Error from ${serviceName}:`,
+      `[courtRecordCheckServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return electricityBillServiceResponse(data, services, index + 1);
+    return courtRecordCheckServiceResponse(data, services, index + 1);
   }
 };
-const electricityBillApiCall = async (data, service, CID) => {
+const courtRecordCheckApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -442,7 +442,7 @@ const electricityBillApiCall = async (data, service, CID) => {
 };
 
 module.exports = {
-  voterIdVerifyServiceResponse,
-  passportVerifyServiceResponse,
-  electricityBillServiceResponse
+  domainVerifyActiveServiceResponse,
+  advanceProfileServiceResponse,
+  courtRecordCheckServiceResponse
 };

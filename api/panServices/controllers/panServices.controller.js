@@ -145,7 +145,7 @@ async function handlePanService({
 exports.verifyPanNumber = async (req, res) => {
   const data = req.body;
   const { panNumber, mobileNumber = "" } = data;
-  const storingClient = req.clientId;
+  const storingClient = req.clientId || "CID-6140971541";
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
     panNumber,
@@ -174,45 +174,45 @@ exports.verifyPanNumber = async (req, res) => {
     );
 
     // Common: hash identifier
-    const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
-    });
+    // const identifierHash = hashIdentifiers({
+    //   panNo: capitalPanNumber,
+    // });
 
-    const panRateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      clientId: storingClient,
-    });
+    // const panRateLimitResult = await checkingRateLimit({
+    //   identifiers: { identifierHash },
+    //   serviceId,
+    //   categoryId,
+    //   clientId: storingClient,
+    // });
 
-    if (!panRateLimitResult.allowed) {
-      panServiceLogger.warn(
-        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
-      );
-      return res.status(429).json({
-        success: false,
-        message: panRateLimitResult.message,
-      });
-    }
+    // if (!panRateLimitResult.allowed) {
+    //   panServiceLogger.warn(
+    //     `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+    //   );
+    //   return res.status(429).json({
+    //     success: false,
+    //     message: panRateLimitResult.message,
+    //   });
+    // }
 
-    const maintainanceResponse = await deductCredits(
-      storingClient,
-      serviceId,
-      categoryId,
-      tnId,
-      req.environment,
-    );
+    // const maintainanceResponse = await deductCredits(
+    //   storingClient,
+    //   serviceId,
+    //   categoryId,
+    //   tnId,
+    //   req.environment,
+    // );
 
-    if (!maintainanceResponse?.result) {
-      panServiceLogger.error(
-        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
-      );
-      return res.status(500).json({
-        success: false,
-        message: maintainanceResponse?.message || "InValid",
-        response: {},
-      });
-    }
+    // if (!maintainanceResponse?.result) {
+    //   panServiceLogger.error(
+    //     `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+    //   );
+    //   return res.status(500).json({
+    //     success: false,
+    //     message: maintainanceResponse?.message || "Invalid",
+    //     response: {},
+    //   });
+    // }
 
     const encryptedPan = encryptData(capitalPanNumber);
 
@@ -271,22 +271,19 @@ exports.verifyPanNumber = async (req, res) => {
         );
         return res
           .status(404)
-          .json(createApiResponse(404, resOfPan, "InValid"));
+          .json(createApiResponse(404, resOfPan, "Invalid"));
       }
     }
 
     const service = await selectService(categoryId, serviceId);
 
-    if (!service) {
+    if (!service?.length) {
       panServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
       return res.status(500).json(ERROR_CODES?.SERVICE_UNAVAILABLE);
     }
 
-    panServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
     let panNumberResponse = await PanActiveServiceResponse(
       panNumber,
       service,
@@ -303,7 +300,6 @@ exports.verifyPanNumber = async (req, res) => {
     }
 
     if (panNumberResponse?.message?.toUpperCase() == "VALID") {
-      const encryptedPan = encryptData(panNumberResponse?.result?.PAN);
       const encryptedResponse = {
         ...panNumberResponse?.result,
         PAN: encryptedPan,
@@ -364,7 +360,7 @@ exports.verifyPanNumber = async (req, res) => {
       );
       return res
         .status(404)
-        .json(createApiResponse(404, { pan: panNumber }, "InValid"));
+        .json(createApiResponse(404, { pan: panNumber }, "Invalid"));
     }
   } catch (error) {
     panServiceLogger.error(
@@ -438,7 +434,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -501,7 +497,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
             {
               pan: panNumber,
             },
-            "InValid",
+            "Invalid",
           ),
         );
       }
@@ -596,7 +592,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
           {
             panNumber: panNumber,
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -678,7 +674,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -742,7 +738,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
         );
         return res
           .status(404)
-          .json(createApiResponse(404, resOfPan, "InValid"));
+          .json(createApiResponse(404, resOfPan, "Invalid"));
       }
     }
 
@@ -838,7 +834,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
           createApiResponse(
             404,
             { pan: panNumber },
-            "InValid",
+            "Invalid",
           ),
         );
     }
@@ -918,7 +914,7 @@ exports.verifyPantoGst = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -982,7 +978,7 @@ exports.verifyPantoGst = async (req, res) => {
         );
         return res
           .status(404)
-          .json(createApiResponse(404, resOfPan, "InValid"));
+          .json(createApiResponse(404, resOfPan, "Invalid"));
       }
     }
 
@@ -1079,7 +1075,7 @@ exports.verifyPantoGst = async (req, res) => {
           createApiResponse(
             404,
             { pan: panNumber, ...findingInValidResponses("panToGst") },
-            "InValid",
+            "Invalid",
           ),
         );
     }
@@ -1163,7 +1159,7 @@ exports.verifyPanNameMatch = async (req, res) => {
     //   );
     //   return res.status(500).json({
     //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
+    //     message: maintainanceResponse?.message || "Invalid",
     //     response: {},
     //   });
     // }
@@ -1222,7 +1218,7 @@ exports.verifyPanNameMatch = async (req, res) => {
           `Returning cached invalid PAN NameMatch response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           success: false,
           data: {
             pan: panNumber,
@@ -1327,7 +1323,7 @@ exports.verifyPanNameMatch = async (req, res) => {
             panNumber: panNumber,
             nameToMatch,
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -1421,7 +1417,7 @@ exports.verifyPanNameDob = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -1580,7 +1576,7 @@ exports.verifyPanNameDob = async (req, res) => {
           {
             panNumber: panNumber,
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -1660,7 +1656,7 @@ exports.panDirector = async (req, res) => {
     //   );
     //   return res.status(500).json({
     //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
+    //     message: maintainanceResponse?.message || "Invalid",
     //     response: {},
     //   });
     // }
@@ -1718,7 +1714,7 @@ exports.panDirector = async (req, res) => {
 
         return res
           .status(404)
-          .json(createApiResponse(404, existingPanNumber?.response, "InValid"));
+          .json(createApiResponse(404, existingPanNumber?.response, "Invalid"));
       }
     }
 
@@ -1813,7 +1809,7 @@ exports.panDirector = async (req, res) => {
             panNumber: panNumber,
             ...findingInValidResponses("panDirector"),
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -1895,7 +1891,7 @@ exports.panToFatherName = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -1953,7 +1949,7 @@ exports.panToFatherName = async (req, res) => {
 
         return res
           .status(404)
-          .json(createApiResponse(404, existingPanNumber?.response, "InValid"));
+          .json(createApiResponse(404, existingPanNumber?.response, "Invalid"));
       }
     }
 
@@ -2048,7 +2044,7 @@ exports.panToFatherName = async (req, res) => {
           {
             panNumber: panNumber,
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -2138,7 +2134,7 @@ exports.handlePanTanVerification = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -2199,7 +2195,7 @@ exports.handlePanTanVerification = async (req, res) => {
         return res
           .status(404)
           .json(
-            createApiResponse(404, existingPanTanResponse?.response, "InValid"),
+            createApiResponse(404, existingPanTanResponse?.response, "Invalid"),
           );
       }
     }
@@ -2298,7 +2294,7 @@ exports.handlePanTanVerification = async (req, res) => {
           {
             panNumber: panNumber,
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -2380,7 +2376,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -2438,7 +2434,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
 
         return res
           .status(404)
-          .json(createApiResponse(404, existingPanNumber?.response, "InValid"));
+          .json(createApiResponse(404, existingPanNumber?.response, "Invalid"));
       }
     }
 
@@ -2532,7 +2528,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
             panNumber: panNumber,
             ...findingInValidResponses("panToFather"),
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -2614,7 +2610,7 @@ exports.panItdStatusOtpVerification = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -2672,7 +2668,7 @@ exports.panItdStatusOtpVerification = async (req, res) => {
 
         return res
           .status(404)
-          .json(createApiResponse(404, existingPanNumber?.response, "InValid"));
+          .json(createApiResponse(404, existingPanNumber?.response, "Invalid"));
       }
     }
 
@@ -2767,7 +2763,7 @@ exports.panItdStatusOtpVerification = async (req, res) => {
             panNumber: panNumber,
             ...findingInValidResponses("panToFather"),
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }

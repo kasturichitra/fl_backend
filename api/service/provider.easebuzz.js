@@ -65,7 +65,7 @@ async function verifyBankAccountEaseBuzz(data) {
       };
     } else {
       return {
-        message: "InValid",
+        message: "Invalid",
         responseOfService: cashfreeResponse,
         result: {},
         success: false,

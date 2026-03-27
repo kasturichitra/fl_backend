@@ -86,7 +86,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     //   bankServiceLogger.error(`Credit deduction failed for Penny Drop: client ${storingClient}, txnId ${tnId}`);
     //   return res.status(500).json({
     //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
+    //     message: maintainanceResponse?.message || "Invalid",
     //     response: {},
     //   });
     // }
@@ -130,7 +130,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
           .status(200)
           .json(createApiResponse(200, responseToSend, "Valid"));
       } else {
-        return res.status(200).json(createApiResponse(200, {}, "InValid"));
+        return res.status(200).json(createApiResponse(200, {}, "Invalid"));
       }
     }
     const service = await selectService(categoryId, serviceId);
@@ -199,7 +199,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       bankServiceLogger.info(
         `Invalid Penny Drop response received and sent to client: ${storingClient}`,
       );
-      return res.status(404).json(createApiResponse(404, {}, "InValid"));
+      return res.status(404).json(createApiResponse(404, {}, "Invalid"));
     }
   } catch (error) {
     bankServiceLogger.error(
@@ -283,7 +283,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -414,7 +414,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       bankServiceLogger.info(
         `Invalid Penny Less response received and sent to client: ${storingClient}`,
       );
-      return res.status(200).json(createApiResponse(200, {}, "InValid"));
+      return res.status(200).json(createApiResponse(200, {}, "Invalid"));
     }
   } catch (error) {
     bankServiceLogger.error(

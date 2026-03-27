@@ -5,6 +5,7 @@ const IncorporationCertificate = new mongoose.Schema(
     cinNumber: {
       type: String,
       required: true,
+      unique: true 
     },
     response: {
       type: Object,
@@ -22,11 +23,9 @@ const IncorporationCertificate = new mongoose.Schema(
     },
     createdTime: {
       type: String,
-      default: Date.now,
     },
     createdDate: {
       type: String,
-      default: Date.now,
     },
   },
   {

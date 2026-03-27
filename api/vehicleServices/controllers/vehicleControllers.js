@@ -98,7 +98,7 @@ exports.handleRcVerification = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -161,7 +161,7 @@ exports.handleRcVerification = async (req, res) => {
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           data: resOfRc,
           success: false,
         });
@@ -245,7 +245,7 @@ exports.handleRcVerification = async (req, res) => {
           {
             rcNumber: rcNumber,
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -332,7 +332,7 @@ exports.handleVehicleRegisteration = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -395,7 +395,7 @@ exports.handleVehicleRegisteration = async (req, res) => {
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           data: resOfvehicleRegister,
           success: false,
         });
@@ -563,7 +563,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -628,7 +628,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           data: resOfPan,
           success: false,
         });
@@ -704,7 +704,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
           createApiResponse(
             404,
             { vehicleRegisterationNumber: RegistrationNumber },
-            "InValid",
+            "Invalid",
           ),
         );
     }
@@ -787,7 +787,7 @@ exports.handleChallanViaRc = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -850,7 +850,7 @@ exports.handleChallanViaRc = async (req, res) => {
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           data: resOfPan,
           success: false,
         });
@@ -946,7 +946,7 @@ exports.handleChallanViaRc = async (req, res) => {
           createApiResponse(
             404,
             { rcNumber: rcNumber },
-            "InValid",
+            "Invalid",
           ),
         );
     }
@@ -1038,7 +1038,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
     //   );
     //   return res.status(500).json({
     //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
+    //     message: maintainanceResponse?.message || "Invalid",
     //     response: {},
     //   });
     // }
@@ -1104,7 +1104,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
           `Returning cached invalid driving license response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           data: resOfDl,
           success: false,
         });
@@ -1205,7 +1205,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
       );
       return res
         .status(404)
-        .json(createApiResponse(404, { licenseNumber: licenseNo }, "InValid"));
+        .json(createApiResponse(404, { licenseNumber: licenseNo }, "Invalid"));
     }
   } catch (error) {
     vehicleServiceLogger.error(

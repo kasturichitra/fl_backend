@@ -163,7 +163,7 @@ exports.compareNames = async (req, res, next) => {
     );
     return res.status(500).json({
       success: false,
-      message: maintainanceResponse?.message || "InValid",
+      message: maintainanceResponse?.message || "Invalid",
       response: {},
     });
   }

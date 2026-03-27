@@ -48,9 +48,7 @@ const PanApiCall = async (data, service, CID) => {
             BodyData: {
                 mode: "sync",
                 data: {
-                    customer_pan_number: JSON.stringify({
-                        pan_number: data
-                    }),
+                    customer_pan_number: data,
                     consent: "Y",
                     consent_text: "I consent to this information being shared with zoop.one",
                 },
@@ -77,7 +75,7 @@ const PanApiCall = async (data, service, CID) => {
                 docType: 2,
                 docNumber: data,
             },
-            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
+            url: process.env.TRUTNSCREEN_PANVERIFICATION_URL,
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const mobileToPan = new mongoose.Schema({
   mobileNumber: {
     type: String,
+      unique: true
   },
   response: {
     type: Object,

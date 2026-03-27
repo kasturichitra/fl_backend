@@ -21,6 +21,7 @@ const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
 const handleValidation = require("../../../utils/lengthCheck");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 
 // aadhaar to masked pan
 exports.handleAadhaarMaskedVerify = async (req, res) => {
@@ -82,7 +83,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -142,7 +143,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
         return res
           .status(404)
           .json(
-            createApiResponse(404, isExistAadhaar?.response?.result, "InValid"),
+            createApiResponse(404, isExistAadhaar?.response?.result, "Invalid"),
           );
       }
     }
@@ -213,15 +214,20 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
   const {
     callback_url,
     redirect_url,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
+    mobileNumber = ""
   } = req.body;
   const startTime = new Date();
   aadhaarServiceLogger.info("Aadhaar DigiLocker initiation triggered");
 
-  const storingClient = req.clientId || clientId;
+  const storingClient = req.clientId || "CID-6140971541";
+
+      const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+        "AADHAAR_DIGILOCKER",
+        storingClient,
+      );
+  
+      const categoryId = idOfCategory;
+      const serviceId = idOfService;
 
   const tnId = genrateUniqueServiceId();
   const maintainanceResponse = await deductCredits(
@@ -238,7 +244,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
     );
     return res.status(500).json({
       success: false,
-      message: maintainanceResponse?.message || "InValid",
+      message: maintainanceResponse?.message || "Invalid",
       response: {},
     });
   }

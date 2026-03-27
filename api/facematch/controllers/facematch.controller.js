@@ -208,7 +208,7 @@ exports.faceMatchVerification = async (req, res) => {
   if (!maintainanceResponse?.result) {
     return res.status(500).json({
       success: false,
-      message: "InValid",
+      message: "Invalid",
       response: {},
     });
   }

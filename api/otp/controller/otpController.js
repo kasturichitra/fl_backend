@@ -77,7 +77,7 @@ const verifyMobileOtp = async (req, res, next) => {
     };
     return res
       .status(500)
-      .json(createApiResponse(500, errorMessage, "InValid"));
+      .json(createApiResponse(500, errorMessage, "Invalid"));
   }
 };
 
@@ -129,7 +129,7 @@ const handleOTPSend = async (mobileNumber, res, storingClient, next) => {
     };
     return res
       .status(500)
-      .json(createApiResponse(500, errorMessage, "InValid"));
+      .json(createApiResponse(500, errorMessage, "Invalid"));
   }
 };
 
@@ -184,7 +184,7 @@ const mobileOtpGeneration = async (req, res, next) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }

@@ -78,7 +78,7 @@ const verifyFullCardNumber = async (req, res, next) => {
   // if (!maintainanceResponse?.result) {
   //   return res.status(500).json({
   //     success: false,
-  //     message: "InValid",
+  //     message: "Invalid",
   //     response: {},
   //   });
   // }
@@ -126,7 +126,7 @@ const verifyFullCardNumber = async (req, res, next) => {
         createdDate: new Date().toLocaleDateString(),
       });
       return res.json({
-        message: "InValid",
+        message: "Invalid",
         response: existingCreditCardNumber?.response,
         success: false,
       });
@@ -194,7 +194,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       };
       await cardValidationModel?.create(objectToBeStored);
       return res.status(404).json({
-        message: "InValid",
+        message: "Invalid",
         success: false,
         response: cardNumberResponse?.result,
       });

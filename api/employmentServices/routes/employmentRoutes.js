@@ -1,8 +1,8 @@
 const express = require("express");
-const { handleMobileToUan } = require("../controllers/employmentController");
+const { handleBasicUanVerify } = require("../controllers/employmentController");
 
 const employmentRouter = express.Router();
 
-employmentRouter.post("/mobile_to_uan", handleMobileToUan)
+employmentRouter.post("/uan/basic", handleBasicUanVerify)
 
 module.exports = employmentRouter

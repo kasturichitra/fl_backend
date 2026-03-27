@@ -52,7 +52,7 @@ async function verifyPanZoop(data) {
     if (obj.response_code === "101") {
       return {
         result: "NoDataFound",
-        message: "InValid",
+        message: "Invalid",
         responseOfService: {},
         service: "Zoop",
       };

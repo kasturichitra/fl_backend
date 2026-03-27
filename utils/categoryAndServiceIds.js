@@ -4,14 +4,15 @@ const CATEGORIES = {
   PAN: "PANSERVICES",
   GEO: "GEOLOCATION",
   VEHICLE: "VEHICLE_TRANSPORT",
-  Business: "BUSINESSANDCOMPANY",
+  Business: "BUSINESSCOMPANY",
   GST: "GSTSERVICES",
-  CONTACT: "CONTACTCOMMUNICATION"
+  CONTACT: "CONTACTCOMMUNICATION",
+  AADHAAR: "AADHAARDIGILOCKER"
 };
 
 const SERVICES = {
   // pan Services
-  PANBASIC: {
+  PAN_BASIC: {
     category: "PAN",
     serviceId: "PAN",
   },
@@ -87,7 +88,7 @@ const SERVICES = {
   // business services
   CIN: {
     category: "Business",
-    serviceId: "CIN Search",
+    serviceId: "CINVERIFICATION",
   },
   CompanyName: {
     category: "Business",
@@ -95,11 +96,21 @@ const SERVICES = {
   },
   DIN: {
     category: "Business",
-    serviceId: "Din",
+    serviceId: "DINVERIFICATION",
   },
   GSTIN: {
-    category: "GST",
-    serviceId: "GSTINVERIFICATIONAPI",
+    category: "Business",
+    serviceId: "GSTINVERIFICATION",
+  },
+  SHOP: {
+    category: "Business",
+    serviceId: "SHOPESTABLISHMENT",
+  },
+
+  // aadhaar services
+  AADHAAR_DIGILOCKER:{
+    category: "AADHAAR",
+    serviceId: "EAADHAARVERIFICATIONDIGILOCKER",
   },
 
   // contact services

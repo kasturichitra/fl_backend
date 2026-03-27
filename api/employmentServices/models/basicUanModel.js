@@ -1,6 +1,9 @@
 const mongoose = require("mongoose");
 
-const mobileToUan = new mongoose.Schema({
+const basicUan = new mongoose.Schema({
+  uanNumber:{
+    type: String,
+  },
   mobileNumber: {
     type: String,
   },
@@ -33,4 +36,4 @@ const mobileToUan = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("mobileToUan", mobileToUan);
+module.exports = mongoose.model("basicUan", basicUan);

@@ -7,22 +7,33 @@ const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
 const { employmentServiceLogger } = require("../../Logger/logger");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
-const mobileToUanModel = require("../models/mobileToUanModel");
+const basicUanModel = require("../models/basicUanModel");
 
-exports.handleMobileToUan = async (req, res) =>{
-      const data = req.body;
-  const {
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = ""
-  } = data;
-
-  const isValid = handleValidation("mobileToUan", mobileNumber, res);
-  if (!isValid) return;
-
-  employmentServiceLogger.info("All inputs in pan are valid, continue processing...");
+exports.handleBasicUanVerify = async (req, res) => {
+  const data = req.body;
+  const { uanNumber = "", mobileNumber = "" } = data;
 
   const storingClient = req.clientId;
+  const isValid = handleValidation(
+    "mobileToUan",
+    mobileNumber,
+    res,
+    storingClient,
+  );
+  if (!isValid) return;
+
+  employmentServiceLogger.info(
+    "All inputs in pan are valid, continue processing...",
+  );
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "UAN_BASIC",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     employmentServiceLogger.info(
@@ -57,12 +68,12 @@ exports.handleMobileToUan = async (req, res) =>{
     }
 
     const maintainanceResponse = await deductCredits(
-          storingClient,
-          serviceId,
-          categoryId,
-          tnId,
-          req.environment,
-        );
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment,
+    );
 
     if (!maintainanceResponse?.result) {
       employmentServiceLogger.error(
@@ -70,13 +81,12 @@ exports.handleMobileToUan = async (req, res) =>{
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
 
-
-    const existingPanNumber = await mobileToUanModel.findOne({
+    const existingPanNumber = await basicUanModel.findOne({
       mobileNumber,
     });
 
@@ -132,7 +142,7 @@ exports.handleMobileToUan = async (req, res) =>{
           `Returning cached invalid PAN response for client: ${storingClient}`,
         );
         return res.json({
-          message: "InValid",
+          message: "Invalid",
           data: resOfPan,
           success: false,
         });
@@ -228,8 +238,8 @@ exports.handleMobileToUan = async (req, res) =>{
         .json(
           createApiResponse(
             404,
-            { pan: panNumber, ...findingInValidResponses("panBasic") },
-            "Failed",
+            { uanNumber: uanNumber, },
+            "Invalid",
           ),
         );
     }
@@ -241,4 +251,4 @@ exports.handleMobileToUan = async (req, res) =>{
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};

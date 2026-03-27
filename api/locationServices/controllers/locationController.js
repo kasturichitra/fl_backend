@@ -89,7 +89,7 @@ exports.handlePincodeGeofencing = async (req, res) => {
     //   );
     //   return res.status(500).json({
     //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
+    //     message: maintainanceResponse?.message || "Invalid",
     //     response: {},
     //   });
     // }
@@ -251,7 +251,7 @@ exports.handlePincodeGeofencing = async (req, res) => {
             pincode: pincode,
             ...findingInValidResponses("pincode"),
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -334,7 +334,7 @@ exports.handleLongLatGeofencing = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -569,7 +569,7 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -801,7 +801,7 @@ exports.handleDigiPinToLongLat = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -1033,7 +1033,7 @@ exports.handleAddressToDigiPin = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -1197,7 +1197,7 @@ exports.handleAddressToDigiPin = async (req, res) => {
             digiPin: digiPin,
             ...findingInValidResponses("AddressToDigiPin"),
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }
@@ -1275,7 +1275,7 @@ exports.handleGeoTagging = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -1511,7 +1511,7 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
       );
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "InValid",
+        message: maintainanceResponse?.message || "Invalid",
         response: {},
       });
     }
@@ -1675,7 +1675,7 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
             digiPin: digiPin,
             ...findingInValidResponses("AddressToDigiPin"),
           },
-          "InValid",
+          "Invalid",
         ),
       );
     }

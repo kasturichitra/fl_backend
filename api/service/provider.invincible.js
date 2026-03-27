@@ -307,7 +307,7 @@ async function verifyCinInvincible(data) {
       };
     } else {
       const cinResponseToSend = {
-        message: "InValid",
+        message: "Invalid",
         success: false,
       };
     }

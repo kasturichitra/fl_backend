@@ -92,7 +92,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
     //   );
     //   return res.status(500).json({
     //     success: false,
-    //     message: maintainanceResponse?.message || "InValid",
+    //     message: maintainanceResponse?.message || "Invalid",
     //     response: {},
     //   });
     // }
@@ -139,7 +139,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
           createdDate: new Date().toLocaleDateString(),
         });
         return res.status(404).json({
-          message: "InValid",
+          message: "Invalid",
           success: false,
           response: existingBinNumber.response,
         });
@@ -214,7 +214,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
         );
 
         return res.status(404).json({
-          message: "InValid",
+          message: "Invalid",
           success: false,
           response: response?.result,
         });
@@ -289,7 +289,7 @@ exports.getBankDetailsByIfsc = async (req, res) => {
   if (!maintainanceResponse?.result) {
     return res.status(500).json({
       success: false,
-      message: "InValid",
+      message: "Invalid",
       response: {},
     });
   }
@@ -332,7 +332,7 @@ exports.getBankDetailsByIfsc = async (req, res) => {
       });
       return res
         .status(404)
-        .json(createApiResponse(200, existingBankDetails?.response, "InValid"));
+        .json(createApiResponse(200, existingBankDetails?.response, "Invalid"));
     }
   }
   const service = await selectService(categoryId, serviceId);
@@ -382,7 +382,7 @@ exports.getBankDetailsByIfsc = async (req, res) => {
       }
       return res
         .status(404)
-        .json(createApiResponse(404, ifscResponse?.result, "InValid"));
+        .json(createApiResponse(404, ifscResponse?.result, "Invalid"));
     }
   } catch (error) {
     bankServiceLogger.error(
