@@ -103,7 +103,6 @@ function removeTitle(name) {
   const titleRegex = /^(MR|MRS|MISS|MS|DR|SIR|LADY|LORD|PROF|REV)\.?\s*/i;
   return name.replace(titleRegex, "").trim();
 }
-
 exports.compareNames = async (req, res, next) => {
   console.log("Compare Name is triggred");
 
@@ -121,8 +120,6 @@ exports.compareNames = async (req, res, next) => {
 
   const isSecondValid = handleValidation("firstName", capitalSecondName, res);
   if (!isSecondValid) return;
-
-  console.log("NAME txn Id ===>>", tnId);
 
   const existingDetails = await comparingNamesModel.findOne({
     firstName: capitalFirstName,

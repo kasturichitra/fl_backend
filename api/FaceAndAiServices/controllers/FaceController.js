@@ -1,5 +1,6 @@
 const { deductCredits } = require("../../../services/CreditService");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
+const { ERROR_CODES } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const handleValidation = require("../../../utils/lengthCheck");
@@ -8,8 +9,7 @@ const { faceServiceLogger } = require("../../Logger/logger");
 async function handleImageVerification({
   req,
   res,
-  serviceKey,
-  activeServiceFn,
+  serviceKey
 }) {
   const { mobileNumber = "" } = req.body;
   const file = req.file;
@@ -17,8 +17,8 @@ async function handleImageVerification({
 
   if (!file || !file.buffer) {
     return res.status(400).json({
-      success: false,
-      message: "Image file is required",
+      ...ERROR_CODES.BAD_REQUEST,
+      response: "Image file is required",
     });
   }
 
@@ -165,25 +165,28 @@ exports.verifyImageBlurriness = (req, res) =>
   handleImageVerification({
     req,
     res,
-    serviceKey: "BLUR_CHECK",
-    activeServiceFn: blurServiceResponse,
+    serviceKey: "BLUR_CHECK"
   });
 
 exports.verifyAiImage = (req, res) =>
   handleImageVerification({
     req,
     res,
-    serviceKey: "AI_IMAGE_CHECK",
-    activeServiceFn: blurServiceResponse,
+    serviceKey: "AI_IMAGE_CHECK"
   });
 
-exports.handleBlurCheck = (req, res) =>
+exports.verifyDeepfakeImage = (req, res) =>
   handleImageVerification({
     req,
     res,
-    serviceKey: "AI_IMAGE_CHECK",
-    activeServiceFn: blurServiceResponse,
-    model: blurModel,
+    serviceKey: "DEEPFAKE_IMAGE_CHECK"
+  });
+
+exports.verifyAiAndDeepfakeImage = (req, res) =>
+  handleImageVerification({
+    req,
+    res,
+    serviceKey: "AI_AND_DEEPFAKE_IMAGE_CHECK"
   });
 
 exports.handleImageAPI = async (req, res, next) => {
