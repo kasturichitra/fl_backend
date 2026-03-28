@@ -182,7 +182,7 @@ exports.dinVerification = async (req, res) => {
         let response = await DinActiveServiceResponse(dinNumber, service, 0);
 
         businessServiceLogger.info(
-            `Active service selected for DINverification service ${service.serviceFor}: ${response?.message}`,
+            `Active service selected for DINverification service ${service.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
