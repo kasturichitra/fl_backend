@@ -243,40 +243,189 @@ exports.dinVerification = async (req, res) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await din_verifyModel.create(storingData);
-            businessServiceLogger.info(
-                `Invalid DIN response received and sent to client: ${clientId}`,
-            );
-            return res
-                .status(404)
-                .json(createApiResponse(404, { dinNumber: dinNumber }, "Failed"));
-        }
-
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in DIN verification for client ${clientId}: ${error.message}`,
-            error
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      await din_verifyModel.create(storingData);
+      businessServiceLogger.info(
+        `Invalid DIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { dinNumber: dinNumber }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in DIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // GST IN VERIFY
 exports.gstinverify = async (req, res, next) => {
-    const {gstinNumber, mobileNumber = ""} = req.body;
-    const clientId = req.clientId;
+  const { gstinNumber, mobileNumber = "" } = req.body;
 
-    if (!gstinNumber) {
-        return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  businessServiceLogger.info(`GSTIN NUMBER Details: ${gstinNumber}`);
+  if (!gstinNumber) {
+    return res.status(400).json({
+      ...ERROR_CODES?.BAD_REQUEST,
+      response: "Gst_in is Missing 🤦‍♂️"
+    });
+  }
+  try {
+    const capitalGstNumber = gstinNumber?.toUpperCase();
+
+    businessServiceLogger.info(`Executing GSTIN verification for client`);
+
+    // 4. CHECK IN THE DB IS DATA PRESENT
+    const encryptedGst = encryptData(capitalGstNumber);
+
+    // Check if the record is present in the DB
+    const existingGstin = await gstin_verifyModel.findOne({
+      gstinNumber: encryptedGst,
+    });
+
+    businessServiceLogger.info(
+      `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+    );
+
+    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
+    if (existingGstin) {
+      const dataToShow = existingGstin?.response;
+      if (existingGstin?.status == 1) {
+        businessServiceLogger.info(
+          `Returning cached GSTIN response for client`,
+        );
+
+        const decrypted = {
+          ...dataToShow,
+          gstinNumber: gstinNumber,
+        };
+        return res.status(200).json(createApiResponse(200, decrypted, "Valid"));
+      } else {
+        businessServiceLogger.info(
+          `Returning cached GSTIN response for client`,
+        );
+        return res
+          .status(404)
+          .json(createApiResponse(404, dataToShow, "Invalid"));
+      }
     }
-    businessServiceLogger.info(`GSTIN NUMBER Details: ${gstinNumber}`);
-    try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
 
-        const capitalGstNumber = gstinNumber?.toUpperCase();
-        const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
-        if (!isValid) return;
+    const service = [
+      {
+        providerId: "ZOOP",
+        providerName: "Zoop",
+        priority: 1,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "INVINCIBLE",
+        providerName: "Invincible",
+        priority: 2,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "TRUTHSCREEN",
+        providerName: "Truth Screen",
+        priority: 3,
+        errorThreshold: 8,
+        status: true,
+      },
+    ];
+
+    let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
+    businessServiceLogger.info(
+      `Response received from active service ${service.serviceFor}: ${response?.message}`,
+    );
+
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        gstinNumber: encryptedGst,
+      };
+      const storingData = {
+        status: 1,
+        gstinNumber: encryptedGst,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await gstin_verifyModel.create(storingData);
+      businessServiceLogger.info(
+        `Valid GSTIN response stored and sent to client`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      const storingData = {
+        status: 2,
+        gstinNumber: encryptedGst,
+        response: {
+          gstinNumber: gstinNumber,
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await gstin_verifyModel.create(storingData);
+      businessServiceLogger.info(
+        `Invalid GSTIN response received and sent to client`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { gstinNumber }, "Invalid"));
+    }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in GSTIN verification for client ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+// copy
+exports.gstinverifyCopy = async (req, res, next) => {
+  const { gstinNumber, mobileNumber = "" } = req.body;
+  const clientId = req.clientId || "CID-6140971541";
+
+  if (!gstinNumber) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+  businessServiceLogger.info(`GSTIN NUMBER Details: ${gstinNumber}`);
+  const { idOfCategory: categoryId, idOfService: serviceId } =
+    await getCategoryIdAndServiceId("GSTIN", clientId);
+  try {
+    const capitalGstNumber = gstinNumber?.toUpperCase();
+    const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
+    if (!isValid) return;
 
         businessServiceLogger.info(
             `Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
@@ -467,22 +616,34 @@ exports.gstinverify = async (req, res, next) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await gstin_verifyModel.create(storingData);
-            businessServiceLogger.info(
-                `Invalid GSTIN response received and sent to client: ${clientId}`,
-            );
-            return res
-                .status(404)
-                .json(createApiResponse(404, { gstinNumber }, "Failed"));
-        }
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in GSTIN verification for client ${clientId}: ${error.message}`,
-            error,
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      await gstin_verifyModel.create(storingData);
+      businessServiceLogger.info(
+        `Invalid GSTIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { gstinNumber }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in GSTIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // GST TO PAN VERIFICATION
@@ -666,15 +827,28 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await gstin_panModel.create(storingData);
-            return res
-                .status(404)
-                .json(createApiResponse(404, { gstinNumber }, "Failed"));
-        }
-    } catch (error) {
-        businessServiceLogger.error(`Error performing GSTIN verification:${error}`);
-        return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
+      await gstin_panModel.create(storingData);
+      return res
+        .status(404)
+        .json(createApiResponse(404, { gstinNumber }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(`Error performing GSTIN verification:${error}`);
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // GSTIN TAXPAYER
@@ -1101,8 +1275,146 @@ exports.gstinViewAndTrack = async (req,res)=>{
 
 // CIN DOC:15 VERIFICATION (CIN Search)
 exports.handleCINVerification = async (req, res, next) => {
-    const { CIN, mobileNumber = "" } = req.body;
-    const clientId = req.clientId;
+  const { CIN, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
+
+  if (!CIN?.length) {
+    return res.status(400).json({
+      ...ERROR_CODES?.BAD_REQUEST,
+      response: "CIN is Missing 🤦‍♂️",
+    });
+  }
+
+  businessServiceLogger.info(`CIN NUMBER Details: ${CIN}`);
+  try {
+    businessServiceLogger.info(`Executing CIN verification for client`);
+
+    // 4. CHECK IN THE DB IS DATA PRESENT
+    const encryptedCIN = encryptData(CIN);
+
+    const existingCIN = await IncorporationCertificateModel.findOne({
+      cinNumber: encryptedCIN,
+    });
+
+    businessServiceLogger.info(
+      `Checked for existing CIN record in DB: ${existingCIN ? "Found" : "Not Found"}, `,
+    );
+
+    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
+    if (existingCIN) {
+      const dataToShow = existingCIN?.response;
+      if (existingCIN?.status == 1) {
+        businessServiceLogger.info(
+          `Returning cached CIN response for client`,
+        );
+
+        const decrypted = {
+          ...dataToShow,
+          cinNumber: CIN,
+        };
+        return res.status(200).json(createApiResponse(200, decrypted, "Valid"));
+      } else {
+        businessServiceLogger.info(
+          `Returning cached Cin response for client`,
+        );
+        return res
+          .status(404)
+          .json(createApiResponse(404, dataToShow, "inValid"));
+      }
+    }
+
+    const service = [
+      {
+        providerId: "INVINCIBLE",
+        providerName: "Invincible",
+        priority: 1,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "TRUTHSCREEN",
+        providerName: "Truth Screen",
+        priority: 2,
+        errorThreshold: 8,
+        status: true,
+      },
+    ];
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
+    let response = await CinActiveServiceResponse(
+      CIN,
+      service,
+      "CinApiCall",
+      0,
+    );
+
+    businessServiceLogger.info(
+      `Active service selected for CINverification service ${response?.service}: ${response?.message}`,
+    );
+
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        cinNumber: encryptedCIN,
+      };
+      const storingData = {
+        status: 1,
+        cinNumber: encryptedCIN,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await IncorporationCertificateModel.create(storingData);
+      businessServiceLogger.info(
+        `Valid CIN response stored and sent to client`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      const storingData = {
+        status: 2,
+        cinNumber: encryptedCIN,
+        response: {
+          cinNumber: CIN,
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await IncorporationCertificateModel.create(storingData);
+
+      businessServiceLogger.info(
+        `Invalid CIN response received and sent to client`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { CinNUmber: CIN }, "Failed"));
+    }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in CIN verification for client ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+// copy
+exports.handleCINVerificationCOPY = async (req, res, next) => {
+  const { CIN, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
 
     if (!CIN) {
         return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
@@ -1309,19 +1621,32 @@ exports.handleCINVerification = async (req, res, next) => {
 
             await IncorporationCertificateModel.create(storingData);
 
-            businessServiceLogger.info(
-                `Invalid CIN response received and sent to client: ${clientId}`
-            );
-            return res.status(404).json(createApiResponse(404, { CinNUmber: CIN }, 'Failed'));
-        }
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in CIN verification for client ${clientId}: ${error.message}`,
-            error
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      businessServiceLogger.info(
+        `Invalid CIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { CinNUmber: CIN }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in CIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+    if (!analyticsResult.success) {
+      businessServiceLogger.info(
+        `[FAILED]:  Analytics update failed for CIN verification: client ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // CIN DOC:382 VERIFICATION (CINCompany List)
@@ -1534,19 +1859,33 @@ exports.CompanVerification = async (req, res, next) => {
 
             await companyLIstVerification.create(storingData);
 
-            businessServiceLogger.info(
-                `Invalid CompanyName list response received and sent to client: ${clientId}`
-            );
-            return res.status(404).json(createApiResponse(404, { CompanyName: CompanyName }, 'Failed'));
-        }
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in CompanyName list verification for client ${clientId}: ${error.message}`,
-            error
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      businessServiceLogger.info(
+        `Invalid CompanyName list response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { CompanyName: CompanyName }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in CompanyName list verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // CIN DOC:52 VERIFICATION (company to CIN Search)
@@ -1759,19 +2098,33 @@ exports.CompanSearchVerification = async (req, res, next) => {
 
             await cinCompanyVerification.create(storingData);
 
-            businessServiceLogger.info(
-                `Invalid CompanyName list response received and sent to client: ${clientId}`
-            );
-            return res.status(404).json(createApiResponse(404, { CompanyName: CompanyName }, 'Failed'));
-        }
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in CompanyName list verification for client ${clientId}: ${error.message}`,
-            error
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      businessServiceLogger.info(
+        `Invalid CompanyName list response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { CompanyName: CompanyName }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in CompanyName list verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // TIN VERIFICATION
@@ -1975,23 +2328,34 @@ exports.handleTINVerification = async (req, res) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await tin_verifyModel.create(storingData);
-            businessServiceLogger.info(
-                `Invalid TIN response received and sent to client: ${clientId}`,
-            );
-            return res
-                .status(404)
-                .json(createApiResponse(404, { tinNumber: tinNumber }, "Failed"));
-        }
-
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in TIN verification for client ${clientId}: ${error.message}`,
-            error,
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      await tin_verifyModel.create(storingData);
+      businessServiceLogger.info(
+        `Invalid TIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { tinNumber: tinNumber }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in TIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 //IEC VERIFICATION
@@ -2188,25 +2552,35 @@ exports.handleIECVerification = async (req, res) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await iec_Verification.create(storingData);
-            businessServiceLogger.info(
-                `Invalid IEC response received and sent to client: ${clientId}`,
-            );
-            return res
-                .status(404)
-                .json(createApiResponse(404, { existingIEC: existingIEC }, "Failed"));
-        }
-
-
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in IEC verification for client ${clientId}: ${error.message}`,
-            error,
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      await iec_Verification.create(storingData);
+      businessServiceLogger.info(
+        `Invalid IEC response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { existingIEC: existingIEC }, "Failed"));
     }
-}
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in IEC verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
 
 // UDYAMNUMBER VERIFICATION
 exports.udyamNumberVerfication = async (req, res, next) => {
@@ -2409,27 +2783,39 @@ exports.udyamNumberVerfication = async (req, res, next) => {
                 { upsert: true, new: true },
             );
 
-            businessServiceLogger.info(
-                `Invalid Udyam response received and sent to client: ${clientId}`,
-            );
-            return res.status(404).json(
-                createApiResponse(
-                    404,
-                    {
-                        udyam: udyamNumber,
-                    },
-                    "InValid",
-                ),
-            );
-        }
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in Udyam verification for client ${clientId}: ${error.message}`,
-            error,
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      businessServiceLogger.info(
+        `Invalid Udyam response received and sent to client: ${clientId}`,
+      );
+      return res.status(404).json(
+        createApiResponse(
+          404,
+          {
+            udyam: udyamNumber,
+          },
+          "Invalid",
+        ),
+      );
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in Udyam verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // DGFT  VERIFICATION
@@ -2633,23 +3019,34 @@ exports.DGFTVerification = async (req, res) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await dgft_verification.create(storingData);
-            businessServiceLogger.info(
-                `Invalid DGFT response received and sent to client: ${clientId}`,
-            );
-            return res
-                .status(404)
-                .json(createApiResponse(404, { DGFT: DGFT }, "Failed"));
-        }
-
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in DGFT verification for client ${clientId}: ${error.message}`,
-            error
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      await dgft_verification.create(storingData);
+      businessServiceLogger.info(
+        `Invalid DGFT response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { DGFT: DGFT }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in DGFT verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // LEI VERIFICATION
@@ -3297,29 +3694,182 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await uamPhone_Verification.create(storingData);
-            businessServiceLogger.info(
-                `Invalid UAM response received and sent to client: ${clientId}`,
-            );
-            return res
-                .status(404)
-                .json(createApiResponse(404, { UAMNumber: UAMNumber }, "Failed"));
-        }
-
-    } catch (error) {
-        businessServiceLogger.error(
-            `System error in UAM verification for client ${clientId}: ${error.message}`,
-            error
-        );
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode).json(errorObj);
+      await uamPhone_Verification.create(storingData);
+      businessServiceLogger.info(
+        `Invalid UAM response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { UAMNumber: UAMNumber }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `System error in UAM verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
 };
 
 // SHOPESTABLISHMENT VERIFICATION
 exports.handleCreateShopEstablishment = async (req, res, next) => {
-    const { registrationNumber, state, mobileNumber = "" } = req.body;
-    const { clientId, environment } = req;
+  const { registrationNumber, state, mobileNumber = "" } = req.body;
+
+  if (!registrationNumber || !state) {
+    businessServiceLogger.warn("Missing registrationNumber or state");
+    return res
+      .status(ERROR_CODES?.BAD_REQUEST.httpCode)
+      .json(
+        createApiResponse(
+          ERROR_CODES?.BAD_REQUEST.httpCode,
+          [],
+          "Invalid request parameters",
+        ),
+      );
+  }
+
+  businessServiceLogger.info(
+    `Shop Establishment Details ===>> registrationNumber: ${registrationNumber} --- state: ${state}`,
+  );
+
+  try {
+    businessServiceLogger.info(
+      `Executing Shop Establishment verification for client`,
+    );
+
+    const encryptedRegistration = encryptData(registrationNumber);
+
+    const existingDetails = await shopestablishmentModel.findOne({
+      registrationNumber: encryptedRegistration, state: state
+    });
+
+    businessServiceLogger.info(
+      `Checked for existing Shop Establishment record in DB: ${existingDetails ? "Found" : "Not Found"}`,
+    );
+
+    if (existingDetails) {
+      if (existingDetails?.status == 1) {
+        businessServiceLogger.info(
+          `Returning cached valid Shop Establishment response for client`,
+        );
+
+        const decrypted = {
+          ...existingDetails?.response,
+          registrationNumber: registrationNumber,
+        };
+        return res.status(200).json(createApiResponse(200, decrypted, "Valid"));
+      } else {
+        businessServiceLogger.info(
+          `Returning cached invalid Shop Establishment response for client`,
+        );
+        return res
+          .status(404)
+          .json(createApiResponse(404, existingDetails?.response, "Invalid"));
+      }
+    }
+
+    const service = [
+      {
+        providerId: "INVINCIBLE",
+        providerName: "Invincible",
+        priority: 1,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "TRUTHSCREEN",
+        providerName: "Truth Screen",
+        priority: 2,
+        errorThreshold: 8,
+        status: true,
+      },
+    ];
+
+    let response = await shopActiveServiceResponse(
+      { registrationNumber, state },
+      service,
+      0,
+    );
+
+    if (
+      response?.message?.toUpperCase() == "VALID" ||
+      response?.message?.toUpperCase() == "SUCCESS" ||
+      response?.result
+    ) {
+      const encryptedResponse = {
+        ...response?.result,
+        registrationNumber: encryptedRegistration,
+      };
+      const storingData = {
+        status: 1,
+        registrationNumber: encryptedRegistration,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message || "Valid",
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await shopestablishmentModel.create(storingData);
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      const storingData = {
+        status: 2,
+        registrationNumber: encryptedRegistration,
+        response: {
+          registrationNumber: registrationNumber,
+        },
+        serviceResponse: response?.responseOfService || {},
+        serviceName: response?.service || "Unknown",
+        mobileNumber,
+        message: response?.message || "Failed",
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await shopestablishmentModel.create(storingData);
+      return res
+        .status(404)
+        .json(createApiResponse(404, { registrationNumber }, "Failed"));
+    }
+  } catch (error) {
+    businessServiceLogger.error(
+      `Error performing Shop verification: ${error.message}`,
+    );
+    const errorObj = mapError(error);
+    return res
+      .status(errorObj.httpCode || 500)
+      .json(
+        createApiResponse(
+          errorObj.code || 500,
+          {},
+          errorObj.message || "Server Error",
+        ),
+      );
+  }
+};
+
+// copy
+exports.handleCreateShopEstablishmentCOPY = async (req, res, next) => {
+  const { registrationNumber, state, mobileNumber = "" } = req.body;
+  const { clientId, environment } = req;
 
     if (!registrationNumber || !state) {
         businessServiceLogger.warn("Missing registrationNumber or state");
@@ -3504,15 +4054,37 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
                 createdTime: new Date().toLocaleTimeString(),
             };
 
-            await shopestablishmentModel.create(storingData);
-            return res
-                .status(404)
-                .json(createApiResponse(404, { registrationNumber }, "Failed"));
-        }
-    } catch (error) {
-        businessServiceLogger.error(`Error performing Shop verification: ${error.message}`);
-        const errorObj = mapError(error);
-        return res.status(errorObj.httpCode || 500).json(createApiResponse(errorObj.code || 500, {}, errorObj.message || 'Server Error'));
+      await shopestablishmentModel.create(storingData);
+      return res
+        .status(404)
+        .json(createApiResponse(404, { registrationNumber }, "Failed"));
     }
+  } catch (error) {
+    businessServiceLogger.error(
+      `Error performing Shop verification: ${error.message}`,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res
+      .status(errorObj.httpCode || 500)
+      .json(
+        createApiResponse(
+          errorObj.code || 500,
+          {},
+          errorObj.message || "Server Error",
+        ),
+      );
+  }
 };
 

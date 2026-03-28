@@ -216,6 +216,196 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
     redirect_url,
     mobileNumber = ""
   } = req.body;
+  console.log("req.body ===>>>>", req.body)
+  const startTime = new Date();
+  aadhaarServiceLogger.info("Aadhaar DigiLocker initiation triggered");
+
+  try {
+    const transId = "TS-" + Date.now();
+    const username = process.env.TRUTHSCREEN_NTAR_USERNAME;
+    const password = process.env.TRUTHSCREEN_NTAR_TOKEN;
+    const finalCallback = callback_url || process.env.DEFAULT_CALLBACK_URL;
+    const finalRedirect = redirect_url || process.env.DEFAULT_REDIRECT_URL;
+
+    const payload = {
+      trans_id: transId,
+      doc_type: "472",
+      action: "LINK",
+      callback_url: finalCallback,
+      redirect_url: finalRedirect,
+    };
+
+    aadhaarServiceLogger.info(
+      `Payload for DigiLocker: ${JSON.stringify(payload)}`,
+    );
+
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    const response = await callTruthScreenAPI({
+      url,
+      payload,
+      username,
+      password,
+    });
+
+    const kycData = {
+      trans_id: transId,
+      ts_trans_id: response?.ts_trans_id || null,
+      link: response?.data?.url || null,
+      status: response?.status === 1 ? "initiated" : "failed",
+      response: response || null,
+      callback_url: finalCallback,
+      redirect_url: finalRedirect,
+    };
+
+    await adhaarverificationwithotpModel.create(kycData);
+
+    if (response?.status === 1) {
+      const duration = (new Date() - startTime) / 1000;
+      aadhaarServiceLogger.info(
+        `DigiLocker link generated successfully in ${duration}s`,
+      );
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        success: true,
+        response: {
+          transId,
+          ts_trans_id: response?.ts_trans_id,
+          link: response?.data?.url,
+          callback_url: finalCallback,
+          redirect_url: finalRedirect,
+        },
+      });
+    }
+
+    aadhaarServiceLogger.error(
+      `DigiLocker link generation failed => ${response?.msg}`,
+    );
+    return res
+      .status(ERROR_CODES.SERVICE_UNAVAILABLE.httpCode)
+      .json(ERROR_CODES.SERVICE_UNAVAILABLE);
+  } catch (err) {
+    aadhaarServiceLogger.error(
+      `Error in initiateAadhaarDigilocker => ${err.message}`,
+    );
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+exports.checkAadhaarDigilockerStatus = async (req, res) => {
+  const startTime = new Date();
+  aadhaarServiceLogger.info("Entered checkAadhaarDigilockerStatus controller");
+
+  try {
+    const { tsTransId } = req.body;
+
+    if (!tsTransId) {
+      aadhaarServiceLogger.warn("Missing tsTransId in request body");
+      return res
+        .status(ERROR_CODES.BAD_REQUEST.httpCode)
+        .json(ERROR_CODES.BAD_REQUEST);
+    }
+
+    const username = process.env.TRUTHSCREEN_NTAR_USERNAME;
+    const password = process.env.TRUTHSCREEN_NTAR_TOKEN;
+
+    const payload = {
+      ts_trans_id: tsTransId,
+      doc_type: "472",
+      action: "STATUS",
+    };
+
+    const url = "https://www.truthscreen.com/api/v1.0/eaadhaardigilocker/";
+    aadhaarServiceLogger.info(
+      `Calling TruthScreen Aadhaar DigiLocker STATUS API => ${url}`,
+    );
+    aadhaarServiceLogger.info(`Payload: ${JSON.stringify(payload)}`);
+
+    const response = await callTruthScreenAPI({
+      url,
+      payload,
+      username,
+      password,
+    });
+    aadhaarServiceLogger.info(
+      `Response received from TruthScreen => ${JSON.stringify(response)}`,
+    );
+
+    const outerKey = Object.keys(response.data || {})[0];
+    const msg = response.data?.[outerKey]?.msg?.[0] || {};
+    const addressData = msg?.data?.address || "";
+    const formattedAddress =
+      typeof addressData === "object"
+        ? Object.values(addressData).filter(Boolean).join(", ")
+        : addressData;
+
+    const aadhaarDetails = {
+      name: msg?.data?.name || "",
+      fatherName: msg?.data?.["Father Name"] || "",
+      dob: msg?.data?.dob || "",
+      aadhar_number: msg?.data?.aadhar_number || "",
+      gender: msg?.data?.gender || "",
+      address: formattedAddress,
+      co: msg?.data?.co || "",
+      photo: msg?.data?.photo || "",
+    };
+
+    aadhaarServiceLogger.info(
+      `Extracted Aadhaar Details: ${JSON.stringify(aadhaarDetails)}`,
+    );
+
+    if (response?.status === 1) {
+      const updatedRecord =
+        await adhaarverificationwithotpModel.findOneAndUpdate(
+          { ts_trans_id: tsTransId },
+          {
+            aadhaarDetails,
+            status: "verified",
+            response,
+          },
+          { new: true },
+        );
+      console.log("detailsstores in adhar", updatedRecord);
+      aadhaarServiceLogger.info(
+        `Aadhaar KYC updated successfully for tsTransId: ${tsTransId}`,
+      );
+      aadhaarServiceLogger.debug(
+        `Updated Record: ${JSON.stringify(updatedRecord)}`,
+      );
+
+      const duration = (new Date() - startTime) / 1000;
+      aadhaarServiceLogger.info(
+        `[${ERROR_CODES.SUCCESS.httpCode}] Aadhaar retrieved successfully | Duration: ${duration}s`,
+      );
+
+      return res.status(ERROR_CODES.SUCCESS.httpCode).json({
+        message: "Valid",
+        response: response,
+        success: true,
+      });
+    }
+
+    aadhaarServiceLogger.error(
+      `[${ERROR_CODES.THIRD_PARTY_ERROR.httpCode}] Aadhaar DigiLocker STATUS failed => ${response?.msg}`,
+    );
+    return res
+      .status(ERROR_CODES.THIRD_PARTY_ERROR.httpCode)
+      .json(ERROR_CODES.THIRD_PARTY_ERROR);
+  } catch (err) {
+    aadhaarServiceLogger.error(
+      `Error in checkAadhaarDigilockerStatus => ${err.message}`,
+    );
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+// copy
+exports.initiateAadhaarDigilockerCOPY = async (req, res) => {
+  const {
+    callback_url,
+    redirect_url,
+    mobileNumber = ""
+  } = req.body;
   const startTime = new Date();
   aadhaarServiceLogger.info("Aadhaar DigiLocker initiation triggered");
 
@@ -320,7 +510,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
-exports.checkAadhaarDigilockerStatus = async (req, res) => {
+exports.checkAadhaarDigilockerStatusCOPY = async (req, res) => {
   const startTime = new Date();
   aadhaarServiceLogger.info("Entered checkAadhaarDigilockerStatus controller");
 

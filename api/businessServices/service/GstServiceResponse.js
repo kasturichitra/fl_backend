@@ -1,181 +1,217 @@
-const { generateTransactionId } = require("../../truthScreen/callTruthScreen")
+const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
-const GSTActiveServiceResponse = async (data, services, index = 0) => {
-    console.log('GSTActiveServiceResponse called');
-    if (index >= services?.length) {
-        return { success: false, message: "All services failed" };
+const GSTActiveServiceResponse = async (data, services, index = 0, client="") => {
+  console.log("GSTActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return GSTActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[GSTActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await GSTApiCall(data, serviceName, client);
+
+    if (res?.success) {
+      return res.data;
     }
 
-    const newService = services?.find((ser) => ser.priority === index + 1);
-
-    if (!newService) {
-        console.log(`No service with priority ${index + 1}, trying next`);
-        return GSTActiveServiceResponse(data, services, index + 1);
-    }
-
-    const serviceName = newService.providerId || "";
-    console.log(`[GSTActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-
-    try {
-        const res = await GSTApiCall(data, serviceName, 0);
-
-        if (res?.success) {
-            return res.data;
-        }
-
-        console.log(`[GSTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return GSTActiveServiceResponse(data, services, index + 1);
-
-    } catch (err) {
-        console.log(`[GSTActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return GSTActiveServiceResponse(data, services, index + 1);
-    }
+    console.log(
+      `[GSTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return GSTActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[GSTActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return GSTActiveServiceResponse(data, services, index + 1);
+  }
 };
-const GSTApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const GSTApiCall = async (data, service, CID) => {
+  const tskId = await generateTransactionId(12);
 
-    const ApiData = {
-        "ZOOP": {
-            BodyData: {
-                mode: "sync",
-                data: {
-                    business_gstin_number: data,
-                    consent: "Y",
-                    consent_text:
-                        "I hereby declare my consent agreement for fetching my information via ZOOP API",
-                },
-            },
-            url: process.env.ZOOP_GSTIN_URL,
-            header: {
-                "app-id": process.env.ZOOP_APP_ID,
-                "api-key": process.env.ZOOP_API_KEY,
-                "content-type": "application/json",
-            }
-        },
-        "INVINCIBLE": {
-            BodyData: JSON.stringify({
-                gstin: data
-            }),
-            url: process.env.INVINCIBLE_GSTIN_URL,
-            header: {
-                accept: "application/json",
-                clientId: process.env.INVINCIBLE_CLIENT_ID,
-                "content-type": "application/json",
-                secretKey: process.env.INVINCIBLE_SECRET_KEY,
-            }
-        },
-        "TRUTHSCREEN": {
-            BodyData: {
-                transID: tskId,
-                docType: 23,
-                docNumber: data
-            },
-            url: process.env.TRUTHSCREEN_API_URL,
-            header: {
-                username: process.env.TRUTHSCREEN_USERNAME,
-                token: process.env.TRUTHSCREEN_TOKEN,
-            }
-        }
-    };
-
-    // If service is empty → use first service entry
-    if (!service?.trim()) {
-        service = Object.keys(ApiData)[0];
-        console.log("Empty provider → defaulting to:", service);
-    }
-
-    const config = ApiData[service];
-    if (!config) throw new Error(`Invalid service: ${service}`);
-
-    let ApiResponse;
-
-    try {
-
-        ApiResponse = await axios.post(
-            config.url,
-            config.BodyData,
-            { headers: config.header }
-        );
-    } catch (error) {
-        console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
-        return { success: false, data: null }; // fallback trigger
-    }
-
-    const obj = ApiResponse.data;
-    console.log(`[GSTApiCall] ${service} Response Object:`, JSON.stringify(obj));
-
-    let returnedObj = {};
-
-    if (obj.response_code === "101") {
-        return {
-            success: false,
-            data: {
-                result: "NoDataFound",
-                message: "Invalid",
-                responseOfService: {},
-                service: service,
-            }
-        };
-    }
-
-    switch (service) {
-        case "ZOOP":
-            returnedObj = {
-                gstinNumber: obj?.result?.gstin,
-                business_constitution: obj?.result?.business_constitution,
-                central_jurisdiction: obj?.central_jurisdiction,
-                gstin: obj?.gstin,
-                companyName: obj?.result?.legal_name,
-                other_business_address: obj?.result?.other_business_address,
-                register_cancellation_date: obj?.result?.register_cancellation_date,
-                state_jurisdiction: obj?.result?.state_jurisdiction,
-                tax_payer_type: obj?.result?.tax_payer_type,
-                trade_name: obj?.result?.trade_name,
-                primary_business_address: obj?.result?.primary_business_address
-            }
-            break;
-        case "INVINCIBLE":
-            returnedObj = {
-                gstinNumber: obj?.result?.essentials?.gstin || "",
-                business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-                central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-                gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
-                register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-                state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-                tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-                trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-                primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
-            }
-            break;
-        case "TRUTHSCREEN":
-            returnedObj = {
-                gstinNumber: obj?.result?.essentials?.gstin || "",
-                business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-                central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-                gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-                other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
-                register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-                state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-                tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-                trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-                primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
-            }
-            break;
-    }
-    return {
-        success: true,
+  const ApiData = {
+    ZOOP: {
+      BodyData: {
+        mode: "sync",
         data: {
-            gstinNumber: data || "",
-            result: returnedObj,
-            message: "Valid",
-            responseOfService: obj,
-            service: service,
-        }
+          business_gstin_number: data,
+          consent: "Y",
+          consent_text:
+            "I hereby declare my consent agreement for fetching my information via ZOOP API",
+        },
+      },
+      url: process.env.ZOOP_GSTIN_URL,
+      header: {
+        "app-id": process.env.ZOOP_APP_ID,
+        "api-key": process.env.ZOOP_API_KEY,
+        "content-type": "application/json",
+      },
+    },
+    INVINCIBLE: {
+      BodyData: JSON.stringify({
+        gstin: data,
+      }),
+      url: process.env.INVINCIBLE_GSTIN_URL,
+      header: {
+        accept: "application/json",
+        clientId: process.env.INVINCIBLE_CLIENT_ID,
+        "content-type": "application/json",
+        secretKey: process.env.INVINCIBLE_SECRET_KEY,
+      },
+    },
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: 23,
+        docNumber: data,
+      },
+      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service == "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+        cId: CID
+      });
+      console.log(
+        "[PanApiCall] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    } else {
+      ApiResponse = await axios.post(config.url, config.BodyData, {
+        headers: config.header,
+      });
+    }
+  } catch (error) {
+    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse.data;
+  console.log(`[GSTApiCall] ${service} Response Object:`, JSON.stringify(obj));
+
+  let returnedObj = {};
+
+  if (obj.response_code === "101") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
     };
+  }
+
+  switch (service) {
+    case "ZOOP":
+      returnedObj = {
+        gstinNumber: obj?.result?.gstin,
+        business_constitution: obj?.result?.business_constitution,
+        central_jurisdiction: obj?.central_jurisdiction,
+        gstin: obj?.gstin,
+        companyName: obj?.result?.legal_name,
+        other_business_address: obj?.result?.other_business_address,
+        register_cancellation_date: obj?.result?.register_cancellation_date,
+        state_jurisdiction: obj?.result?.state_jurisdiction,
+        tax_payer_type: obj?.result?.tax_payer_type,
+        trade_name: obj?.result?.trade_name,
+        primary_business_address: obj?.result?.primary_business_address,
+      };
+      break;
+    case "INVINCIBLE":
+      returnedObj = {
+        gstinNumber: obj?.result?.essentials?.gstin || "",
+        business_constitution:
+          obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
+        central_jurisdiction:
+          obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
+        gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+        companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+        other_business_address:
+          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
+          "",
+        register_cancellation_date:
+          obj?.result?.result?.gstnDetailed?.cancellationDate || "",
+        state_jurisdiction:
+          obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
+        tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
+        trade_name:
+          obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
+        primary_business_address:
+          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
+          "",
+      };
+      break;
+    case "TRUTHSCREEN":
+      returnedObj = {
+        gstinNumber: obj?.result?.essentials?.gstin || "",
+        business_constitution:
+          obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
+        central_jurisdiction:
+          obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
+        gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+        companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
+        other_business_address:
+          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
+          "",
+        register_cancellation_date:
+          obj?.result?.result?.gstnDetailed?.cancellationDate || "",
+        state_jurisdiction:
+          obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
+        tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
+        trade_name:
+          obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
+        primary_business_address:
+          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
+          "",
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      gstinNumber: data || "",
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj,
+      service: service,
+    },
+  };
 };
 
 const GSTtoPANActiveServiceResponse = async (
@@ -306,5 +342,6 @@ const GSTToPANApiCall = async (data, service) => {
 };
 
 module.exports = {
-    GSTActiveServiceResponse, GSTtoPANActiveServiceResponse
-}
+  GSTActiveServiceResponse,
+  GSTtoPANActiveServiceResponse,
+};

@@ -9,4 +9,5 @@ aadhaarRouter.post('/Aadhaarmaskedverify', adhaarverificationController.handleAa
 
 aadhaarRouter.post("/initiate",adhaarverificationController.initiateAadhaarDigilocker)
 aadhaarRouter.post("/status",adhaarverificationController.checkAadhaarDigilockerStatus)
+
 module.exports = aadhaarRouter;

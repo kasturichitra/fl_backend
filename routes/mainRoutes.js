@@ -30,7 +30,7 @@ mainRouter.use("/aadhaar", aadhaarRouter);
 mainRouter.use("/mobileNumber", otpRouter);
 // mainRouter.use("/email", sendEmail);
 mainRouter.use("/face", faceRouter);
-mainRouter.use("/accounts", accountRouter);
+mainRouter.use("/account", accountRouter);
 mainRouter.use("/instant", instantPayRouter);
 mainRouter.use("/name", nameRouter);
 mainRouter.use("/bin", binRouter);

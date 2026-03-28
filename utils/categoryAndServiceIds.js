@@ -7,7 +7,8 @@ const CATEGORIES = {
   Business: "BUSINESSCOMPANY",
   GST: "GSTSERVICES",
   CONTACT: "CONTACTCOMMUNICATION",
-  AADHAAR: "AADHAARDIGILOCKER"
+  AADHAAR: "AADHAARDIGILOCKER",
+  GOVERNMENT: "GOVERNMENTIDSERVICES",
 };
 
 const SERVICES = {
@@ -64,15 +65,15 @@ const SERVICES = {
   },
 
   // vehicle services
-  RC_VERIFICATION: {
+  DRIVING_LICENSE: {
     category: "VEHICLE",
     serviceId: "",
   },
-  RC_VERIFICATION: {
+  VEHICLE_REGISTER: {
     category: "VEHICLE",
     serviceId: "",
   },
-  RC_VERIFICATION: {
+  STOLEN_VEHICLE: {
     category: "VEHICLE",
     serviceId: "",
   },
@@ -108,19 +109,41 @@ const SERVICES = {
   },
 
   // aadhaar services
-  AADHAAR_DIGILOCKER:{
+  AADHAAR_DIGILOCKER: {
     category: "AADHAAR",
     serviceId: "EAADHAARVERIFICATIONDIGILOCKER",
   },
 
   // contact services
-   MOBILE_TO_PAN: {
+  MOBILE_TO_PAN: {
     category: "CONTACT",
     serviceId: "MOBILETOPAN",
   },
-   MOBILE_TO_UAN: {
+  MOBILE_TO_UAN: {
     category: "CONTACT",
     serviceId: "MOBILETOUAN",
+  },
+  ADVANCE_MOBILE_DATA: {
+    category: "CONTACT",
+    serviceId: "ADVANCEDMOBILEDATASEARCH",
+  },
+
+  // government service
+  PASSPORT_WITH_FILE_NO: {
+    category: "GOVERNMENT",
+    serviceId: "MOBILETOPAN",
+  },
+  ELECTRICITY_BILL: {
+    category: "GOVERNMENT",
+    serviceId: "MOBILETOUAN",
+  },
+  VOTER_ID: {
+    category: "GOVERNMENT",
+    serviceId: "ADVANCEDMOBILEDATASEARCH",
+  },
+  PASSPORT_VERIFY: {
+    category: "GOVERNMENT",
+    serviceId: "ADVANCEDMOBILEDATASEARCH",
   },
 };
 

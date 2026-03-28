@@ -55,7 +55,7 @@ async function handlePanService({
   serviceKey,
   model,
   activeServiceFn,
-  invalidResponseFn
+  invalidResponseFn,
 }) {
   const { panNumber, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
@@ -63,12 +63,14 @@ async function handlePanService({
   const validatedPan = reusablePanNumberFieldVerification(
     panNumber,
     clientId,
-    res
+    res,
   );
   if (!validatedPan) return;
 
-  const { idOfCategory, idOfService } =
-    getCategoryIdAndServiceId(serviceKey, clientId);
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    serviceKey,
+    clientId,
+  );
 
   const categoryId = idOfCategory;
   const serviceId = idOfService;
@@ -84,11 +86,13 @@ async function handlePanService({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
-      clientId
+      clientId,
     });
 
     if (!rateLimit.allowed) {
-      return res.status(429).json({ success: false, message: rateLimit.message });
+      return res
+        .status(429)
+        .json({ success: false, message: rateLimit.message });
     }
 
     const txnId = genrateUniqueServiceId();
@@ -98,7 +102,7 @@ async function handlePanService({
       serviceId,
       categoryId,
       txnId,
-      req.environment
+      req.environment,
     );
 
     if (!credit?.result) {
@@ -111,7 +115,13 @@ async function handlePanService({
 
     // 🔁 CACHE HIT
     if (existing) {
-      return handleCachedResponse(existing, res, serviceId, categoryId, clientId);
+      return handleCachedResponse(
+        existing,
+        res,
+        serviceId,
+        categoryId,
+        clientId,
+      );
     }
 
     const service = await selectService(categoryId, serviceId);
@@ -133,9 +143,8 @@ async function handlePanService({
       mobileNumber,
       createdTime,
       createdDate,
-      invalidResponseFn
+      invalidResponseFn,
     });
-
   } catch (err) {
     const errorObj = mapError(err);
     return res.status(errorObj.httpCode).json(errorObj);
@@ -143,6 +152,145 @@ async function handlePanService({
 }
 
 exports.verifyPanNumber = async (req, res) => {
+  const data = req.body;
+  const { panNumber, mobileNumber = "" } = data;
+  const capitalPanNumber = panNumber?.toUpperCase();
+
+  if (panNumber?.length != 10) {
+    return res.status(400).json({
+      ...ERROR_CODES?.BAD_REQUEST,
+      response: "Pan Number is invalid",
+    });
+  }
+  panServiceLogger.info(`Executing PAN verification for client`);
+  try {
+    const encryptedPan = encryptData(capitalPanNumber);
+
+    const existingPanNumber = await panverificationModel.findOne({
+      panNumber: encryptedPan,
+    });
+
+    panServiceLogger.debug(
+      `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
+    );
+    if (existingPanNumber) {
+      const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
+      const resOfPan = existingPanNumber?.response;
+
+      if (existingPanNumber?.status == 1) {
+        const decryptedResponse = {
+          ...existingPanNumber?.response,
+          PAN: decryptedPanNumber,
+        };
+        panServiceLogger.info(
+          `Returning cached valid PAN response for client`,
+        );
+        return res
+          .status(200)
+          .json(createApiResponse(200, decryptedResponse, "Valid"));
+      } else {
+        panServiceLogger.info(
+          `Returning cached invalid PAN response for client`,
+        );
+        return res
+          .status(404)
+          .json(createApiResponse(404, resOfPan, "Invalid"));
+      }
+    }
+
+    const service = [
+      {
+        providerId: "ZOOP",
+        providerName: "Zoop",
+        priority: 1,
+        status: true,
+      },
+      {
+        providerId: "INVINCIBLE",
+        providerName: "Invincible",
+        priority: 2,
+        status: true,
+      },
+      {
+        providerId: "TRUTHSCREEN",
+        providerName: "Truth Screen",
+        priority: 3,
+        status: true,
+      },
+    ];
+
+    let panNumberResponse = await PanActiveServiceResponse(
+      panNumber,
+      service,
+      0,
+    );
+
+    panServiceLogger.info(
+      `Response received from pan verification active service ${panNumberResponse?.service} with message: ${panNumberResponse?.message}`,
+    );
+
+    if (panNumberResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All pan to gst services failed");
+    }
+
+    if (panNumberResponse?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...panNumberResponse?.result,
+        PAN: encryptedPan,
+      };
+
+      const storingData = {
+        panNumber: encryptedPan,
+        userName: panNumberResponse?.result?.Name,
+        response: encryptedResponse,
+        serviceResponse: panNumberResponse?.responseOfService,
+        status: 1,
+        ...(mobileNumber && { mobileNumber }),
+        serviceName: panNumberResponse?.service,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await panverificationModel.create(storingData);
+      panServiceLogger.info(
+        `Valid PAN response stored and sent to client`,
+      );
+
+      return res
+        .status(200)
+        .json(createApiResponse(200, panNumberResponse?.result, "Valid"));
+    } else {
+      const storingData = {
+        panNumber: encryptedPan,
+        userName: "",
+        response: { pan: panNumber },
+        serviceResponse: panNumberResponse?.responseOfService,
+        status: 2,
+        ...(mobileNumber && { mobileNumber }),
+        serviceName: panNumberResponse?.service,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+      await panverificationModel.create(storingData);
+      panServiceLogger.info(
+        `Invalid PAN response received and sent to client`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { pan: panNumber }, "Invalid"));
+    }
+  } catch (error) {
+    panServiceLogger.error(
+      `System error in PAN verification ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+// copy
+exports.verifyPanNumberCOPY = async (req, res) => {
   const data = req.body;
   const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId || "CID-6140971541";
@@ -483,7 +631,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
           categoryId,
           clientId: storingClient,
           result: {
-            pan: panNumber
+            pan: panNumber,
           },
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -608,10 +756,7 @@ exports.verifyPanToAadhaar = async (req, res) => {
 
 exports.verifyPantoGst_InNumber = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId || "CID-6140971541";
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
@@ -830,13 +975,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
       );
       return res
         .status(404)
-        .json(
-          createApiResponse(
-            404,
-            { pan: panNumber },
-            "Invalid",
-          ),
-        );
+        .json(createApiResponse(404, { pan: panNumber }, "Invalid"));
     }
   } catch (error) {
     panServiceLogger.error(
@@ -850,10 +989,7 @@ exports.verifyPantoGst_InNumber = async (req, res) => {
 
 exports.verifyPantoGst = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId || "CID-6140971541";
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
@@ -1091,11 +1227,7 @@ exports.verifyPantoGst = async (req, res) => {
 
 exports.verifyPanNameMatch = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    nameToMatch,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, nameToMatch, mobileNumber = "" } = data;
 
   const storingClient = req.clientId || "CID-6140971541";
   const capitalPanNumber = reusablePanNumberFieldVerification(
@@ -1339,12 +1471,7 @@ exports.verifyPanNameMatch = async (req, res) => {
 
 exports.verifyPanNameDob = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    fullName,
-    dateOfBirth,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, fullName, dateOfBirth, mobileNumber = "" } = data;
   const storingClient = req.clientId || "CID-6140971541";
   const isDobValid = await handleValidation(
     "DateOfBirth",
@@ -1592,10 +1719,7 @@ exports.verifyPanNameDob = async (req, res) => {
 
 exports.panDirector = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId;
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
@@ -1825,10 +1949,7 @@ exports.panDirector = async (req, res) => {
 
 exports.panToFatherName = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId || "CID-6140971541";
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
@@ -2310,10 +2431,7 @@ exports.handlePanTanVerification = async (req, res) => {
 
 exports.panItdStatusOtpGeneration = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId;
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
@@ -2544,10 +2662,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
 
 exports.panItdStatusOtpVerification = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = ""
-  } = data;
+  const { panNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId;
 
   const capitalPanNumber = reusablePanNumberFieldVerification(

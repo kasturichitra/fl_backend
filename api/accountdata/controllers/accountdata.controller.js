@@ -26,6 +26,164 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
   const {
     account_no,
     ifsc,
+    mobileNumber = ""
+  } = req.body;
+  bankServiceLogger.debug(`account_no, ifsc===> ${account_no}, ${ifsc}`);
+  bankServiceLogger.info(
+    `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
+  );
+  const capitalIfsc = ifsc?.toUpperCase();
+
+  bankServiceLogger.info("All inputs are valid, continue processing...");
+
+  try {
+    bankServiceLogger.info(
+      `Executing Bank Account Penny Drop verification for client`,
+    );
+
+    const encryptedAccountNumber = encryptData(account_no);
+    bankServiceLogger.debug(`Encrypted account number for DB lookup`);
+
+    const existingAccountDetails = await accountdataModel.findOne({
+      accountNo: encryptedAccountNumber,
+      accountIFSCCode: capitalIfsc,
+    });
+
+    bankServiceLogger.debug(
+      `Checked for existing Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"}`,
+    );
+    if (existingAccountDetails) {
+      bankServiceLogger.info(
+        `Returning cached Penny Drop response for client`,
+      );
+      const existingData = existingAccountDetails?.responseData;
+      if (existingAccountDetails?.status == 1) {
+        const decryptedAccountNumber = decryptData(
+          existingAccountDetails?.accountNo,
+        );
+        const responseToSend = {
+          ...existingData,
+          account_no: decryptedAccountNumber,
+        };
+        return res
+          .status(200)
+          .json(createApiResponse(200, responseToSend, "Valid"));
+      } else {
+        return res
+          .status(404)
+          .json(createApiResponse(404, { account_no: account_no }, "Invalid"));
+      }
+    }
+    const service = [
+      {
+        providerId: "ZOOP",
+        providerName: "Zoop",
+        priority: 1,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "INVINCIBLE",
+        providerName: "Invincible",
+        priority: 2,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "TRUTHSCREEN",
+        providerName: "Truth Screen",
+        priority: 3,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "EASEBUZZ",
+        providerName: "Easebuzz",
+        priority: 4,
+        errorThreshold: 8,
+        status: true,
+      },
+      {
+        providerId: "CASHFREE",
+        providerName: "Cashfree",
+        priority: 5,
+        errorThreshold: 8,
+        status: true,
+      },
+    ];
+    const response = await accountPennyDropSerciveResponse(
+      { account_no, ifsc },
+      service,
+      0
+    );
+
+    bankServiceLogger.info(
+      `Response received from active service ${response?.service}: ${response?.message}`,
+    );
+
+    if (response?.message?.toLowerCase() == "valid") {
+      const modifiedResponse = {
+        ...response?.result,
+        account_no: encryptedAccountNumber,
+      };
+      const objectToStoreInDb = {
+        accountNo: encryptedAccountNumber,
+        accountIFSCCode: capitalIfsc,
+        status: 1,
+        accountHolderName: response?.result?.name,
+        serviceResponse: response?.responseOfService,
+        responseData: modifiedResponse,
+        ...(mobileNumber && { mobileNumber }),
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+      await accountdataModel.create(objectToStoreInDb);
+      bankServiceLogger.info(
+        `Valid Penny Drop response stored and sent to client`,
+      );
+
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Valid"));
+    } else {
+      const objectToStoreInDb = {
+        accountNo: encryptedAccountNumber,
+        accountIFSCCode: capitalIfsc,
+        accountHolderName: "",
+        status: 2,
+        ...(mobileNumber && { mobileNumber }),
+        serviceResponse: {},
+        responseData: {
+          account_no: account_no,
+        },
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+      await accountdataModel.create(objectToStoreInDb);
+      bankServiceLogger.info(
+        `Invalid Penny Drop response received and sent to client`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { account_no: account_no }, "Invalid"));
+    }
+  } catch (error) {
+    bankServiceLogger.error(
+      `System error in Bank Account Penny Drop for client ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res
+      .status(errorObj.httpCode)
+      .json(createApiResponse(500, {}, "Server Error"));
+  }
+};
+
+// copy
+exports.verifyPennyDropBankAccountCopy = async (req, res, next) => {
+  const {
+    account_no,
+    ifsc,
     mobileNumber = "",
     serviceId = "",
     categoryId = "",

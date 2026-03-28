@@ -1,176 +1,162 @@
-const { generateTransactionId } = require("../../truthScreen/callTruthScreen")
+const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
-const shopActiveServiceResponse = async (data, services, index = 0) => {
-    console.log('shopActiveServiceResponse called');
-    if (index >= services?.length) {
-        return { success: false, message: "All services failed" };
+const shopActiveServiceResponse = async (
+  data,
+  services,
+  index = 0,
+  client = "",
+) => {
+  console.log("shopActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return shopActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[shopActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await shopApiCall(data, serviceName, (client = ""));
+
+    if (res?.success) {
+      return res.data;
     }
 
-    const newService = services?.find((ser) => ser.priority === index + 1);
-
-    if (!newService) {
-        console.log(`No service with priority ${index + 1}, trying next`);
-        return shopActiveServiceResponse(data, services, index + 1);
-    }
-
-    const serviceName = newService.providerId || "";
-    console.log(`[shopActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-
-    try {
-        const res = await shopApiCall(data, serviceName, 0);
-
-        if (res?.success) {
-            return res.data;
-        }
-
-        console.log(`[shopActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return shopActiveServiceResponse(data, services, index + 1);
-
-    } catch (err) {
-        console.log(`[shopActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return shopActiveServiceResponse(data, services, index + 1);
-    }
+    console.log(
+      `[shopActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return shopActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[shopActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return shopActiveServiceResponse(data, services, index + 1);
+  }
 };
 
-const shopApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const stateList = {
+  DELHI: 1,
+  HARYANA: 2,
+  KARNATAKA: 3,
+  TELANGANA: 4,
+  UTTRAKHAND: 6,
+  "UTTAR PRADESH": 7,
+  "ANDAMAN & NICOBAR": 9,
+};
 
-    const ApiData = {
-        "ZOOP": {
-            BodyData: {
-                mode: "sync",
-                data: {
-                    customer_pan_number: data,
-                    consent: "Y",
-                    consent_text: "Iconsenttothisinformationbeingsharedwithzoop.one",
-                },
-                task_id: tskId
-            },
-            url: process.env.ZOOP_SHOP_URL,
-            header: {
-                "app-id": process.env.ZOOP_APP_ID,
-                "api-key": process.env.ZOOP_API_KEY,
-                "content-type": "application/json",
-            }
-        },
-        "INVINCIBLE": {
-            // Assuming data is an object { registrationNumber, state } or just registrationNumber string
-            BodyData: JSON.stringify(typeof data === 'object' ? data : { registrationNumber: data, state: "" }),
-            url: process.env.INVINCIBLE_SHOP_URL,
-            header: {
-                accept: "application/json",
-                clientId: process.env.INVINCIBLE_CLIENT_ID,
-                "content-type": "application/json",
-                secretKey: process.env.INVINCIBLE_SECRET_KEY,
-            }
-        },
-        "TRUTHSCREEN": {
-            BodyData: {
-                transID: tskId,
-                docType: 20,
-                docNumber: data,
-            },
-            url: process.env.TRUTHSCREEN_API_URL, // DIN URL is similar to the shop
-            header: {
-                username: process.env.TRUTHSCREEN_USERNAME,
-                token: process.env.TRUTHSCREEN_TOKEN,
-            }
-        }
-    };
+const getState = (state) => {
+  const upperState = state?.toUpperCase();
+  const foundState = stateList[upperState];
+  return foundState;
+};
 
-        // If service is empty → use first service entry
-        if(!service?.trim()) {
-            service = Object.keys(ApiData)[0];
+const shopApiCall = async (data, service, CID = "") => {
+  const tskId = await generateTransactionId(12);
+
+  console.log("data in active service for shop establishment ===>>", data)
+
+  const ApiData = {
+    INVINCIBLE: {
+      BodyData: data,
+      url: process.env.INVINCIBLE_SHOP_URL,
+      header: {
+        accept: "application/json",
+        clientId: process.env.INVINCIBLE_CLIENT_ID,
+        "content-type": "application/json",
+        secretKey: process.env.INVINCIBLE_SECRET_KEY,
+      },
+    },
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: 20,
+        docNumber: data?.registrationNumber,
+        state: getState(data?.state),
+      },
+      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
     console.log("Empty provider → defaulting to:", service);
-}
+  }
 
-const config = ApiData[service];
-if (!config) throw new Error(`Invalid service: ${service}`);
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
 
-let ApiResponse;
+  let ApiResponse;
 
-try {
-
-    ApiResponse = await axios.post(
-        config.url,
-        config.BodyData,
-        { headers: config.header }
-    );
-} catch (error) {
+  try {
+    console.log("all call started with priorities")
+    if (service == "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+        cId: CID
+      });
+    } else {
+      ApiResponse = await axios.post(config.url, config.BodyData, {
+        headers: config.header,
+      });
+    }
+  } catch (error) {
     return { success: false, data: null }; // fallback trigger
-}
+  }
 
-const obj = ApiResponse.data;
-console.log(`[shopApiCall] ${service} Response Object:`, JSON.stringify(obj));
+  console.log(`[shopApiCall] ${service} Response Object:`, JSON.stringify(ApiResponse));
+  const obj = ApiResponse.data || ApiResponse;
+  console.log(`[shopApiCall] ${service} Response Object:`, JSON.stringify(obj));
 
-let returnedObj = {};
+  let returnedObj = {};
 
-if (obj.response_code === "101") {
-    return {
-        success: false,
-        data: {
-            result: "NoDataFound",
-            message: "Invalid",
-            responseOfService: {},
-            service: service,
-        }
-    };
-}
-
-switch (service) {
-    case "ZOOP":
-        returnedObj = {
-            registrationNumber: data,
-            state: obj?.state,
-            shopName: obj?.result?.result?.nameOfTheShop,
-            shopAddress: obj?.result?.result?.address
-        }
-        break;
-
+  switch (service) {
     case "INVINCIBLE":
-        returnedObj = {
-            gstinNumber: obj?.result?.essentials?.gstin || "",
-            business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-            central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-            gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-            companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-            other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
-            register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-            state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-            tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-            trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-            primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
-        }
-        break;
+      returnedObj = {
+        nameOfShop: obj?.result || "",
+        business_constitution:
+          obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
+        central_jurisdiction: obj?.result?.result,
+      };
+      break;
     case "TRUTHSCREEN":
-        returnedObj = {
-            gstinNumber: obj?.result?.essentials?.gstin || "",
-            business_constitution: obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-            central_jurisdiction: obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-            gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-            companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-            other_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || "",
-            register_cancellation_date: obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-            state_jurisdiction: obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-            tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-            trade_name: obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-            primary_business_address: obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address || ""
-        }
-        break;
-}
-return {
+      returnedObj = {
+        nameOfShop: obj?.result || "",
+        business_constitution:
+          obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
+      };
+      break;
+  }
+  return {
     success: true,
     data: {
-        registrationNumber: data || "",
-        result: returnedObj,
-        message: "Valid",
-        responseOfService: obj,
-        service: service,
-    }
-};
+      registrationNumber: data || "",
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj,
+      service: service,
+    },
+  };
 };
 
 module.exports = {
-    shopActiveServiceResponse,
-}
+  shopActiveServiceResponse,
+};

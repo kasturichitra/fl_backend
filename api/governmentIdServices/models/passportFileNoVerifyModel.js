@@ -1,7 +1,13 @@
 const mongoose = require("mongoose");
 
-const advanceMobileData = new mongoose.Schema(
+const passportDetails = new mongoose.Schema(
   {
+    passportFileNo: {
+      type: String,
+    },
+    dateOfBirth: {
+      type: String,
+    },
     mobileNumber: {
       type: String,
     },
@@ -11,8 +17,8 @@ const advanceMobileData = new mongoose.Schema(
     serviceResponse: {
       type: Object,
     },
-    transaction_id: {
-      type: String,
+    status: {
+      type: Number,
     },
     serviceName: {
       type: String,
@@ -31,4 +37,4 @@ const advanceMobileData = new mongoose.Schema(
   },
 );
 
-module.exports = mongoose.model("advanceMobileData", advanceMobileData);
+module.exports = mongoose.model("passportVerificationwithFileNo", passportDetails);

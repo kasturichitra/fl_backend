@@ -80,6 +80,7 @@ const clientMiddleware = [clientValidation, decryptMiddleware, encryptMiddleware
 
 // Use Main Routes
 app.use("/kyc/api/v1/internal", ...serverMiddleware, mainRoutes); // SERVER TO SERVER
+app.use("/kyc/api/v1", mainRoutes); // SERVER TO SERVER
 app.use("/kyc/api/v1/client", ...clientMiddleware, mainRoutes); // FRONTEND TO SERVER
 
 // ================== FOR TruthScreen Testing ==================

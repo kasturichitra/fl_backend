@@ -179,7 +179,7 @@ async function callTruthScreenAPI({ url, payload, username, password, cId="" }) 
       }
     }
     throw new Error(
-      `TruthScreen request failed: ${error?.response?.data?.error || error.message
+      `TruthScreen request failed: ${error?.response?.data || error.message
       }`
     );
   }
