@@ -76,6 +76,7 @@ module.exports = {
   vehicleServiceLogger: createSectionLogger('vehicleService'),
   riskServiceLogger: createSectionLogger('riskService'),
   otherServiceLogger: createSectionLogger('otherService'),
+  professionalLogger:createSectionLogger('professional'),
   commonLogger: createSectionLogger('common'),
 };
 

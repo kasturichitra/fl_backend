@@ -21,7 +21,7 @@ const AnalyticsDataUpdate = async (client, serviceId, categoryId, scenario="") =
       }
     );
 
-    // If no matching service found, push new one
+    //7. If no matching service found, push new one
     if (updateResult.matchedCount === 0) {
       commonLogger.info(`No existing analytics entry for service ${serviceId} found for client ${client}. Creating new entry.`);
       await analyticsModel.updateOne(
