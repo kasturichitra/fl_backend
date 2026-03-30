@@ -775,3 +775,12 @@ exports.DentistVerification = async (req, res) => {
         return res.status(errorObj.httpCode).json(errorObj);
     }
 };
+
+exports.eSignAadhaarBased = async (req,res)=>{
+    const {} = req.body;
+    try{
+
+    }catch(error){
+
+    }
+}

@@ -26,13 +26,6 @@ app.use(bodyParser.urlencoded({ limit: "50mb", extended: true }));
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: true }));
 
-// database = {
-//   host: process.env.MONGODB_HOST_UAT,
-//   port: process.env.MONGODB_PORT_UAT,
-//   db: process.env.MONGODB_DB_UAT,
-//   user: process.env.MONGODB_USERNAME_UAT,
-//   pass: process.env.MONGODB_PASSWORD_UAT,
-// };
 const uatdatabase = {
   host: process.env.MONGODB_HOST_UAT,
   port: process.env.MONGODB_PORT_UAT,
@@ -55,8 +48,7 @@ if (process.env.NODE_ENV == "production") {
   console.log("connected to uat data base ====>>>")
 }
 
-mongoose
-  .connect(mongoURI)
+mongoose.connect(mongoURI)
   .then(() =>
     console.log(
       "**************************DB Connected Successfully***************************"
@@ -68,7 +60,7 @@ mongoose
 
 // ================== Check Server is running ==================
 app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'UP', timestamp: new Date(), message: 'MicroService Health check' });
+  res.status(200).json({ status: 'UP', timestamp: new Date(), message: 'MicroService Kyc Health check' });
 });
 
 // ================== Public/Open Routes ==================

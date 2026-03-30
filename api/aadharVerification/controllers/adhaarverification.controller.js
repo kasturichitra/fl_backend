@@ -225,7 +225,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
         "AADHAAR_DIGILOCKER",
         storingClient,
       );
-  
+  aadhaarServiceLogger.info(`category and serviceId ${idOfCategory}, ${idOfService}`)
       const categoryId = idOfCategory;
       const serviceId = idOfService;
 
@@ -320,6 +320,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
+
 exports.checkAadhaarDigilockerStatus = async (req, res) => {
   const startTime = new Date();
   aadhaarServiceLogger.info("Entered checkAadhaarDigilockerStatus controller");

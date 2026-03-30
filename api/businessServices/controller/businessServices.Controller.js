@@ -175,14 +175,14 @@ exports.dinVerification = async (req, res) => {
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         }
         businessServiceLogger.info(
-            `Active service selected for DIN verification: ${service.serviceFor}`,
+            `Active service selected for DIN verification: ${service}`,
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await DinActiveServiceResponse(dinNumber, service, 0);
 
         businessServiceLogger.info(
-            `Active service selected for DINverification service ${service.service}: ${response?.message}`,
+            `Active service selected for DINverification service ${response.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE

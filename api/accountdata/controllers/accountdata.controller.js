@@ -23,18 +23,10 @@ const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
-  const {
-    account_no,
-    ifsc,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-  } = req.body;
+  const {account_no, ifsc,mobileNumber = "",
+    serviceId = "",categoryId = ""} = req.body;
   bankServiceLogger.debug(`account_no, ifsc===> ${account_no}, ${ifsc}`);
-  bankServiceLogger.info(
-    `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
-  );
+  bankServiceLogger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
   const capitalIfsc = ifsc?.toUpperCase();
 
   const isAccountValid = handleValidation("accountNumber", account_no, res);
@@ -46,7 +38,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
   bankServiceLogger.info("All inputs are valid, continue processing...");
 
   try {
-    const storingClient = req.clientId || clientId;
+    const storingClient = req.clientId ;
     bankServiceLogger.info(
       `Executing Bank Account Penny Drop verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );

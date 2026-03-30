@@ -110,7 +110,7 @@ const SERVICES = {
   // aadhaar services
   AADHAAR_DIGILOCKER:{
     category: "AADHAAR",
-    serviceId: "EAADHAARVERIFICATIONDIGILOCKER",
+    serviceId: "AADHAARNUMBERVALIDATION",
   },
 
   // contact services
