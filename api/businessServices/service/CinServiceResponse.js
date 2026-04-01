@@ -9,7 +9,7 @@ const CinActiveServiceResponse = async (
   services,
   ActiveSerice,
   index = 0,
-  client="",
+  client = "",
 ) => {
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
@@ -195,10 +195,7 @@ const CinApiCall = async (data, service, CID) => {
       },
     };
   }
-  console.log(
-    "[CompanySearchApiCall] Returned Object:",
-    JSON.stringify(returnedObj),
-  );
+  console.log("[CompanySearchApiCall] Returned Object:", JSON.stringify(returnedObj));
   return {
     success: true,
     data: {

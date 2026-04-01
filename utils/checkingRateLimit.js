@@ -10,17 +10,30 @@ const checkingRateLimit = async ({
   serviceId,
   categoryId,
   clientId,
+  req
 }) => {
   try {
     commonLogger.info(
       `Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`,
     );
 
-    const rateLimitResponse = await axios.post(RATE_LIMIT_URL, {
-      serviceId,
-      categoryId,
-      clientId,
-    });
+    console.log("req.client_id and req.client_secret ====>>", req.client_secret, req.client_id)
+
+    const headers = {
+      client_id: req.client_id,
+      client_secret: req.client_secret,
+      projectId: process.env.PROJECT_ID,
+    };
+
+    const rateLimitResponse = await axios.post(
+      RATE_LIMIT_URL,
+      {
+        serviceId,
+        categoryId,
+        clientId,
+      },
+      { headers: headers },
+    );
 
     commonLogger.debug(
       `Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)} for this client: ${clientId}`,

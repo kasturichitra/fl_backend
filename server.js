@@ -1,5 +1,4 @@
 const express = require("express");
-const mongoose = require("mongoose");
 const dotenv = require("dotenv");
 dotenv.config();
 const cors = require("cors");
@@ -12,6 +11,7 @@ const { encryptresponseData, DecryptTruthScreenResponse } = require("./api/Truth
 const clientValidation = require("./middleware/ClientValidation.middleware");
 const { decryptMiddleware, encryptMiddleware } = require("./middleware/decryptPayload");
 const { decryptPayload, encryptPayload } = require("./middleware/clientDecryptPayload");
+const { connectDB } = require("./config/db.config");
 
 const app = express();
 
@@ -48,15 +48,7 @@ if (process.env.NODE_ENV == "production") {
   console.log("connected to uat data base ====>>>")
 }
 
-mongoose.connect(mongoURI)
-  .then(() =>
-    console.log(
-      "**************************DB Connected Successfully***************************"
-    )
-  )
-  .catch((err) => {
-    console.log("DB Connection Failed", err);
-  });
+connectDB(mongoURI)
 
 // ================== Check Server is running ==================
 app.get('/health', (req, res) => {

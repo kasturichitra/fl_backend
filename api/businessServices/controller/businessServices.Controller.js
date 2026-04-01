@@ -52,7 +52,7 @@ exports.dinVerification = async (req, res) => {
     }
     businessServiceLogger.info(`DIN NUMBER Details: ${dinNumber}`);
     try {
-        const { idOfCategory:categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('DIN', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('DIN', clientId);
 
         const isValid = handleValidation("din", dinNumber, res, clientId);
         if (!isValid) return;
@@ -71,7 +71,8 @@ exports.dinVerification = async (req, res) => {
             identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req: req
         });
 
         if (!dinRateLimitResult.allowed) {
@@ -91,7 +92,7 @@ exports.dinVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -113,6 +114,7 @@ exports.dinVerification = async (req, res) => {
             clientId,
             serviceId,
             categoryId,
+            'success'
         );
         if (!analyticsResult.success) {
             businessServiceLogger.info(
@@ -167,7 +169,7 @@ exports.dinVerification = async (req, res) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.info(
                 `[FAILED]: Active service not found for DIN category ${categoryId}, service ${serviceId}`,
@@ -264,7 +266,7 @@ exports.dinVerification = async (req, res) => {
 
 // GST IN VERIFY
 exports.gstinverify = async (req, res, next) => {
-    const {gstinNumber, mobileNumber = ""} = req.body;
+    const { gstinNumber, mobileNumber = "" } = req.body;
     const clientId = req.clientId;
 
     if (!gstinNumber) {
@@ -272,11 +274,11 @@ exports.gstinverify = async (req, res, next) => {
     }
     businessServiceLogger.info(`GSTIN NUMBER Details: ${gstinNumber}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
 
         const capitalGstNumber = gstinNumber?.toUpperCase();
-        const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
-        if (!isValid) return;
+        // const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
+        // if (!isValid) return;
 
         businessServiceLogger.info(
             `Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
@@ -293,6 +295,7 @@ exports.gstinverify = async (req, res, next) => {
             serviceId,
             categoryId,
             clientId: clientId,
+            req: req
         });
 
         if (!gstRateLimitResult.allowed) {
@@ -312,7 +315,7 @@ exports.gstinverify = async (req, res, next) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -391,7 +394,7 @@ exports.gstinverify = async (req, res, next) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.info(
                 `[FAILED]: Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
@@ -406,7 +409,7 @@ exports.gstinverify = async (req, res, next) => {
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
         let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
         businessServiceLogger.info(
-            `Response received from active service ${service.serviceFor}: ${response?.message}`,
+            `Response received from active service ${response.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -498,7 +501,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     }
     businessServiceLogger.info(`gstin NUMBER Details: ${gstinNumber}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', clientId);
 
         const capitalGstNumber = gstinNumber?.toUpperCase();
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -512,7 +515,8 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
             identifiers: { identifierHash },
             serviceId,
             categoryId,
-            clientId: req.clientId,
+            clientId,
+            req: req
         });
 
         if (!gstRateLimitResult.allowed) {
@@ -526,11 +530,11 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         businessServiceLogger.info(`GSTIN txn Id ===>> ${tnId}`);
 
         const maintainanceResponse = await deductCredits(
-            req.clientId,
+            clientId,
             serviceId,
             categoryId,
             tnId,
-            req.environment,
+            req,
         );
 
         if (!maintainanceResponse?.result) {
@@ -601,7 +605,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
             }
         }
 
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
 
         if (!service.length) {
             businessServiceLogger.info(
@@ -689,7 +693,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         `GSTIN TAXPAYER VERIFICATION, CLIENTID:${clientId}, SERVICEID:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`,
     );
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', clientId);
         const capitalGstNumber = gstinNumber?.toUpperCase();
 
         const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
@@ -705,7 +709,8 @@ exports.gstInTaxPayerVerification = async (req, res) => {
             identifiers: { identifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req: req
         });
 
         if (!gstRateLimitResult.allowed) {
@@ -717,11 +722,11 @@ exports.gstInTaxPayerVerification = async (req, res) => {
 
         // 3. DEBIT THE WALLET AMOUNT ON THE USEAGE
         const maintainanceResponse = await deductCredits(
-            req.clientId,
+            clientId,
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
         businessServiceLogger.info(`GSTIN TAXPAYER VERIFICATION txnID:${tnId}, CLIENTID:${clientId}, maintainanceResponse:${JSON.stringify(maintainanceResponse)}`);
 
@@ -792,10 +797,10 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
 
         businessServiceLogger.info(
-            `Active service selected for GSTIN verification: ${service.serviceFor}`,
+            `Active service selected for GSTIN verification: ${service}`,
         );
         if (!service.length) {
             businessServiceLogger.warn(
@@ -808,9 +813,9 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-        let response = await GstTaxpayerActiveServiceResponse(gstinNumber, service, 0);
+        let response = await GstTaxpayerActiveServiceResponse(gstinNumber, service, 0, req);
         businessServiceLogger.info(
-            `Response received from active service ${service.serviceFor}: ${response?.message}`,
+            `Response received from active service ${response.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -890,19 +895,19 @@ exports.gstInTaxPayerVerification = async (req, res) => {
 };
 
 // GSTIN VIEW AND TRACK RETURN
-exports.gstinViewAndTrack = async (req,res)=>{
-    const {gstinNumber, Financialyear, mobileNumber} = req.body;
+exports.gstinViewAndTrack = async (req, res) => {
+    const { gstinNumber, Financialyear, mobileNumber } = req.body;
     const clientId = req.clientId;
-    if(!gstinNumber || !Financialyear){
+    if (!gstinNumber || !Financialyear) {
         return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
     };
     businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION, CLIENTID:${clientId}, SERVICEiD:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`)
-    try{
-        const {categoryId, serviceId} = await getCategoryIdAndServiceId('GSTINVIEWANDTRACK', clientId);
+    try {
+        const { categoryId, serviceId } = await getCategoryIdAndServiceId('GSTINVIEWANDTRACK', clientId);
         const capitalGstNumber = gstinNumber?.toUpperCase();
-        
-        const isValid = handleValidation('gstin',capitalGstNumber,req,clientId);
-        if(!isValid) return;
+
+        const isValid = handleValidation('gstin', capitalGstNumber, req, clientId);
+        if (!isValid) return;
 
         // 1. HASH THE DATA
         const identifierHash = hashIdentifiers({
@@ -915,7 +920,7 @@ exports.gstinViewAndTrack = async (req,res)=>{
             identifiers: { identifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId, req
         });
 
         if (!gstRateLimitResult.allowed) {
@@ -927,11 +932,11 @@ exports.gstinViewAndTrack = async (req,res)=>{
 
         // 3. DEBIT THE WALLET AMOUNT ON THE USEAGE
         const maintainanceResponse = await deductCredits(
-            req.clientId,
+            clientId,
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
         businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION txnID:${tnId}, CLIENTID:${clientId}, maintainanceResponse:${JSON.stringify(maintainanceResponse)}`);
 
@@ -942,7 +947,7 @@ exports.gstinViewAndTrack = async (req,res)=>{
         // 4. CHECK THE DATA IS PRESENT 
         const encryptedGst = encryptData(gstinNumber);
 
-        const existingGstin = await GstinViewTrackModel.findOne({ gstinNumber: encryptedGst,Financialyear });
+        const existingGstin = await GstinViewTrackModel.findOne({ gstinNumber: encryptedGst, Financialyear });
 
         // 5. UPDATE TO THE ANALYTICS COLLECTION
         const analyticsResult = await AnalyticsDataUpdate(
@@ -1002,10 +1007,10 @@ exports.gstinViewAndTrack = async (req,res)=>{
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
 
         businessServiceLogger.info(
-            `Active service selected for GSTIN VIEWANDTRACK verification: ${service.serviceFor}`,
+            `Active service selected for GSTIN VIEWANDTRACK verification: ${service}`,
         );
         if (!service.length) {
             businessServiceLogger.warn(
@@ -1018,9 +1023,9 @@ exports.gstinViewAndTrack = async (req,res)=>{
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-        let response = await GstInViewAndTrackActiveServiceRes({gstinNumber,Financialyear}, service, 0);
+        let response = await GstInViewAndTrackActiveServiceRes({ gstinNumber, Financialyear }, service, 0);
         businessServiceLogger.info(
-            `Response received from active service ${service.serviceFor}: ${response?.message}`,
+            `Response received from active service ${response?.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -1091,7 +1096,7 @@ exports.gstinViewAndTrack = async (req,res)=>{
                 .json(createApiResponse(404, { gstinNumber: gstinNumber }, "Failed"));
         };
 
-    }catch (error) {
+    } catch (error) {
         businessServiceLogger.info(
             `GSTIN VIEWANDTRACK VERIFICATION, GSTNO:${gstinNumber}, ERRORMESSAGE;${error.message}`,
         );
@@ -1110,7 +1115,7 @@ exports.handleCINVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CIN NUMBER Details: ${CIN}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CIN', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CIN', clientId);
 
         const isCinValid = handleValidation("cin", CIN, res, clientId);
         if (!isCinValid) return;
@@ -1130,6 +1135,7 @@ exports.handleCINVerification = async (req, res, next) => {
             serviceId,
             categoryId,
             clientId,
+            req: req
         });
 
         if (!cinRateLimitResult.allowed) {
@@ -1149,7 +1155,7 @@ exports.handleCINVerification = async (req, res, next) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -1227,7 +1233,7 @@ exports.handleCINVerification = async (req, res, next) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
 
         if (!service.length) {
             businessServiceLogger.info(
@@ -1237,15 +1243,13 @@ exports.handleCINVerification = async (req, res, next) => {
         };
 
         businessServiceLogger.info(
-            `Active service selected for CIN verification: ${service.serviceFor}`
+            `Active service selected for CIN verification: ${service}`
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await CinActiveServiceResponse(CIN, service, 'CinApiCall', 0);
 
-        businessServiceLogger.info(
-            `Active service selected for CINverification service ${service.serviceFor}: ${response?.message}`,
-        );
+        businessServiceLogger.info(`Active service selected for CINverification service ${response?.service}: ${response?.message}`);
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message?.toUpperCase() == "VALID") {
@@ -1335,7 +1339,7 @@ exports.CompanVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CompanyName List Details: ${CompanyName}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyNamelist', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyNamelist', clientId);
 
         const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
         if (!isCompanyNameValid) return;
@@ -1355,6 +1359,7 @@ exports.CompanVerification = async (req, res, next) => {
             serviceId,
             categoryId,
             clientId,
+            req: req
         });
 
         if (!CompanyNameRateLimitResult.allowed) {
@@ -1374,7 +1379,7 @@ exports.CompanVerification = async (req, res, next) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -1452,7 +1457,7 @@ exports.CompanVerification = async (req, res, next) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
 
         if (!service.length) {
             businessServiceLogger.info(
@@ -1462,14 +1467,14 @@ exports.CompanVerification = async (req, res, next) => {
         };
 
         businessServiceLogger.info(
-            `Active service selected for CompanyName verification: ${service.serviceFor}`
+            `Active service selected for CompanyName verification: ${service}`
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await CinActiveServiceResponse(CIN, service, 'CompanyListApiCall', 0);
 
         businessServiceLogger.info(
-            `Active service selected for CompanyName list verification service ${service.serviceFor}: ${response?.message}`,
+            `Active service selected for CompanyName list verification service ${response?.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -1560,7 +1565,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
 
     businessServiceLogger.info(`CompanyName Details: ${CompanyName}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
 
         const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
         if (!isCompanyNameValid) return;
@@ -1580,6 +1585,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
             serviceId,
             categoryId,
             clientId,
+            req: req
         });
 
         if (!CompanyNameRateLimitResult.allowed) {
@@ -1599,7 +1605,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -1677,7 +1683,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
 
         if (!service.length) {
             businessServiceLogger.info(
@@ -1687,14 +1693,14 @@ exports.CompanSearchVerification = async (req, res, next) => {
         };
 
         businessServiceLogger.info(
-            `Active service selected for CompanyName verification: ${service.serviceFor}`
+            `Active service selected for CompanyName verification: ${service}`
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await CinActiveServiceResponse(CIN, service, 'CompanySearchApiCall', 0);
 
         businessServiceLogger.info(
-            `Active service selected for CompanyName list verification service ${service.serviceFor}: ${response?.message}`,
+            `Active service selected for CompanyName list verification service ${response?.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -1776,7 +1782,6 @@ exports.CompanSearchVerification = async (req, res, next) => {
 
 // TIN VERIFICATION
 exports.handleTINVerification = async (req, res) => {
-
     const { TIN, mobileNumber = "" } = req.body;
     const clientId = req.clientId;
 
@@ -1787,7 +1792,7 @@ exports.handleTINVerification = async (req, res) => {
     businessServiceLogger.info(`TIN Number Details: ${TIN}`);
     try {
 
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', clientId);
 
         businessServiceLogger.info(
             `Executing TIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
@@ -1803,7 +1808,8 @@ exports.handleTINVerification = async (req, res) => {
             identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req: req
         });
 
         if (!tinRateLimitResult.allowed) {
@@ -1823,7 +1829,7 @@ exports.handleTINVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -1899,7 +1905,7 @@ exports.handleTINVerification = async (req, res) => {
         };
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.warn(
                 `Active service not found for TIN category ${categoryId}, service ${serviceId}`,
@@ -1910,11 +1916,7 @@ exports.handleTINVerification = async (req, res) => {
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await TinActiveServiceResponse(tinNumber, service, 0);
         businessServiceLogger.info(
-            `Response received from active service ${service.serviceFor}: ${response?.message}`,
-        );
-
-        businessServiceLogger.info(
-            `Active service selected for TIN verification: ${service.serviceFor}`,
+            `Response receivedb TIN from active service ${response?.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -2005,7 +2007,7 @@ exports.handleIECVerification = async (req, res) => {
 
     businessServiceLogger.info(`IEC Number Details: ${IEC}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('IEC', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('IEC', clientId);
         businessServiceLogger.info(`Executing IEC verfication for client:${clientId}, service: ${serviceId}, category: ${categoryId}`)
 
         //1. HASH IEC NUMBER
@@ -2016,7 +2018,8 @@ exports.handleIECVerification = async (req, res) => {
             identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req: req
         });
 
         if (!iecRateLimitResult.allowed) {
@@ -2036,7 +2039,7 @@ exports.handleIECVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -2112,7 +2115,7 @@ exports.handleIECVerification = async (req, res) => {
         };
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.warn(
                 `Active service not found for IEC category ${categoryId}, service ${serviceId}`,
@@ -2123,11 +2126,7 @@ exports.handleIECVerification = async (req, res) => {
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await IecActiveServiceResponse(IEC, service, 0);
         businessServiceLogger.info(
-            `Response received from active service ${service.serviceFor}: ${response?.message}`,
-        );
-
-        businessServiceLogger.info(
-            `Active service selected for IEC verification: ${service.serviceFor}`,
+            `Response received IECVerification from active service ${response?.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -2227,7 +2226,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
     );
 
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', clientId);
         businessServiceLogger.info(
             `Executing Udyam verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
         );
@@ -2241,6 +2240,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
             serviceId,
             categoryId,
             clientId: clientId,
+            req: req
         });
 
         if (!udyamRateLimitResult.allowed) {
@@ -2261,7 +2261,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment,
+            req,
         );
 
         if (!maintainanceResponse?.result) {
@@ -2341,7 +2341,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
             }
         }
 
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.warn(
                 `Active service not found for Udyam category ${categoryId}, service ${serviceId}`,
@@ -2350,7 +2350,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
         }
 
         businessServiceLogger.info(
-            `Active service selected for Udyam verification: ${service.serviceFor}`,
+            `Active service selected for Udyam verification: ${service}`,
         );
         let udyamResponse = await udyamActiveServiceResponse(
             udyamNumber,
@@ -2442,7 +2442,7 @@ exports.DGFTVerification = async (req, res) => {
     }
     businessServiceLogger.info(`DGFT NUMBER Details: ${DGFT}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('DGFT', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('DGFT', clientId);
 
         const isValid = handleValidation("DGFT", DGFT, res, clientId);
         if (!isValid) return;
@@ -2461,7 +2461,8 @@ exports.DGFTVerification = async (req, res) => {
             identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req: req
         });
 
         if (!DGFTRateLimitResult.allowed) {
@@ -2481,7 +2482,7 @@ exports.DGFTVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -2557,7 +2558,7 @@ exports.DGFTVerification = async (req, res) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.info(
                 `[FAILED]: Active service not found for DGFT category ${categoryId}, service ${serviceId}`,
@@ -2565,14 +2566,14 @@ exports.DGFTVerification = async (req, res) => {
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         }
         businessServiceLogger.info(
-            `Active service selected for DGFT verification: ${service.serviceFor}`,
+            `Active service selected for DGFT verification: ${service}`,
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await DGFTActiveServiceResponse(DGFT, service, 0);
 
         businessServiceLogger.info(
-            `Active service selected for DGFT service ${service.serviceFor}: ${response?.message}`,
+            `Active service selected for DGFT service ${response}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -2661,7 +2662,7 @@ exports.LEIVerification = async (req, res) => {
     }
     businessServiceLogger.info(`LEI NUMBER Details: ${CompanyName}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('LEI', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('LEI', clientId);
 
         const isValid = handleValidation("LEI", CompanyName, res, clientId);
         if (!isValid) return;
@@ -2680,7 +2681,8 @@ exports.LEIVerification = async (req, res) => {
             identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req: req
         });
 
         if (!LEIRateLimitResult.allowed) {
@@ -2700,7 +2702,7 @@ exports.LEIVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -2776,7 +2778,7 @@ exports.LEIVerification = async (req, res) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.info(
                 `[FAILED]: Active service not found for LEI category ${categoryId}, service ${serviceId}`,
@@ -2784,14 +2786,14 @@ exports.LEIVerification = async (req, res) => {
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         }
         businessServiceLogger.info(
-            `Active service selected for LEI verification: ${service.serviceFor}`,
+            `Active service selected for LEI verification: ${service}`,
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await LeiActiveServiceResponse(CompanyName, service, 0);
 
         businessServiceLogger.info(
-            `Active service selected for LEIverification service ${service.serviceFor}: ${response?.message}`,
+            `Active service selected for LEIverification service ${response}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -2881,7 +2883,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
     }
     businessServiceLogger.info(`UAM NUMBER Details: ${UAMNumber}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UAM', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UAM', clientId);
 
         const isValid = handleValidation("UAM", UAMNumber, res, clientId);
         if (!isValid) return;
@@ -2900,7 +2902,8 @@ exports.udyogAadhaarVerification = async (req, res) => {
             identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req, req
         });
 
         if (!UAMRateLimitResult.allowed) {
@@ -2920,7 +2923,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -2996,7 +2999,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.info(
                 `[FAILED]: Active service not found for UAM category ${categoryId}, service ${serviceId}`,
@@ -3004,14 +3007,14 @@ exports.udyogAadhaarVerification = async (req, res) => {
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         }
         businessServiceLogger.info(
-            `Active service selected for UAM verification: ${service.serviceFor}`,
+            `Active service selected for UAM verification: ${service}`,
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await UamActiveServiceResponse(UAMNumber, service, 'UamApiCall', 0);
 
         businessServiceLogger.info(
-            `Active service selected for UAMverification service ${service.serviceFor}: ${response?.message}`,
+            `Active service selected for UAMverification service ${response?.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -3101,7 +3104,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
     }
     businessServiceLogger.info(`UAM Aadhaar using phone NUMBER Details: ${UAMNumber}, number:${customerNumber}`);
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('UAMPhone', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UAMPhone', clientId);
 
         const isValid = handleValidation("UAMPhone", UAMNumber, res, clientId);
         if (!isValid) return;
@@ -3120,7 +3123,8 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
             identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req: req
         });
 
         if (!UAMRateLimitResult.allowed) {
@@ -3140,7 +3144,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -3217,7 +3221,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
         if (!service.length) {
             businessServiceLogger.info(
                 `[FAILED]: Active service not found for UAM category ${categoryId}, service ${serviceId}`,
@@ -3225,14 +3229,14 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         }
         businessServiceLogger.info(
-            `Active service selected for UAM verification: ${service.serviceFor}`,
+            `Active service selected for UAM verification: ${service}`,
         );
 
         // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
         let response = await UamActiveServiceResponse({ UAMNumber, customerNumber }, service, 'UamwithPhoneApiCall', 0);
 
         businessServiceLogger.info(
-            `Active service selected for UAMverification service ${service.serviceFor}: ${response?.message}`,
+            `Active service selected for UAMverification service ${response?.service}: ${response?.message}`,
         );
 
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -3329,7 +3333,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
     businessServiceLogger.info(`Shop Establishment Details ===>> registrationNumber: ${registrationNumber} --- state: ${state}`);
 
     try {
-        const { idOfCategory:categoryId,idOfService: serviceId } = await getCategoryIdAndServiceId('SHOP', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('SHOP', clientId);
 
         businessServiceLogger.info(
             `Executing Shop Establishment verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
@@ -3345,6 +3349,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
             serviceId,
             categoryId,
             clientId,
+            req: req
         });
 
         if (!shopRateLimitResult.allowed) {
@@ -3363,7 +3368,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
             serviceId,
             categoryId,
             tnId,
-            environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -3435,7 +3440,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
             }
         }
 
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req);
 
         if (!service.length) {
             businessServiceLogger.info(
@@ -3445,7 +3450,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         }
 
         businessServiceLogger.info(
-            `active service for Shop Verify is ----, ${service.serviceFor}`,
+            `active service for Shop Verify is ----, ${service}`,
         );
 
         let response = await shopActiveServiceResponse({ registrationNumber, state }, service, 0);

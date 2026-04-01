@@ -2,7 +2,7 @@ const { default: axios } = require("axios");
 const { commonLogger } = require("../api/Logger/logger");
 const superAdminUrl = process.env.SUPERADMIN_URL;
 
-const creditsToBeDebited = async (clientId, service, categoryId) => {
+const creditsToBeDebited = async (clientId, service, categoryId,request) => {
   try {
     const objectToSent = {
       serviceId: service,
@@ -16,6 +16,9 @@ const creditsToBeDebited = async (clientId, service, categoryId) => {
       objectToSent,
       {
         headers: {
+          client_id: request.client_id,
+          client_secret: request.client_secret,
+          projectId: process.env.PROJECT_ID,
           "Content-Type": "application/json",
         },
       }

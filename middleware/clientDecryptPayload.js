@@ -22,7 +22,7 @@ const encrypt = (plainText, password) => {
 
 exports.encryptPayload = async (req, res, next) => {
     try {
-        const password = req.clientSecret;
+        const password = req.client_secret;
 
         const oldJson = res.json.bind(res);
         res.json = async function (data) {
@@ -60,7 +60,7 @@ const decrypt = (encryptedText, password) => {
 
 exports.decryptPayload = async (req, res, next) => {
     try {
-        const password = req.clientSecret;
+        const password = req.client_secret;
         if (!req?.body.data) {
             commonLogger.warn("[STS] Missing encrypted payload fields in request.");
             return res.status(400).json({

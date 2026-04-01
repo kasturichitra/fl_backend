@@ -133,7 +133,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     }
   }
 
-  const service = await selectService(categoryId, serviceId);
+  const service = await selectService(categoryId, serviceId,storingClient,req);
 
   bankServiceLogger.info(`----active service for full card Verify is ---- ${JSON.stringify(service)}`);
   if (!service) {

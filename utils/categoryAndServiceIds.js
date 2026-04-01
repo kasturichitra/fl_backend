@@ -7,7 +7,8 @@ const CATEGORIES = {
   Business: "BUSINESSCOMPANY",
   GST: "GSTSERVICES",
   CONTACT: "CONTACTCOMMUNICATION",
-  AADHAAR: "AADHAARDIGILOCKER"
+  AADHAAR: "AADHAARDIGILOCKER",
+  BANK: "BANKINGFINANCIAL",
 };
 
 const SERVICES = {
@@ -122,6 +123,11 @@ const SERVICES = {
     category: "CONTACT",
     serviceId: "MOBILETOUAN",
   },
+  ACCOUNT_PENNY_DROP: {
+    category: "BANK",
+    serviceId: "ACCOUNTPENNYLESS",
+  },
+  
 };
 
 const getCategoryIdAndServiceId = (type, client) => {

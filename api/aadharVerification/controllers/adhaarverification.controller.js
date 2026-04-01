@@ -221,13 +221,13 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
 
   const storingClient = req.clientId || "CID-6140971541";
 
-      const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-        "AADHAAR_DIGILOCKER",
-        storingClient,
-      );
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "AADHAAR_DIGILOCKER",
+    storingClient,
+  );
   aadhaarServiceLogger.info(`category and serviceId ${idOfCategory}, ${idOfService}`)
-      const categoryId = idOfCategory;
-      const serviceId = idOfService;
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   const tnId = genrateUniqueServiceId();
   const maintainanceResponse = await deductCredits(
@@ -235,7 +235,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
     serviceId,
     categoryId,
     tnId,
-    req.environment,
+    req,
   );
 
   if (!maintainanceResponse?.result) {
