@@ -3,7 +3,8 @@ const creditsToBeDebited = require("../utils/creditsMaintainance");
 const { commonLogger } = require("../api/Logger/logger");
 
 
-const deductCredits = async (clientId, serviceId, categoryId, tnId, environment) => {
+const deductCredits = async (clientId, serviceId, categoryId, tnId, req) => {
+    const environment = req.environment
     try {
         commonLogger.info(`Deducting credits for client: ${clientId}, service: ${serviceId}, env: ${environment}`);
         let maintainanceResponse;
@@ -12,14 +13,16 @@ const deductCredits = async (clientId, serviceId, categoryId, tnId, environment)
                 clientId,
                 serviceId,
                 categoryId,
-                tnId
+                tnId,
+                req
             );
         } else {
             maintainanceResponse = await chargesToBeDebited(
                 clientId,
                 serviceId,
                 categoryId,
-                tnId
+                tnId,
+                req
             );
         }
 

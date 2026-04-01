@@ -4,7 +4,7 @@ const axios = require("axios");
 const { ERROR_CODES } = require("../../../utils/errorCodes");
 const {
   smsOtpActiveServiceResponse,
-} = require("../../GlobalApiserviceResponse/smsOtpResponse");
+} = require("../service/smsOtpResponse");
 const { selectService } = require("../../service/serviceSelector");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { contactServiceLogger } = require("../../Logger/logger");

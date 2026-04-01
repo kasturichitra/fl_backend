@@ -3,6 +3,8 @@ const { findingInValidResponses } = require("../../../utils/InvalidResponses");
 const {
   mobileToPanActiveServiceResponse,
   mobileToUanActiveServiceResponse,
+  advanceMobileDataOtpActiveServiceResponse,
+  advanceMobileDataOtpVerifyActiveServiceResponse,
 } = require("../service/contactServicesResp");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
@@ -60,7 +62,7 @@ async function handleMobileVerification({
       idOfService,
       idOfCategory,
       txnId,
-      req.environment,
+      req,
     );
 
     if (!credits?.result) {
@@ -188,7 +190,7 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
   );
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "MOBILE_TO_UAN",
+    "ADVANCE_MOBILE_DATA",
     storingClient,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
@@ -198,44 +200,44 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
 
   try {
     contactServiceLogger.info(
-      `Executing PAN NameDob verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+      `Executing advance mobile data search for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     const identifierHash = hashIdentifiers({
       panNo: capitalPanNumber,
     });
 
-    const panMobileRateLimitResult = await checkingRateLimit({
+    const advanceMobileRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
     });
 
-    if (!panMobileRateLimitResult.allowed) {
+    if (!advanceMobileRateLimitResult.allowed) {
       contactServiceLogger.warn(
-        `Rate limit exceeded for PAN NameDob verification: client ${storingClient}, service ${serviceId}`,
+        `Rate limit exceeded for advance mobile data search: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
-        message: panMobileRateLimitResult.message,
+        message: advanceMobileRateLimitResult.message,
       });
     }
 
     const tnId = genrateUniqueServiceId();
-    contactServiceLogger.info(`Generated PAN Mobile txn Id: ${tnId}`);
+    contactServiceLogger.info(`Generated advance mobile data search txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
       storingClient,
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
       contactServiceLogger.error(
-        `Credit deduction failed for PAN Mobile verification: client ${storingClient}, txnId ${tnId}`,
+        `Credit deduction failed for advance mobile data search: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
         success: false,
@@ -263,52 +265,9 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
       );
     }
 
-    if (existingMobileNumber) {
-      if (existingMobileNumber?.status == 1) {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: existingMobileNumber?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        contactServiceLogger.info(
-          `Returning cached valid PAN NameDob response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Valid",
-          success: true,
-          data: existingMobileNumber?.response,
-        });
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: {
-            uanNumber: uanNumber,
-          },
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        contactServiceLogger.info(
-          `Returning cached invalid PAN NameDob response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Invalid",
-          success: false,
-          data: {
-            mobileNumber: mobileNumber,
-            ...findingInValidResponses("panNameDob"),
-          },
-        });
-      }
-    }
-
     const service = await selectService(categoryId, serviceId);
 
-    if (!service) {
+    if (!service.length) {
       contactServiceLogger.warn(
         `Active service not found for PAN NameDob category ${categoryId}, service ${serviceId}`,
       );
@@ -316,10 +275,10 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
     }
 
     contactServiceLogger.info(
-      `Active service selected for PAN NameDob verification: ${service.serviceFor}`,
+      `Active service selected for advance mobile data search: ${JSON.stringify(service)}`,
     );
-    const response = await mobileToUanActiveServiceResponse(
-      panNumber,
+    const response = await advanceMobileDataOtpActiveServiceResponse(
+      mobileNumber,
       service,
       0,
     );
@@ -329,10 +288,9 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
     );
 
     if (response?.message?.toUpperCase() == "VALID") {
-      const encryptedPan = encryptData(response?.result?.panNumber);
       const encryptedResponse = {
         ...response?.result,
-        panNumber: encryptedPan,
+        mobileNumber: mobileNumber,
       };
       await responseModel.create({
         serviceId,
@@ -408,29 +366,27 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
 
 exports.handleAdvanceMobileDataOtpVerify = async (req, res) => {
   const data = req.body;
-  const { otp = "" } = data;
+  const { otp = "", transactionId= "" } = data;
   const storingClient = req.clientId;
-  const isValid = handleValidation("mobile", mobileNumber, res);
+  const isValid = handleValidation("otp", otp, res, storingClient);
   if (!isValid) return;
 
   contactServiceLogger.info(
     "All inputs in pan are valid, continue processing...",
   );
 
+   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "ADVANCE_MOBILE_DATA",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
   try {
     contactServiceLogger.info(
       `Executing PAN NameDob verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    const tnId = genrateUniqueServiceId();
-    contactServiceLogger.info(`Generated PAN Mobile txn Id: ${tnId}`);
-
-    const existingMobileNumber = await panNameDob.findOne({
-      mobileNumber: encryptedPan,
-    });
-
-    contactServiceLogger.debug(
-      `Checked for existing PAN NameDob record in DB: ${existingMobileNumber ? "Found" : "Not Found"}`,
     );
 
     const analyticsResult = await AnalyticsDataUpdate(
@@ -442,49 +398,6 @@ exports.handleAdvanceMobileDataOtpVerify = async (req, res) => {
       contactServiceLogger.warn(
         `Analytics update failed for PAN NameDob verification: client ${storingClient}, service ${serviceId}`,
       );
-    }
-
-    if (existingMobileNumber) {
-      if (existingMobileNumber?.status == 1) {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: existingMobileNumber?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        contactServiceLogger.info(
-          `Returning cached valid PAN NameDob response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Valid",
-          success: true,
-          data: existingMobileNumber?.response,
-        });
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: {
-            uanNumber: uanNumber,
-          },
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        contactServiceLogger.info(
-          `Returning cached invalid PAN NameDob response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Invalid",
-          success: false,
-          data: {
-            mobileNumber: mobileNumber,
-            ...findingInValidResponses("panNameDob"),
-          },
-        });
-      }
     }
 
     const service = await selectService(categoryId, serviceId);
@@ -499,8 +412,8 @@ exports.handleAdvanceMobileDataOtpVerify = async (req, res) => {
     contactServiceLogger.info(
       `Active service selected for PAN NameDob verification: ${service.serviceFor}`,
     );
-    const response = await mobileToUanActiveServiceResponse(
-      panNumber,
+    const response = await advanceMobileDataOtpVerifyActiveServiceResponse(
+      otp,
       service,
       0,
     );
@@ -535,7 +448,7 @@ exports.handleAdvanceMobileDataOtpVerify = async (req, res) => {
       };
       await panToAadhaarModel.create(storingData);
       contactServiceLogger.info(
-        `Valid PAN NameDob response stored and sent to client: ${storingClient}`,
+        `Valid advance mobile data search response stored and sent to client: ${storingClient}`,
       );
       return res
         .status(200)
@@ -546,14 +459,13 @@ exports.handleAdvanceMobileDataOtpVerify = async (req, res) => {
         categoryId,
         clientId: storingClient,
         result: {
-          panNumber: panNumber,
-          ...findingInValidResponses("panNameDob"),
+          mobileNumber: mobileNumber,
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
       const storingData = {
-        panNumber: encryptedPan,
+        mobileNumber: encryptedPan,
         response: encryptedResponse,
         aadhaarNumber: response?.result?.aadhaarNumber,
         serviceResponse: response?.responseOfService,

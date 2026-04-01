@@ -1,5 +1,5 @@
 const axios = require("axios");
-const { bankServiceLogger } = require("../Logger/logger");
+const { bankServiceLogger } = require("../../Logger/logger");
 
 const fullNumberServiceResponse = async (
   data,
@@ -28,7 +28,7 @@ const fullNumberServiceResponse = async (
   console.log(
     `[fullNumberServiceResponse] Trying service with priority ${index + 1}: ${newService} for this client: ${clientId}`,
   );
-  console.log(
+  bankServiceLogger.info(
     `[fullNumberServiceResponse] Trying service with priority ${index + 1}: ${newService} for this client: ${clientId}`,
   );
 

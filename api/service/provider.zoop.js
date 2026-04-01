@@ -85,15 +85,6 @@ async function verifyAadhaar(data) {
   };
   return await apiCall(url, data, headers);
 }
-async function verifyBank(data) {
-  const url = process.env.ZOOP_BANK_URL;
-  const headers = {
-    Authorization: `Zoop-Api-Key ${process.env.ZOOP_API_KEY}`,
-  };
-
-  return await apiCall(url, data, headers);
-}
-
 async function verifyGstin(gstinNumber, service) {
   console.log('is triggred verifygstin');
   const url = process.env.ZOOP_GSTIN_URL;

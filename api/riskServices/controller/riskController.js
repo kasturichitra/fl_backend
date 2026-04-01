@@ -3,7 +3,10 @@ const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
-const { encryptData, decryptData } = require("../../../utils/EncryptAndDecrypt");
+const {
+  encryptData,
+  decryptData,
+} = require("../../../utils/EncryptAndDecrypt");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const handleValidation = require("../../../utils/lengthCheck");
@@ -11,16 +14,11 @@ const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 
 exports.handleDomainVerification = async (req, res) => {
-    const data = req.body;
+  const data = req.body;
   const { domain, emailAddress, mobileNumber = "" } = data;
   const storingClient = req.clientId;
 
-  const isValid = handleValidation(
-    "email",
-    emailAddress,
-    res,
-    storingClient,
-  );
+  const isValid = handleValidation("email", emailAddress, res, storingClient);
 
   if (!isValid) return;
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
@@ -69,7 +67,7 @@ exports.handleDomainVerification = async (req, res) => {
       serviceId,
       "PANSERVICES",
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -240,22 +238,29 @@ exports.handleDomainVerification = async (req, res) => {
       `System error in PAN verification for client ${storingClient}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      riskServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};
 
 exports.handleAdvanceProfile = async (req, res) => {
-    const data = req.body;
+  const data = req.body;
   const { domain, emailAddress, mobileNumber = "" } = data;
   const storingClient = req.clientId;
 
-  const isValid = handleValidation(
-    "email",
-    emailAddress,
-    res,
-    storingClient,
-  );
+  const isValid = handleValidation("email", emailAddress, res, storingClient);
 
   if (!isValid) return;
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
@@ -304,7 +309,7 @@ exports.handleAdvanceProfile = async (req, res) => {
       serviceId,
       "PANSERVICES",
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -475,22 +480,29 @@ exports.handleAdvanceProfile = async (req, res) => {
       `System error in PAN verification for client ${storingClient}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      riskServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};
 
 exports.handleDomainVerification = async (req, res) => {
-    const data = req.body;
+  const data = req.body;
   const { domain, emailAddress, mobileNumber = "" } = data;
   const storingClient = req.clientId;
 
-  const isValid = handleValidation(
-    "email",
-    emailAddress,
-    res,
-    storingClient,
-  );
+  const isValid = handleValidation("email", emailAddress, res, storingClient);
 
   if (!isValid) return;
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
@@ -539,7 +551,7 @@ exports.handleDomainVerification = async (req, res) => {
       serviceId,
       "PANSERVICES",
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -710,7 +722,19 @@ exports.handleDomainVerification = async (req, res) => {
       `System error in PAN verification for client ${storingClient}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      riskServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};

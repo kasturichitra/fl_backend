@@ -72,6 +72,11 @@ const ID_RULES = {
     regex: /^UDYAM-[A-Z]{2}-\d{2}-\d{7}$/,
     displayName: "Udyam Number",
   },
+  uan: {
+    length: 12,
+    regex: /^\d{12}$/,
+    displayName: "UAN Number",
+  },
   license: {
     min: 15,
     max: 16,

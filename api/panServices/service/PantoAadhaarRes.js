@@ -39,7 +39,7 @@ const PantoAadhaarApiCall = async (data, service) => {
     const ApiData = {
         "INVINCIBLE": {
             BodyData: JSON.stringify({ panNumber: data }),
-            url: "https://api.invincibleocean.com/invincible/panToMaskAadhaarLite",
+            url: PAN_TO_AADHAAR_URL,
             header: {
                 clientId: process.env.INVINCIBLE_CLIENT_ID,
                 secretKey: process.env.INVINCIBLE_SECRET_KEY,

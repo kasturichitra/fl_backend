@@ -1,0 +1,263 @@
+const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
+
+const BSAiaNBActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+) => {
+  console.log("BSAiaNBActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return BSAiaNBActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[BSAiaNBActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await BSAViaNBApiCall(data, serviceName, 0);
+
+    if (res?.success) {
+      return res.data;
+    }
+
+    console.log(
+      `[BSAiaNBActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return BSAiaNBActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[BSAiaNBActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return BSAiaNBActiveServiceResponse(data, services, index + 1);
+  }
+};
+
+const BSAViaNBApiCall = async (data, service) => {
+  const tskId = generateTransactionId(12);
+
+  const ApiData = {
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: "526",
+        docNumber: data,
+      },
+      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+      });
+      console.log(
+        "[PanApiCall] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    }
+  } catch (error) {
+    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse;
+  console.log(
+    `[GSTApiCall] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+
+  let returnedObj = {};
+
+  if (obj.status == "0" && obj?.msg?.toLowerCase() == "no record found.") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  switch (service) {
+    case "TRUTHSCREEN":
+      returnedObj = {
+        gstinNumber: obj?.result?.essentials?.gstin || "",
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      gstinNumber: data || "",
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj,
+      service: service,
+    },
+  };
+};
+
+const chequeClassifyActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+) => {
+  console.log("chequeClassifyActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return chequeClassifyActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[chequeClassifyActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await chequeClassifyApiCall(data, serviceName, 0);
+
+    if (res?.success) {
+      return res.data;
+    }
+
+    console.log(
+      `[chequeClassifyActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return chequeClassifyActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[chequeClassifyActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return chequeClassifyActiveServiceResponse(data, services, index + 1);
+  }
+};
+
+const chequeClassifyApiCall = async (data, service) => {
+  const tskId = generateTransactionId(12);
+
+  const ApiData = {
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: "526",
+        docNumber: data,
+      },
+      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+      });
+      console.log(
+        "[PanApiCall] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    }
+  } catch (error) {
+    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse;
+  console.log(
+    `[GSTApiCall] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+
+  let returnedObj = {};
+
+  if (obj.status == "0" && obj?.msg?.toLowerCase() == "no record found.") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  switch (service) {
+    case "TRUTHSCREEN":
+      returnedObj = {
+        gstinNumber: obj?.result?.essentials?.gstin || "",
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      gstinNumber: data || "",
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj,
+      service: service,
+    },
+  };
+};
+
+module.exports = {
+  BSAiaNBActiveServiceResponse, chequeClassifyActiveServiceResponse
+};

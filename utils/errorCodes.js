@@ -24,6 +24,7 @@ const ERROR_CODES = {
 };
 
 function mapError(err) {
+  console.log("err in map error ===>>", err)
   if (!err) return ERROR_CODES.SERVER_ERROR;
 
   const mapping = [

@@ -7,7 +7,11 @@ const CATEGORIES = {
   Business: "BUSINESSCOMPANY",
   GST: "GSTSERVICES",
   CONTACT: "CONTACTCOMMUNICATION",
-  AADHAAR: "AADHAARDIGILOCKER"
+  AADHAAR: "AADHAARDIGILOCKER",
+  GOVERNMENT: "GOVERNMENTIDSERVICES",
+  FACE: "FACEAIVERIFICATION",
+  BANK: "BANKINGFINANCIAL",
+  
 };
 
 const SERVICES = {
@@ -28,9 +32,31 @@ const SERVICES = {
     category: "PAN",
     serviceId: "PANNAMEDOB",
   },
-  PAN_FATHER_NAME: {
+  PAN_TO_FATHER_NAME: {
     category: "PAN",
     serviceId: "PANTOFATHERNAME",
+  },
+  PAN_TO_GST_IN_NUBER: {
+    category: "PAN",
+    serviceId: "KNOWYOURGSTINUSINGPAN",
+  },
+  PAN_TO_GST: {
+    category: "PAN",
+    serviceId: "PANTOGST",
+  },
+
+  // bank services
+  CARD_VERIFY: {
+    category: "BANK",
+    serviceId: "CARDVALIDATOR",
+  },
+  ACCOUNT_PENNY_DROP: {
+    category: "BANK",
+    serviceId: "ACCOUNTPENNYDROP",
+  },
+  ACCOUNT_PENNY_LESS: {
+    category: "BANK",
+    serviceId: "ACCOUNTPENNYLESS",
   },
 
   // geo and location
@@ -64,15 +90,15 @@ const SERVICES = {
   },
 
   // vehicle services
-  RC_VERIFICATION: {
+  DRIVING_LICENSE: {
     category: "VEHICLE",
     serviceId: "",
   },
-  RC_VERIFICATION: {
+  VEHICLE_REGISTER: {
     category: "VEHICLE",
     serviceId: "",
   },
-  RC_VERIFICATION: {
+  STOLEN_VEHICLE: {
     category: "VEHICLE",
     serviceId: "",
   },
@@ -108,19 +134,77 @@ const SERVICES = {
   },
 
   // aadhaar services
-  AADHAAR_DIGILOCKER:{
+  AADHAAR_DIGILOCKER: {
     category: "AADHAAR",
     serviceId: "AADHAARNUMBERVALIDATION",
   },
+  AADHAAR_TO_MASKED_PAN: {
+    category: "AADHAAR",
+    serviceId: "AADHAARTOPAN",
+  },
+  DIGILOCKER_ACCOUNT_VERIFY: {
+    category: "AADHAAR",
+    serviceId: "DIGILOCKERVERIFYACCOUNT",
+  },
 
   // contact services
-   MOBILE_TO_PAN: {
+  MOBILE_TO_PAN: {
     category: "CONTACT",
     serviceId: "MOBILETOPAN",
   },
-   MOBILE_TO_UAN: {
+  MOBILE_TO_UAN: {
     category: "CONTACT",
     serviceId: "MOBILETOUAN",
+  },
+  ADVANCE_MOBILE_DATA: {
+    category: "CONTACT",
+    serviceId: "ADVANCEDMOBILEDATASEARCH",
+  },
+
+  // face and ai services
+  FACE_MATCH: {
+    category: "FACE",
+    serviceId: "FACEMATCH",
+  },
+  BLUR_CHECK: {
+    category: "FACE",
+    serviceId: "BLURINESS",
+  },
+  AI_IMAGE_CHECK: {
+    category: "FACE",
+    serviceId: "AIDETECTION",
+  },
+  DEEPFAKE_IMAGE_CHECK: {
+    category: "FACE",
+    serviceId: "DEEPFAKEDETECTION",
+  },
+  AI_DEEPFAKE_IMAGE: {
+    category: "FACE",
+    serviceId: "AIANDDEEPFAKEDETECTION",
+  },
+
+  // government services
+  PASSPORT_WITH_FILE_NO: {
+    category: "GOVERNMENT",
+    serviceId: "MOBILETOPAN",
+  },
+  ELECTRICITY_BILL: {
+    category: "GOVERNMENT",
+    serviceId: "MOBILETOUAN",
+  },
+  VOTER_ID: {
+    category: "GOVERNMENT",
+    serviceId: "ADVANCEDMOBILEDATASEARCH",
+  },
+  PASSPORT_VERIFY: {
+    category: "GOVERNMENT",
+    serviceId: "ADVANCEDMOBILEDATASEARCH",
+  },
+
+  // emplyment services
+  UAN_BASIC: {
+    category: "GOVERNMENT",
+    serviceId: "ADVANCEDMOBILEDATASEARCH",
   },
 };
 

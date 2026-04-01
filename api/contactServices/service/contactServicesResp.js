@@ -1,11 +1,14 @@
 const { contactServiceLogger } = require("../../Logger/logger");
-const { callTruthScreenAPI, generateTransactionId } = require("../../truthScreen/callTruthScreen");
+const {
+  callTruthScreenAPI,
+  generateTransactionId,
+} = require("../../truthScreen/callTruthScreen");
 
 const mobileToPanActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("mobileToPanActiveServiceResponse called");
   if (index >= services?.length) {
@@ -88,7 +91,10 @@ const mobileToPanApiCall = async (data, service, CID) => {
       );
     }
   } catch (error) {
-    console.log(`[pan to gst api call] API Error in ${service}:`, error.message);
+    console.log(
+      `[pan to gst api call] API Error in ${service}:`,
+      error.message,
+    );
     return { success: false, data: null }; // fallback trigger
   }
 
@@ -98,7 +104,7 @@ const mobileToPanApiCall = async (data, service, CID) => {
     JSON.stringify(obj),
   );
 
-   let returnedObj = {};
+  let returnedObj = {};
 
   if (obj.status != "1") {
     return {
@@ -134,7 +140,7 @@ const mobileToUanActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("mobileToUanActiveServiceResponse called");
   if (index >= services?.length) {
@@ -217,7 +223,10 @@ const mobileToUanApiCall = async (data, service, CID) => {
       );
     }
   } catch (error) {
-    console.log(`[pan to gst api call] API Error in ${service}:`, error.message);
+    console.log(
+      `[pan to gst api call] API Error in ${service}:`,
+      error.message,
+    );
     return { success: false, data: null }; // fallback trigger
   }
 
@@ -227,7 +236,287 @@ const mobileToUanApiCall = async (data, service, CID) => {
     JSON.stringify(obj),
   );
 
-   let returnedObj = {};
+  let returnedObj = {};
+
+  if (obj.status != "1") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  switch (service) {
+    case "TRUTHSCREEN":
+      returnedObj = {
+        ...(obj?.msg || ""),
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj?.msg,
+      service: service,
+    },
+  };
+};
+
+const advanceMobileDataOtpActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  client,
+) => {
+  console.log("advanceMobileDataOtpActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return advanceMobileDataOtpActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[advanceMobileDataOtpActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await advanceMobileDataOtpApiCall(data, serviceName, client);
+
+    if (res?.data) {
+      return res.data;
+    }
+
+    console.log(
+      `[advanceMobileDataOtpActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return advanceMobileDataOtpActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[advanceMobileDataOtpActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return advanceMobileDataOtpActiveServiceResponse(data, services, index + 1);
+  }
+};
+const advanceMobileDataOtpApiCall = async (data, service, CID) => {
+  const tskId = generateTransactionId(12);
+
+  const ApiData = {
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: "64",
+        docNumber: data,
+      },
+      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+    contactServiceLogger.info("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+      });
+      console.log(
+        "[pan to gst api call] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    }
+  } catch (error) {
+    console.log(
+      `[pan to gst api call] API Error in ${service}:`,
+      error.message,
+    );
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse;
+  console.log(
+    `[pan to gst api call] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+
+  let returnedObj = {};
+
+  if (obj.status != "1") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  switch (service) {
+    case "TRUTHSCREEN":
+      returnedObj = {
+        ...(obj?.msg || ""),
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj?.msg,
+      service: service,
+    },
+  };
+};
+
+const advanceMobileDataOtpVerifyActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  client,
+) => {
+  console.log("advanceMobileDataOtpVerifyActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return advanceMobileDataOtpVerifyActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[advanceMobileDataOtpVerifyActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await advanceMobileDataOtpVerifyApiCall(
+      data,
+      serviceName,
+      client,
+    );
+
+    if (res?.data) {
+      return res.data;
+    }
+
+    console.log(
+      `[advanceMobileDataOtpVerifyActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return advanceMobileDataOtpVerifyActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
+  } catch (err) {
+    console.log(
+      `[advanceMobileDataOtpVerifyActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return advanceMobileDataOtpVerifyActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
+  }
+};
+const advanceMobileDataOtpVerifyApiCall = async (data, service, CID) => {
+  const tskId = generateTransactionId(12);
+
+  const ApiData = {
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: "64",
+        docNumber: data,
+      },
+      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+    contactServiceLogger.info("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+      });
+      console.log(
+        "[pan to gst api call] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    }
+  } catch (error) {
+    console.log(
+      `[pan to gst api call] API Error in ${service}:`,
+      error.message,
+    );
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse;
+  console.log(
+    `[pan to gst api call] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+
+  let returnedObj = {};
 
   if (obj.status != "1") {
     return {
@@ -260,5 +549,8 @@ const mobileToUanApiCall = async (data, service, CID) => {
 };
 
 module.exports = {
- mobileToPanActiveServiceResponse, mobileToUanActiveServiceResponse
+  mobileToPanActiveServiceResponse,
+  mobileToUanActiveServiceResponse,
+  advanceMobileDataOtpActiveServiceResponse,
+  advanceMobileDataOtpVerifyActiveServiceResponse,
 };

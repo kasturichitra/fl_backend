@@ -89,7 +89,7 @@ exports.handleRcVerification = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -278,7 +278,7 @@ exports.handleVehicleRegisteration = async (req, res) => {
   );
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "RC_VERIFICATION",
+    "VEHICLE_REGISTER",
     storingClient,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
@@ -323,7 +323,7 @@ exports.handleVehicleRegisteration = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -509,7 +509,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
   );
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "RC_VERIFICATION",
+    "STOLEN_VEHICLE",
     storingClient,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
@@ -554,7 +554,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -778,7 +778,7 @@ exports.handleChallanViaRc = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -965,9 +965,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
   const {
     licenseNo,
     DateOfBirth,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = data;
   const capitalLicenseNumber = licenseNo?.toUpperCase();
   const storingClient = req.clientId || "CID-6140971541";
@@ -991,6 +989,15 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
   vehicleServiceLogger.info(
     "All inputs in pan are valid, continue processing...",
   );
+
+    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "DRIVING_LICENSE",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     vehicleServiceLogger.info(
@@ -1029,7 +1036,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
     //   serviceId,
     //   categoryId,
     //   tnId,
-    //   req.environment || "test",
+    //   req || "test",
     // );
 
     // if (!maintainanceResponse?.result) {

@@ -7,7 +7,7 @@ const EASEBUZZ_SALT = process.env.EASEBUZZ_SALT;
 const ZOOPClientId = process.env.ZOOP_APP_ID;
 const ZOOP_API_KEY = process.env.ZOOP_API_KEY;
 
-const accountPennyDropSerciveResponse = async (data, services=[], index = 0) => {
+const accountPennyDropSerciveResponse = async (data, services=[], index = 0, client="") => {
     console.log('accountPennyDropSerciveResponse called');
     if (index >= services.length) {
         return { success: false, message: "All services failed" };
@@ -24,7 +24,7 @@ const accountPennyDropSerciveResponse = async (data, services=[], index = 0) => 
     console.log(`[accountPennyDropSerciveResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await accountPennyDropApiCall(data, serviceName);
+        const res = await accountPennyDropApiCall(data, serviceName, client="");
 
         if (res?.success) {
             return res.data;
@@ -39,7 +39,7 @@ const accountPennyDropSerciveResponse = async (data, services=[], index = 0) => 
     }
 };
 
-const accountPennyDropApiCall = async (data, service) => {
+const accountPennyDropApiCall = async (data, service, CID="") => {
     const tskId = await generateTransactionId(12);
     const { account_no, ifsc } = data;
     const hashString = `${EASEBUZZ_KEY}|${account_no}|${ifsc}|${EASEBUZZ_SALT}`;

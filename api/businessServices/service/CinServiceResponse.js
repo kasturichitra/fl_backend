@@ -1,3 +1,4 @@
+const { businessServiceLogger } = require("../../Logger/logger");
 const {
   generateTransactionId,
   callTruthScreenAPI,
@@ -34,13 +35,13 @@ const CinActiveServiceResponse = async (
     let res;
     switch (ActiveSerice) {
       case "CinApiCall":
-        res = await CinApiCall(data, serviceName, client);
+        res = await CinApiCall(data, serviceName, client="");
         break;
       case "CompanyListApiCall":
-        res = await CinCompanyApiCall(data, serviceName);
+        res = await CinCompanyApiCall(data, serviceName, client="");
         break;
       case "CompanySearchApiCall":
-        res = await CompanySearchApiCall(data, serviceName);
+        res = await CompanySearchApiCall(data, serviceName, client="");
         break;
     }
 
@@ -69,7 +70,7 @@ const CinActiveServiceResponse = async (
 };
 
 // ActiveService
-const CinApiCall = async (data, service, CID) => {
+const CinApiCall = async (data, service, CID="") => {
   console.log("[CompanySearchApiCall] Triggered with data:", data);
   const tskId = generateTransactionId(12);
 
@@ -102,6 +103,7 @@ const CinApiCall = async (data, service, CID) => {
   if (!service?.trim()) {
     service = Object.keys(ApiData)[0];
     console.log("Empty provider → defaulting to:", service);
+    businessServiceLogger.info("Empty provider → defaulting to:", service);
   }
 
   const config = ApiData[service];
@@ -125,7 +127,7 @@ const CinApiCall = async (data, service, CID) => {
     }
   } catch (error) {
     console.log(
-      `[CompanySearchApiCall] API Error in ${service}:`,
+      `[CIN Api Call] API Error in ${service}:`,
       error.message,
     );
     return { success: false, data: null };
@@ -133,6 +135,10 @@ const CinApiCall = async (data, service, CID) => {
 
   const obj = ApiResponse?.data || ApiResponse;
   console.log(
+    `[CIN Api Call] ${service} Response Object:`,
+    JSON.stringify(obj),
+  );
+  businessServiceLogger.info(
     `[CIN Api Call] ${service} Response Object:`,
     JSON.stringify(obj),
   );
@@ -211,7 +217,7 @@ const CinApiCall = async (data, service, CID) => {
   };
 };
 
-const CinCompanyApiCall = async (data, service) => {
+const CinCompanyApiCall = async (data, service, CID) => {
   console.log("[CinCompanyApiCall] Triggered with data:", data);
   const tskId = generateTransactionId(12);
 
@@ -247,6 +253,7 @@ const CinCompanyApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
+                cId: CID,
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -354,6 +361,7 @@ const CompanySearchApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
+                cId: CID,
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -371,6 +379,10 @@ const CompanySearchApiCall = async (data, service) => {
   const obj = ApiResponse?.data || ApiResponse;
   console.log(
     `[CompanySearchApiCall] ${service} Response Object:`,
+    JSON.stringify(obj),
+  );
+    businessServiceLogger.info(
+    `[CompanySearchApiCall] activeService: ${service} for this client: ${CID} Response Object:`,
     JSON.stringify(obj),
   );
 

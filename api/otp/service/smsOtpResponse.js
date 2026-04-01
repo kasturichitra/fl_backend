@@ -1,8 +1,8 @@
-const { contactServiceLogger } = require("../Logger/logger");
+const { contactServiceLogger } = require("../../Logger/logger");
 const {
   generateTransactionId,
   callTruthScreenAPI,
-} = require("../truthScreen/callTruthScreen");
+} = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 const {
   DOVE_SOFT_USER,
