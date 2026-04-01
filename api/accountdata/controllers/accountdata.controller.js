@@ -108,6 +108,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      "success"
     );
     if (!analyticsResult.success) {
       bankServiceLogger.info(
@@ -351,6 +352,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      "success"
     );
     if (!analyticsResult.success) {
       bankServiceLogger.warn(
@@ -473,6 +475,17 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       `System error in Bank Account Penny Less for client ${clientId}: ${error.message}`,
       error,
     );
+        const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed"
+    );
+    if (!analyticsResult.success) {
+      bankServiceLogger.info(
+        `[FAILED]: Analytics update failed for Penny Drop: client ${clientId}, service ${serviceId}`,
+      );
+    }
     const errorObj = mapError(error);
     return res
       .status(errorObj.httpCode)

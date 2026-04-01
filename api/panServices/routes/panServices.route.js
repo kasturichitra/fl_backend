@@ -3,7 +3,7 @@ const panRouter = express.Router();
 
 const panverificationController = require('../controllers/panServices.controller');
 
-panRouter.post('/verify', panverificationController.verifyPanNumber);
+panRouter.post('/verify', panverificationController.verifyPanBasic);
 panRouter.post('/verify_to_aadhaar', panverificationController.verifyPanToAadhaar);
 panRouter.post('/getgst_in/withpan', panverificationController.verifyPanToGstIn);
 panRouter.post('/gst/with/pan', panverificationController.verifyPanToGst);
