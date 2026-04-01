@@ -89,7 +89,7 @@ exports.handleRcVerification = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -323,7 +323,7 @@ exports.handleVehicleRegisteration = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -554,7 +554,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -778,7 +778,7 @@ exports.handleChallanViaRc = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -1036,7 +1036,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
     //   serviceId,
     //   categoryId,
     //   tnId,
-    //   req.environment || "test",
+    //   req || "test",
     // );
 
     // if (!maintainanceResponse?.result) {

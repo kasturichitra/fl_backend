@@ -441,9 +441,9 @@ const PanToGst_inApiCall = async (data, service) => {
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
-        trans_id: tskId,
-        doc_type: "47",
-        doc_number: data,
+        transID: tskId,
+        docType: "64",
+        docNumber: data,
       },
       url: process.env.TRUTNSCREEN_UTILITY_URL,
       header: {
@@ -487,7 +487,7 @@ const PanToGst_inApiCall = async (data, service) => {
 
   const obj = ApiResponse;
   console.log(
-    `[pan to gst api call] ${service} API Response Object:`,
+    `[pan to gst_in api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 
@@ -711,7 +711,7 @@ const PanToFatherNameApiCall = async (data, service) => {
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
-        transID: tskId,
+        trans_id: tskId,
         docType: "522",
         docNumber: data,
       },
@@ -761,11 +761,11 @@ const PanToFatherNameApiCall = async (data, service) => {
 
   const obj = ApiResponse;
   console.log(
-    `[pan director api call] ${service} API Response Object:`,
+    `[pan father name api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
   panServiceLogger.info(
-    `[pan director api call] ${service} API Response Object:`,
+    `[pan father name api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 
@@ -892,7 +892,7 @@ const panTanVerificationApiCall = async (data, service) => {
     }
   } catch (error) {
     console.log(
-      `[pan director api call] API Error in ${service}:`,
+      `[pan tan api call] API Error in ${service}:`,
       error.message,
     );
     return { success: false, data: null }; // fallback trigger
@@ -900,11 +900,11 @@ const panTanVerificationApiCall = async (data, service) => {
 
   const obj = ApiResponse;
   console.log(
-    `[pan director api call] ${service} API Response Object:`,
+    `[pan tan api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
   panServiceLogger.info(
-    `[pan director api call] ${service} API Response Object:`,
+    `[pan tan api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 

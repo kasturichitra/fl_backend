@@ -1,19 +1,27 @@
 const { deductCredits } = require("../../../services/CreditService");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
-const { ERROR_CODES } = require("../../../utils/errorCodes");
+const { ERROR_CODES, mapError } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const handleValidation = require("../../../utils/lengthCheck");
 const { faceServiceLogger } = require("../../Logger/logger");
+const crypto = require("crypto");
+const FaceModel = require("../models/FaceModel");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const { selectService } = require("../../service/serviceSelector");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
+const { imageActiveServiceResponse } = require("../service/faceServicesResp");
 
-async function handleImageVerification({
-  req,
-  res,
-  serviceKey
-}) {
+async function handleImageVerification({ req, res, serviceKey }) {
   const { mobileNumber = "" } = req.body;
   const file = req.file;
-  const clientId = req.clientId;
+  const clientId = req.clientId || "CID-6140971541";
+
+  if(mobileNumber){
+    const isValid = await handleValidation("mobile", mobileNumber, res, clientId)
+
+    if(!isValid) return;
+  }
 
   if (!file || !file.buffer) {
     return res.status(400).json({
@@ -22,27 +30,48 @@ async function handleImageVerification({
     });
   }
 
+  // ✅ File validation
+  const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+  const MAX_SIZE = 5 * 1024 * 1024; // 5MB
+
+  if (!allowedTypes.includes(file.mimetype)) {
+    return res.status(400).json({
+      success: false,
+      message: "Invalid file type",
+    });
+  }
+
+  if (file.size > MAX_SIZE) {
+    return res.status(400).json({
+      success: false,
+      message: "File too large",
+    });
+  }
+
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     serviceKey,
-    clientId
+    clientId,
   );
+
+  console.log("idOfCategory and idOfService in face and ai services======>>>", idOfCategory, idOfService)
 
   const now = new Date();
   const createdTime = now.toLocaleTimeString();
   const createdDate = now.toLocaleDateString();
-
   try {
-    const identifierHash = hashIdentifiers({
-      fileName: file.originalname,
-      size: file.size,
-    });
+    // ✅ Strong hash (content-based)
+    const fileHash = crypto
+      .createHash("sha256")
+      .update(file.buffer)
+      .digest("hex");
 
-    // ✅ Rate Limit
+    // ✅ Rate Limit (improved identifiers)
     const rateLimit = await checkingRateLimit({
-      identifiers: { identifierHash },
+      identifiers: { fileHash },
       serviceId: idOfService,
       categoryId: idOfCategory,
       clientId,
+      req
     });
 
     if (!rateLimit.allowed) {
@@ -51,7 +80,7 @@ async function handleImageVerification({
         .json({ success: false, message: rateLimit.message });
     }
 
-    // ✅ Credits
+    // ✅ Deduct credits FIRST (as per your flow)
     const txnId = genrateUniqueServiceId();
 
     const credits = await deductCredits(
@@ -59,7 +88,7 @@ async function handleImageVerification({
       idOfService,
       idOfCategory,
       txnId,
-      req.environment
+      req
     );
 
     if (!credits?.result) {
@@ -68,11 +97,10 @@ async function handleImageVerification({
         .json({ success: false, message: credits?.message });
     }
 
-    // ✅ Check existing
-    const existing = await model.findOne({
-      fileName: file.originalname,
-      fileSize: file.size,
-    });
+    // ✅ Check existing (CACHE)
+    const existing = await FaceModel.findOne({ fileHash, serviceKey });
+
+    faceServiceLogger.info(`Existing ${existing ? "Found" : "Not Found"} for this image hash ${fileHash} for the client: ${clientId}`)
 
     if (existing) {
       await responseModel.create({
@@ -80,353 +108,129 @@ async function handleImageVerification({
         categoryId: idOfCategory,
         clientId,
         result: existing?.response,
-        createdTime,
         createdDate,
+        createdTime,
       });
 
-      return res.status(200).json(
-        createApiResponse(
-          200,
-          existing?.response,
-          existing?.response?.message || "Processed"
-        )
-      );
+      faceServiceLogger.info(`Existing returned from Db for the client: ${clientId}`)
+
+      return res
+        .status(existing?.status == 1 ? 200 : 404)
+        .json(
+          createApiResponse(
+            existing?.status == 1 ? 200 : 404,
+            existing?.response,
+            existing?.status == 1 ? "Valid" : "Invalid",
+          ),
+        );
     }
 
     // ✅ Select service
-    const service = await selectService(idOfCategory, idOfService);
-    if (!service) return res.status(404).json(ERROR_CODES.NOT_FOUND);
+    const service = await selectService(idOfCategory, idOfService, clientId, req);
+
+    if (!service?.length) {
+      return res.status(404).json(ERROR_CODES.NOT_FOUND);
+    }
 
     // ✅ Call service layer
-    const response = await activeServiceFn({ file }, service, 0);
+    const response = await imageActiveServiceResponse(
+      { file },
+      service,
+      serviceKey,
+      0,
+      clientId,
+    );
 
+    // ✅ Safer success detection
     const isSuccess =
-      response?.message?.toUpperCase() === "CLEAR" ||
-      response?.message?.toUpperCase() === "VALID";
+      response?.result?.status === "success" ||
+      ["CLEAR", "VALID"].includes(response?.message?.toUpperCase?.());
 
-    // ✅ Store response
+    // ✅ Store response log
     await responseModel.create({
       serviceId: idOfService,
       categoryId: idOfCategory,
       clientId,
       result: response?.result,
-      createdTime,
       createdDate,
+      createdTime,
     });
 
-    // ✅ UPSERT (same as your mobile logic)
-    const filter = {
-      fileName: file.originalname,
-      fileSize: file.size,
-    };
+    // ✅ UPSERT main collection
+    const filter = { fileHash, serviceKey };
 
     const update = {
       $set: {
+        serviceKey,
         response: response?.result,
         status: isSuccess ? 1 : 2,
         serviceName: response?.service,
         ...(mobileNumber && { mobileNumber }),
-        createdDate,
         createdTime,
+        createdDate,
       },
       $setOnInsert: {
+        fileHash,
         fileName: file.originalname,
         fileSize: file.size,
       },
     };
 
     try {
-      await model.findOneAndUpdate(filter, update, {
+      await FaceModel.findOneAndUpdate(filter, update, {
         upsert: true,
         new: true,
       });
     } catch (err) {
       if (err.code === 11000) {
-        await model.findOne(filter);
+        // duplicate race condition fallback
+        await FaceModel.findOne(filter);
       } else {
         throw err;
       }
     }
 
-    return res.status(200).json(
-      createApiResponse(
-        200,
-        response?.result,
-        response?.message || "Processed"
-      )
-    );
+    return res
+      .status(isSuccess ? 200 : 404)
+      .json(
+        createApiResponse(
+          isSuccess ? 200 : 404,
+          response?.result,
+          isSuccess ? "Valid" : "Invalid",
+        ),
+      );
   } catch (error) {
     const err = mapError(error);
+    console.log("err that comes from map error ====>", err)
     return res.status(err.httpCode).json(err);
   }
 }
 
+// ✅ Controllers
 exports.verifyImageBlurriness = (req, res) =>
   handleImageVerification({
     req,
     res,
-    serviceKey: "BLUR_CHECK"
+    serviceKey: "BLUR_CHECK",
   });
 
 exports.verifyAiImage = (req, res) =>
   handleImageVerification({
     req,
     res,
-    serviceKey: "AI_IMAGE_CHECK"
+    serviceKey: "AI_IMAGE_CHECK",
   });
 
 exports.verifyDeepfakeImage = (req, res) =>
   handleImageVerification({
     req,
     res,
-    serviceKey: "DEEPFAKE_IMAGE_CHECK"
+    serviceKey: "DEEPFAKE_IMAGE_CHECK",
   });
 
 exports.verifyAiAndDeepfakeImage = (req, res) =>
   handleImageVerification({
     req,
     res,
-    serviceKey: "AI_AND_DEEPFAKE_IMAGE_CHECK"
+    serviceKey: "AI_AND_DEEPFAKE_IMAGE_CHECK",
   });
-
-exports.handleImageAPI = async (req, res, next) => {
-  const {
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-    apiType, // 🔥 IMPORTANT (BLUR_CHECK / OCR / etc.)
-  } = req.body;
-
-  const file = req.file;
-  const storingClient = req.clientId || clientId;
-
-  if (!file || !file.buffer) {
-    return res.status(400).json({
-      success: false,
-      message: "Image file is required",
-    });
-  }
-
-  if (!apiType) {
-    return res.status(400).json({
-      success: false,
-      message: "apiType is required",
-    });
-  }
-
-  try {
-    const identifierHash = hashIdentifiers({
-      fileName: file.originalname,
-      size: file.size,
-    });
-
-    const rateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      clientId: storingClient,
-    });
-
-    if (!rateLimitResult?.allowed) {
-      return res.status(429).json({
-        success: false,
-        message: rateLimitResult?.message,
-      });
-    }
-
-    const tnId = genrateUniqueServiceId();
-
-    const maintainanceResponse = await deductCredits(
-      storingClient,
-      serviceId,
-      categoryId,
-      tnId,
-      req.environment
-    );
-
-    if (!maintainanceResponse?.result) {
-      return res.status(500).json({
-        success: false,
-        message: maintainanceResponse?.message,
-      });
-    }
-
-    const services = await selectService(apiType);
-
-    const response = await commonImageServiceResponse(
-      { file },
-      services,
-      apiType,
-      0
-    );
-
-    return res
-      .status(200)
-      .json(createApiResponse(200, response, response.message));
-  } catch (error) {
-    const errorObj = mapError(error);
-    return res
-      .status(errorObj.httpCode)
-      .json(createApiResponse(500, {}, "Server Error"));
-  }
-};
-
-exports.verifyImageBlurriness = async (req, res, next) => {
-  const { docType = "93" } = req.body;
-
-  const file = req.file;
-
-  faceServiceLogger.info(`Incoming blur check request`);
-
-  const storingClient = req.clientId || clientId;
-
-  // ✅ Validate file
-  if (!file) {
-    return res.status(400).json({
-      success: false,
-      message: "File is required",
-    });
-  }
-
-  // ✅ Validate docType
-  const isDocTypeValid = handleValidation("docType", docType, res);
-  if (!isDocTypeValid) return;
-
-  try {
-    faceServiceLogger.info(
-      `Executing Blur Check for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`
-    );
-
-    const identifierHash = hashIdentifiers({
-      fileName: file.originalname,
-      size: file.size,
-    });
-
-    // ✅ Rate Limit
-    const rateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      clientId: storingClient,
-    });
-
-    if (!rateLimitResult?.allowed) {
-      faceServiceLogger.warn(`Rate limit exceeded for client ${storingClient}`);
-      return res.status(429).json({
-        success: false,
-        message: rateLimitResult?.message,
-      });
-    }
-
-    // ✅ Generate txn ID
-    const tnId = genrateUniqueServiceId();
-    faceServiceLogger.info(`Generated txnId: ${tnId}`);
-
-    // ✅ Deduct credits
-    const maintainanceResponse = await deductCredits(
-      storingClient,
-      serviceId,
-      categoryId,
-      tnId,
-      req.environment
-    );
-
-    if (!maintainanceResponse?.result) {
-      faceServiceLogger.error(`Credit deduction failed for client ${storingClient}`);
-      return res.status(500).json({
-        success: false,
-        message: maintainanceResponse?.message || "Invalid",
-      });
-    }
-
-    // ✅ Check if already processed (optional caching)
-    const existingRecord = await blurModel.findOne({
-      fileName: file.originalname,
-      fileSize: file.size,
-    });
-
-    if (existingRecord) {
-      faceServiceLogger.info(`Returning cached blur response`);
-
-      return res.status(200).json(
-        createApiResponse(200, existingRecord.response, "Success")
-      );
-    }
-
-    // ✅ Select service
-    const service = await selectService("BLUR_CHECK");
-
-    if (!service) {
-      return res
-        .status(404)
-        .json(createApiResponse(404, null, "Service not found"));
-    }
-
-    faceServiceLogger.info(`Selected service: ${service.serviceFor}`);
-
-    // ✅ Prepare FormData
-    const FormData = require("form-data");
-    const fs = require("fs");
-
-    const form = new FormData();
-    form.append("transID", tnId);
-    form.append("docType", docType);
-    form.append("file", fs.createReadStream(file.path));
-
-    // ✅ Call external API
-    const axios = require("axios");
-
-    const apiResponse = await axios.post(
-      process.env.BLUR_API_URL,
-      form,
-      {
-        headers: {
-          username: process.env.USERNAME,
-          ...form.getHeaders(),
-        },
-        timeout: 20000,
-      }
-    );
-
-    faceServiceLogger.info(`Response from Blur API received`);
-
-    const result = apiResponse.data;
-
-    // ✅ Store response
-    await responseModel.create({
-      serviceId,
-      categoryId,
-      clientId: storingClient,
-      result,
-      createdTime: new Date().toLocaleTimeString(),
-      createdDate: new Date().toLocaleDateString(),
-    });
-
-    // ✅ Save in DB
-    await blurModel.create({
-      fileName: file.originalname,
-      fileSize: file.size,
-      response: result,
-      status: result?.status,
-      createdDate: new Date().toLocaleDateString(),
-      createdTime: new Date().toLocaleTimeString(),
-    });
-
-    // ✅ Delete temp file
-    fs.unlink(file.path, () => {});
-
-    return res.status(200).json(
-      createApiResponse(200, result, result?.result || "Processed")
-    );
-
-  } catch (error) {
-    faceServiceLogger.error(`Error in Blur API: ${error.message}`, error);
-
-    const errorObj = mapError(error);
-
-    return res
-      .status(errorObj.httpCode || 500)
-      .json(createApiResponse(500, {}, "Server Error"));
-  }
-};

@@ -8,8 +8,10 @@ const vehicleRcVerificationServiceResponse = async (
   data,
   services = [],
   index = 0,
+  client=""
 ) => {
   console.log("vehicleRcVerificationServiceResponse called");
+  vehicleServiceLogger.info(`vehicle Rc Verification active ServiceResponse called for this client: ${client} ====>>`);
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -18,6 +20,7 @@ const vehicleRcVerificationServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
+    vehicleServiceLogger.info(`No service with priority ${index + 1}, trying next`);
     return vehicleRcVerificationServiceResponse(data, services, index + 1);
   }
 
@@ -35,6 +38,9 @@ const vehicleRcVerificationServiceResponse = async (
     }
 
     console.log(
+      `[vehicleRcVerificationServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    vehicleServiceLogger.info(
       `[vehicleRcVerificationServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
     return vehicleRcVerificationServiceResponse(data, services, index + 1);
@@ -84,18 +90,18 @@ const rcVerificationApiCall = async (data, service) => {
         password: config.header.token,
       });
       console.log(
-        "[PanApiCall] TruthScreen API response:",
+        "[vehicle rc verification] TruthScreen API response:",
         JSON.stringify(ApiResponse),
       );
     }
   } catch (error) {
-    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+    console.log(`[vehicle rc verification] API Error in ${service}:`, error.message);
     return { success: false, data: null }; // fallback trigger
   }
 
   const obj = ApiResponse;
   console.log(
-    `[GSTApiCall] ${service} API Response Object:`,
+    `[vehicle rc verification] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 
@@ -283,7 +289,7 @@ const challanViaRcServiceResponse = async (data, services = [], index = 0) => {
   try {
     const res = await challanViaRcApiCall(data, serviceName, 0);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
@@ -337,12 +343,13 @@ const challanViaRcApiCall = async (data, service) => {
         password: config.header.token,
       });
       console.log(
-        "[PanApiCall] TruthScreen API response:",
+        "[challan via rc api call] TruthScreen API response:",
         JSON.stringify(ApiResponse),
       );
     }
   } catch (error) {
-    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+    console.log(`[challan via rc api call] API Error in ${service}:`, error.message);
+    console.log(`[challan via rc api call] API Error in ${service}:`, error.message);
     return { success: false, data: null }; // fallback trigger
   }
 
@@ -586,9 +593,6 @@ const vehicleRegisterationVerificationServiceResponse = async (
     const res = await vehicleRegisterationApiCall(data, serviceName, client);
 
     vehicleServiceLogger.info(
-      `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${client}`,
-    );
-    console.log(
       `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${client}`,
     );
 

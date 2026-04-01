@@ -62,7 +62,7 @@ async function handleMobileVerification({
       idOfService,
       idOfCategory,
       txnId,
-      req.environment,
+      req,
     );
 
     if (!credits?.result) {
@@ -232,7 +232,7 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {

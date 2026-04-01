@@ -1,4 +1,4 @@
-const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
 const GSTActiveServiceResponse = async (data, services, index = 0, client="") => {
@@ -265,7 +265,7 @@ const GSTToPANApiCall = async (data, service) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "64",
+        docType: "47",
         docNumber: data,
       },
       url: process.env.TRUTNSCREEN_UTILITY_URL,

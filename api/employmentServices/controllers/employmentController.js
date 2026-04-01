@@ -1,10 +1,12 @@
 const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const { mapError } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses");
+const handleValidation = require("../../../utils/lengthCheck");
 const { employmentServiceLogger } = require("../../Logger/logger");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const basicUanModel = require("../models/basicUanModel");
@@ -17,16 +19,11 @@ exports.handleBasicUanVerify = async (req, res) => {
   const { uanNumber = "", mobileNumber = "" } = data;
 
   const storingClient = req.clientId;
-  const isValid = handleValidation(
-    "mobileToUan",
-    mobileNumber,
-    res,
-    storingClient,
-  );
+  const isValid = handleValidation("uan", uanNumber, res, storingClient);
   if (!isValid) return;
 
   employmentServiceLogger.info(
-    "All inputs in pan are valid, continue processing...",
+    "All inputs in basic uan are valid, continue processing...",
   );
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
@@ -40,33 +37,33 @@ exports.handleBasicUanVerify = async (req, res) => {
 
   try {
     employmentServiceLogger.info(
-      `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+      `Executing basic uan verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     // Always generate txnId
     const tnId = genrateUniqueServiceId();
     employmentServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
+      `Generated basic uan txn Id: ${tnId} for the client: ${storingClient}`,
     );
 
     const identifierHash = hashIdentifiers({
-      mobileNo: mobileNumber,
+      uanNo: uanNumber,
     });
 
-    const mobileToUanRateLimitResult = await checkingRateLimit({
+    const uanRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
     });
 
-    if (!mobileToUanRateLimitResult.allowed) {
+    if (!uanRateLimitResult.allowed) {
       employmentServiceLogger.warn(
-        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+        `Rate limit exceeded for basic uan verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
-        message: mobileToUanRateLimitResult.message,
+        message: uanRateLimitResult.message,
       });
     }
 
@@ -75,12 +72,12 @@ exports.handleBasicUanVerify = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
       employmentServiceLogger.error(
-        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+        `Credit deduction failed for basic uan verification: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
         success: false,
@@ -151,7 +148,7 @@ exports.handleBasicUanVerify = async (req, res) => {
 
     const service = await selectService(categoryId, serviceId);
 
-    if (!service) {
+    if (!service?.length) {
       employmentServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
@@ -168,73 +165,8 @@ exports.handleBasicUanVerify = async (req, res) => {
     );
 
     employmentServiceLogger.info(
-      `Response received from active service ${service.serviceFor}: ${uanNumberResponse?.message}`,
+      `Response received from active service ${uanNumberResponse?.service}: ${uanNumberResponse?.message}`,
     );
-
-    // if (uanNumberResponse?.message?.toUpperCase() == "VALID") {
-    //   const encryptedPan = encryptData(uanNumberResponse?.result?.PAN);
-    //   const encryptedResponse = {
-    //     ...uanNumberResponse?.result,
-    //     PAN: encryptedPan,
-    //   };
-
-    //   await responseModel.create({
-    //     serviceId,
-    //     categoryId,
-    //     clientId: storingClient,
-    //     result: uanNumberResponse?.result,
-    //     createdTime: new Date().toLocaleTimeString(),
-    //     createdDate: new Date().toLocaleDateString(),
-    //   });
-
-    //   const storingData = {
-    //     panNumber: encryptedPan,
-    //     userName: uanNumberResponse?.result?.Name,
-    //     response: encryptedResponse,
-    //     serviceResponse: uanNumberResponse?.responseOfService,
-    //     status: 1,
-    //     mobileNumber,
-    //     serviceName: uanNumberResponse?.service,
-    //     createdDate: new Date().toLocaleDateString(),
-    //     createdTime: new Date().toLocaleTimeString(),
-    //   };
-
-    //   await panverificationModel.create(storingData);
-    //   employmentServiceLogger.info(
-    //     `Valid PAN response stored and sent to client: ${storingClient}`,
-    //   );
-
-    //   return res
-    //     .status(200)
-    //     .json(createApiResponse(200, response?.result, "Valid"));
-    // } else {
-    //   await responseModel.create({
-    //     serviceId,
-    //     categoryId,
-    //     clientId: storingClient,
-    //     result: { uanNumber: uanNumber },
-    //     createdTime: new Date().toLocaleTimeString(),
-    //     createdDate: new Date().toLocaleDateString(),
-    //   });
-    //   const storingData = {
-    //     uanNumber: encryptedPan,
-    //     userName: "",
-    //     response: { uanNumber: uanNumber },
-    //     serviceResponse: uanNumberResponse?.responseOfService,
-    //     status: 2,
-    //     mobileNumber,
-    //     serviceName: uanNumberResponse?.service,
-    //     createdDate: new Date().toLocaleDateString(),
-    //     createdTime: new Date().toLocaleTimeString(),
-    //   };
-    //   await panverificationModel.create(storingData);
-    //   employmentServiceLogger.info(
-    //     `Invalid PAN response received and sent to client: ${storingClient}`,
-    //   );
-    //   return res
-    //     .status(404)
-    //     .json(createApiResponse(404, { uanNumber: uanNumber }, "Invalid"));
-    // }
 
     if (uanNumberResponse?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = {
@@ -253,7 +185,7 @@ exports.handleBasicUanVerify = async (req, res) => {
       });
 
       const storingData = {
-        panNumber: encryptedUan,
+        uanNumber: encryptedUan,
         userName: uanNumberResponse?.result?.Name,
         response: encryptedResponse,
         serviceResponse: uanNumberResponse?.responseOfService,
@@ -271,7 +203,7 @@ exports.handleBasicUanVerify = async (req, res) => {
       });
 
       employmentServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
+        `Valid basic uan response stored and sent to client: ${storingClient}`,
       );
 
       return res
@@ -301,13 +233,13 @@ exports.handleBasicUanVerify = async (req, res) => {
       };
 
       // CHANGED HERE
-      await basicUanModel.findOneAndUpdate({ mobileNumber }, storingData, {
+      await basicUanModel.findOneAndUpdate({ uanNumber }, storingData, {
         upsert: true,
         new: true,
       });
 
       employmentServiceLogger.info(
-        `Invalid PAN response received and sent to client: ${storingClient}`,
+        `Invalid basic uan response received and sent to client: ${storingClient}`,
       );
 
       return res
@@ -316,10 +248,10 @@ exports.handleBasicUanVerify = async (req, res) => {
     }
   } catch (error) {
     employmentServiceLogger.error(
-      `System error in mobile to uan for client ${storingClient}: ${error.message}`,
+      `System error in basic uan for client ${storingClient}: ${error.message}`,
       error,
     );
-        const analyticsResult = await AnalyticsDataUpdate(
+    const analyticsResult = await AnalyticsDataUpdate(
       clientId,
       serviceId,
       categoryId,
@@ -399,7 +331,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -643,7 +575,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       `System error in mobile to uan for client ${storingClient}: ${error.message}`,
       error,
     );
-        const analyticsResult = await AnalyticsDataUpdate(
+    const analyticsResult = await AnalyticsDataUpdate(
       clientId,
       serviceId,
       categoryId,
@@ -658,7 +590,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};
 
 exports.handleForm16Verification = async (req, res) => {
   const data = req.body;
@@ -723,7 +655,7 @@ exports.handleForm16Verification = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {

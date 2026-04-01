@@ -5,7 +5,7 @@ const {
   encryptData,
   decryptData,
 } = require("../../../utils/EncryptAndDecrypt");
-const { } = require("../../../utils/lengthCheck");
+const {} = require("../../../utils/lengthCheck");
 const handleValidation = require("../../../utils/lengthCheck");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
@@ -13,93 +13,112 @@ const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const {
   fullNumberServiceResponse,
-} = require("../../GlobalApiserviceResponse/fullNumberServiceResponse");
+} = require("../service/fullNumberServiceResponse");
 const { selectService } = require("../../service/serviceSelector");
 const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 require("dotenv").config();
 
 const verifyFullCardNumber = async (req, res, next) => {
-  const {
-    creditCardNumber,
-    mobileNumber = "",
-    categoryId = "",
-    serviceId = "",
-    clientId = "",
-  } = req.body;
+  const { creditCardNumber, mobileNumber = "" } = req.body;
 
-  const isValid = handleValidation("creditCard", creditCardNumber, res);
+  const storingClient = req.clientId || clientId;
+  const isValid = handleValidation(
+    "creditCard",
+    creditCardNumber,
+    res,
+    storingClient,
+  );
   if (!isValid) return;
 
   bankServiceLogger.info("All inputs are valid, continue processing...");
 
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "CARD_VERIFY",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
   bankServiceLogger.info(`clientId in card ===>> ${clientId}`);
 
-  const storingClient = req.clientId || clientId;
+  const identifierHash = hashIdentifiers({
+    cardNo: creditCardNumber,
+  });
 
-  // const identifierHash = hashIdentifiers({
-  //   cardNo: creditCardNumber,
-  // });
+  const fullCardRateLimitResult = await checkingRateLimit({
+    identifiers: { identifierHash },
+    serviceId,
+    categoryId,
+    clientId: storingClient,
+  });
 
-  // const fullCardRateLimitResult = await checkingRateLimit({
-  //   identifiers: { identifierHash },
-  //   serviceId,
-  //   categoryId,
-  //   clientId: storingClient,
-  // });
+  if (!fullCardRateLimitResult.allowed) {
+    return res.status(429).json({
+      success: false,
+      message: fullCardRateLimitResult.message,
+    });
+  }
 
-  // if (!fullCardRateLimitResult.allowed) {
-  //   return res.status(429).json({
-  //     success: false,
-  //     message: fullCardRateLimitResult.message,
-  //   });
-  // }
+  const tnId = genrateUniqueServiceId();
+  bankServiceLogger.info("full card verify txn Id ===>>", tnId);
+  const maintainanceResponse = await deductCredits(
+    storingClient,
+    serviceId,
+    categoryId,
+    tnId,
+    req,
+  );
 
-  // const tnId = genrateUniqueServiceId();
-  // bankServiceLogger.info("full card verify txn Id ===>>", tnId)
-  // let maintainanceResponse;
-  // if (req.environment?.toLowerCase() == "test") {
-  //   maintainanceResponse = await creditsToBeDebited(
-  //     storingClient,
-  //     serviceId,
-  //     categoryId,
-  //     tnId,
-  //   );
-  // } else {
-  //   maintainanceResponse = await chargesToBeDebited(
-  //     storingClient,
-  //     serviceId,
-  //     categoryId,
-  //     tnId,
-  //   );
-  // }
+  if (!maintainanceResponse?.result) {
+    bankServiceLogger.error(
+      `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+    );
+    return res.status(500).json({
+      success: false,
+      message: maintainanceResponse?.message || "Invalid",
+      response: {},
+    });
+  }
 
-  // if (!maintainanceResponse?.result) {
-  //   return res.status(500).json({
-  //     success: false,
-  //     message: "Invalid",
-  //     response: {},
-  //   });
-  // }
+  if (!maintainanceResponse?.result) {
+    return res.status(500).json({
+      success: false,
+      message: "Invalid",
+      response: {},
+    });
+  }
   const encryptedCreditCardNumber = encryptData(creditCardNumber);
-  bankServiceLogger.debug(`encryptedCreditCardNumber ====>>> ${encryptedCreditCardNumber}`);
+  bankServiceLogger.debug(
+    `encryptedCreditCardNumber ====>>> ${encryptedCreditCardNumber}`,
+  );
   bankServiceLogger.info(
     `encryptedCreditCardNumber ====>> ${encryptedCreditCardNumber}`,
   );
   const existingCreditCardNumber = await cardValidationModel.findOne({
     cardNumber: encryptedCreditCardNumber,
   });
-  bankServiceLogger.debug(`existingCreditCardNumber===> ${JSON.stringify(existingCreditCardNumber)}`);
+  bankServiceLogger.debug(
+    `existingCreditCardNumber===> ${JSON.stringify(existingCreditCardNumber)}`,
+  );
   bankServiceLogger.info(
     `Existing Credit Card Number Found ${JSON.stringify(existingCreditCardNumber)} for client ${storingClient}`,
   );
-  const analyticsRes = await AnalyticsDataUpdate(storingClient, serviceId, categoryId);
+  const analyticsRes = await AnalyticsDataUpdate(
+    storingClient,
+    serviceId,
+    categoryId,
+    "success",
+  );
   if (!analyticsRes?.success) {
     return res.status(400).json({
       response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
       ...ERROR_CODES?.BAD_REQUEST,
-    })
+    });
   }
   if (existingCreditCardNumber) {
     if (existingCreditCardNumber?.status == 1) {
@@ -135,7 +154,9 @@ const verifyFullCardNumber = async (req, res, next) => {
 
   const service = await selectService(categoryId, serviceId);
 
-  bankServiceLogger.info(`----active service for full card Verify is ---- ${JSON.stringify(service)}`);
+  bankServiceLogger.info(
+    `----active service for full card Verify is ---- ${JSON.stringify(service)}`,
+  );
   if (!service) {
     bankServiceLogger.info("no service in full card verify ===>>>");
     return res.status(404).json(ERROR_CODES?.NOT_FOUND);
@@ -146,9 +167,11 @@ const verifyFullCardNumber = async (req, res, next) => {
       creditCardNumber,
       service,
       0,
-      storingClient
+      storingClient,
     );
-    bankServiceLogger.debug(`cardNumberResponse ===>> ${JSON.stringify(cardNumberResponse)}`);
+    bankServiceLogger.debug(
+      `cardNumberResponse ===>> ${JSON.stringify(cardNumberResponse)}`,
+    );
     const encryptedNumber = encryptData(creditCardNumber);
     if (cardNumberResponse?.message?.toLowerCase() == "valid") {
       await responseModel.create({
@@ -200,7 +223,21 @@ const verifyFullCardNumber = async (req, res, next) => {
       });
     }
   } catch (error) {
-    bankServiceLogger.error(`error in while fetching Credit Card Response ===>> ${error.message}`);
+    bankServiceLogger.error(
+      `error in while fetching Credit Card Response ===>> ${error.message}`,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      bankServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -209,4 +246,3 @@ const verifyFullCardNumber = async (req, res, next) => {
 module.exports = {
   verifyFullCardNumber,
 };
-

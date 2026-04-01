@@ -80,7 +80,7 @@ exports.handlePincodeGeofencing = async (req, res) => {
     //   serviceId,
     //   idOfCategory,
     //   tnId,
-    //   req.environment,
+    //   req,
     // );
 
     // if (!maintainanceResponse?.result) {
@@ -325,7 +325,7 @@ exports.handleLongLatGeofencing = async (req, res) => {
       idOfService,
       idOfCategory,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -560,7 +560,7 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       idOfService,
       idOfCategory,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -792,7 +792,7 @@ exports.handleDigiPinToLongLat = async (req, res) => {
       idOfService,
       idOfCategory,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -1024,7 +1024,7 @@ exports.handleAddressToDigiPin = async (req, res) => {
       idOfService,
       idOfCategory,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -1266,7 +1266,7 @@ exports.handleGeoTagging = async (req, res) => {
       idOfService,
       idOfCategory,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -1502,7 +1502,7 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
       idOfService,
       idOfCategory,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {

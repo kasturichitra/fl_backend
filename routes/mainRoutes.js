@@ -22,6 +22,7 @@ const contactRouter = require("../api/contactServices/routes/contactRoute");
 const governmentIdRouter = require("../api/governmentIdServices/routes/governmentIdRoutes");
 const locationRouter = require("../api/locationServices/routes/locationRoutes.js");
 const riskRouter = require("../api/riskServices/routes/riskRoutes.js");
+const faceAndAiRouter = require("../api/FaceAndAiServices/routes/faceRoutes.js");
 
 //Routes
 mainRouter.use("/pan", panRouter);
@@ -36,7 +37,6 @@ mainRouter.use("/name", nameRouter);
 mainRouter.use("/bin", binRouter);
 mainRouter.use("/card", fullCardRouter);
 mainRouter.use("/IP", ipRouter);
-// mainRouter.use("/voterId", VoterIdRouter);
 mainRouter.use("/vehicle", vehicleRouter);
 mainRouter.use("/employee", employmentRouter);
 mainRouter.use("/bank", bankingRouter);
@@ -44,6 +44,7 @@ mainRouter.use("/contact", contactRouter);
 mainRouter.use("/government", governmentIdRouter);
 mainRouter.use("/location", locationRouter);
 mainRouter.use("/diligence", riskRouter);
+mainRouter.use("/image", faceAndAiRouter);
 
 
 // no middleware checking for this

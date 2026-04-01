@@ -34,7 +34,9 @@ function encrypt(plainText, password) {
 function decrypt(encryptedText, password) {
   const key = generateKey(password);
 
-  commonLogger.debug(`encryptedText ===> ${encryptedText} ${typeof encryptedText}`);
+  commonLogger.debug(
+    `encryptedText ===> ${encryptedText} ${typeof encryptedText}`,
+  );
 
   if (typeof encryptedText !== "string") {
     throw new Error("Invalid encryptedText: must be a string");
@@ -62,17 +64,23 @@ async function encryptingData(encryptedData, username) {
 
   const decreptedresponse = await axios.post(url, payload, { headers });
 
-  commonLogger.debug(`response in decreptData ${JSON.stringify(decreptedresponse?.data)}`);
+  commonLogger.debug(
+    `response in decreptData ${JSON.stringify(decreptedresponse?.data)}`,
+  );
 
   return decreptedresponse;
 }
 
 async function callTruthScreen({ url, payload, username, password }) {
-  commonLogger.info(`payload in truth screen ====>>> ${JSON.stringify(payload)} ${url}`);
+  commonLogger.info(
+    `payload in truth screen ====>>> ${JSON.stringify(payload)} ${url}`,
+  );
   try {
     const encryptedData = await encryptingData(payload, username);
 
-    commonLogger.debug(`encryptedData in truth screen ====>>> ${JSON.stringify(encryptedData?.data)}`);
+    commonLogger.debug(
+      `encryptedData in truth screen ====>>> ${JSON.stringify(encryptedData?.data)}`,
+    );
 
     const response = await axios.post(
       url,
@@ -82,31 +90,37 @@ async function callTruthScreen({ url, payload, username, password }) {
           "Content-Type": "application/json",
           username,
         },
-      }
+      },
     );
 
     commonLogger.info(`HTTP Status: ${response?.status}`);
-    commonLogger.debug(`response in shop establishment truth screen ====>>> ${JSON.stringify(response?.data)}`);
+    commonLogger.debug(
+      `response in shop establishment truth screen ====>>> ${JSON.stringify(response?.data)}`,
+    );
 
     const encryptedResponseData = response?.data;
 
-    commonLogger.debug(`encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`);
+    commonLogger.debug(
+      `encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`,
+    );
 
     if (!encryptedResponseData) {
       throw new Error(
-        "Invalid or missing encrypted responseData from TruthScreen"
+        "Invalid or missing encrypted responseData from TruthScreen",
       );
     }
 
     const decrypted = await decreptData(encryptedResponseData, username);
-    commonLogger.info(`decrypted in truth screen ====>>> ${JSON.stringify(decrypted?.data)}`);
+    commonLogger.info(
+      `decrypted in truth screen ====>>> ${JSON.stringify(decrypted?.data)}`,
+    );
 
     return decrypted;
   } catch (error) {
     commonLogger.error(`error in truth screen: ${error.message}`);
-    // return { status: 0, message: error }; 
-    // Re-throwing or returning error structure depends on usage, but keeping original return for now to minimize breakage logic changes, 
-    // though the original code catches and returns object, then proceeds to do other checks? 
+    // return { status: 0, message: error };
+    // Re-throwing or returning error structure depends on usage, but keeping original return for now to minimize breakage logic changes,
+    // though the original code catches and returns object, then proceeds to do other checks?
     // actually original code had unreachable code after return. Fixing that.
 
     if (error?.response?.data?.responseData) {
@@ -115,7 +129,7 @@ async function callTruthScreen({ url, payload, username, password }) {
         commonLogger.error(`decrypted in error: ${decrypted}`);
       } catch (decryptionErr) {
         commonLogger.error(
-          `Decryption failed for error response: ${decryptionErr.message}`
+          `Decryption failed for error response: ${decryptionErr.message}`,
         );
       }
     }
@@ -126,13 +140,23 @@ async function callTruthScreen({ url, payload, username, password }) {
 }
 
 // Truth Screen actual api call happen hear
-async function callTruthScreenAPI({ url, payload, username, password, cId="" }) {
+async function callTruthScreenAPI({
+  url,
+  payload,
+  username,
+  password,
+  cId = "",
+}) {
   // displaying password in logs is bad practice, removing it.
-  commonLogger.info(`Details for the request with client: ${cId} url: ${url} payload: ${JSON.stringify(payload)} username: ${username} ===>>`);
+  commonLogger.info(
+    `Details for the request with client: ${cId} url: ${url} payload: ${JSON.stringify(payload)} username: ${username} ===>>`,
+  );
   try {
     const encryptedData = encrypt(JSON.stringify(payload), password);
 
-    commonLogger.info(`encrypted Data successfully in truth screen for this client: ${cId} ====>>>`);
+    commonLogger.info(
+      `encrypted Data successfully in truth screen for this client: ${cId} ====>>>`,
+    );
 
     const response = await axios.post(
       url,
@@ -143,19 +167,23 @@ async function callTruthScreenAPI({ url, payload, username, password, cId="" }) 
           username: username,
           password: password,
         },
-      }
+      },
     );
 
     commonLogger.info(`HTTP Status: ${response?.status}`);
-    commonLogger.debug(`response in truth screen ====>>> ${JSON.stringify(response?.data)}`);
+    commonLogger.debug(
+      `response in truth screen ====>>> ${JSON.stringify(response?.data)}`,
+    );
 
     const encryptedResponseData =
       response?.data?.responseData || response?.data;
-    commonLogger.debug(`encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`);
+    commonLogger.debug(
+      `encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`,
+    );
 
     if (!encryptedResponseData || typeof encryptedResponseData !== "string") {
       throw new Error(
-        "Invalid or missing encrypted responseData from TruthScreen"
+        "Invalid or missing encrypted responseData from TruthScreen",
       );
     }
 
@@ -164,23 +192,109 @@ async function callTruthScreenAPI({ url, payload, username, password, cId="" }) 
 
     return JSON.parse(decrypted);
   } catch (error) {
-    console.log("error in truthscreen error?.message===>>", error?.message)
-    console.log("error in truthscreen error?.response?.data===>>", error?.response?.data)
-    console.log("error in truthscreen error?.response===>>", error?.response)
-    commonLogger.error(`TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`);
+    console.log("error in truthscreen error?.message===>>", error?.message);
+    console.log(
+      "error in truthscreen error?.response?.data===>>",
+      error?.response?.data,
+    );
+    commonLogger.error(
+      `TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`,
+    );
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);
         commonLogger.error(`decrypted in error: ${decrypted}`);
       } catch (decryptionErr) {
         commonLogger.error(
-          `Decryption failed for error response: ${decryptionErr.message}`
+          `Decryption failed for error response: ${decryptionErr.message}`,
         );
       }
     }
     throw new Error(
-      `TruthScreen request failed: ${error?.response?.data || error.message
-      }`
+      `TruthScreen request failed: ${error?.response?.data || error.message}`,
+    );
+  }
+}
+
+async function callTruthScreenAPIForImage({
+  url,
+  payload,
+  file,
+  username,
+  password,
+  cId = "",
+}) {
+  // displaying password in logs is bad practice, removing it.
+  commonLogger.info(
+    `Details for the request with client: ${cId} url: ${url} payload: ${JSON.stringify(payload)} username: ${username} ===>>`,
+  );
+  const form = new FormData();
+  try {
+    const encryptedData = encrypt(JSON.stringify(payload), password);
+
+    form.append("data", encryptedData.data);
+    form.append("docType", payload.docType);
+    // file stays raw (usually required)
+    form.append("file", file.buffer, {
+      filename: file.originalname,
+    });
+
+    commonLogger.info(
+      `encrypted Data successfully in truth screen for this client: ${cId} ====>>>`,
+    );
+
+    const response = await axios.post(url, form, {
+      headers: {
+        ...form.getHeaders(),
+        "Content-Type": "multipart/form-data",
+        username: username,
+        password: password,
+      },
+    });
+
+    commonLogger.info(`HTTP Status: ${response?.status}`);
+    commonLogger.debug(
+      `response in truth screen ====>>> ${JSON.stringify(response?.data)}`,
+    );
+
+    const encryptedResponseData =
+      response?.data?.responseData || response?.data;
+    commonLogger.debug(
+      `encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`,
+    );
+
+    if (!encryptedResponseData || typeof encryptedResponseData !== "string") {
+      throw new Error(
+        "Invalid or missing encrypted responseData from TruthScreen",
+      );
+    }
+
+    const decrypted = decrypt(encryptedResponseData, password);
+    commonLogger.info(`decrypted in truth screen ====>>> ${decrypted}`);
+
+    return JSON.parse(decrypted);
+  } catch (error) {
+    console.log("error in truthscreen error?.message===>>", error?.message);
+    console.log(
+      "error in truthscreen error?.response?.data===>>",
+      error?.response?.data,
+    );
+    console.log("error in truthscreen error?.response===>>", error?.response);
+    commonLogger.error(
+      `TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`,
+    );
+    if (error?.response?.data?.responseData) {
+      try {
+        const decrypted = decrypt(error.response.data.responseData, password);
+        commonLogger.error(`decrypted in error: ${decrypted}`);
+      } catch (decryptionErr) {
+        commonLogger.error(
+          `Decryption failed for error response: ${decryptionErr.message}`,
+        );
+      }
+    }
+    throw new Error(
+      `TruthScreen request failed: ${JSON.stringify(error?.response?.data || error.message)}`,
     );
   }
 }
@@ -198,7 +312,9 @@ async function decreptData(encryptedData, username) {
 
   const decreptedresponse = await axios.post(url, payload, { headers });
 
-  commonLogger.debug(`response in decreptData ${JSON.stringify(decreptedresponse?.data)}`);
+  commonLogger.debug(
+    `response in decreptData ${JSON.stringify(decreptedresponse?.data)}`,
+  );
 
   return decreptedresponse;
 }
@@ -218,14 +334,18 @@ async function encryptData(encrypt, username) {
     },
   });
 
-  commonLogger.debug(`response in decreptData ${JSON.stringify(decreptedresponse?.data)}`);
+  commonLogger.debug(
+    `response in decreptData ${JSON.stringify(decreptedresponse?.data)}`,
+  );
 
   return decreptedresponse?.data;
 }
 
 async function callTruth({ url, payload, username, password }) {
   try {
-    commonLogger.info(`payload in face verification ====>>> ${JSON.stringify(payload)}`);
+    commonLogger.info(
+      `payload in face verification ====>>> ${JSON.stringify(payload)}`,
+    );
 
     const form = new FormData();
     form.append("docType", payload.docType);
@@ -238,13 +358,15 @@ async function callTruth({ url, payload, username, password }) {
       },
     });
 
-    commonLogger.debug(`response in first step of face verification ${JSON.stringify(response?.data)}`);
+    commonLogger.debug(
+      `response in first step of face verification ${JSON.stringify(response?.data)}`,
+    );
 
     const encryptedResponseData = response?.data;
 
     if (!encryptedResponseData) {
       throw new Error(
-        "Invalid or missing encrypted responseData from TruthScreen"
+        "Invalid or missing encrypted responseData from TruthScreen",
       );
     }
 
@@ -262,8 +384,9 @@ async function callTruth({ url, payload, username, password }) {
       }
     }
     throw new Error(
-      `TruthScreen request failed: ${error?.response?.data?.msg || error.message
-      }`
+      `TruthScreen request failed: ${
+        error?.response?.data?.msg || error.message
+      }`,
     );
   }
 }
@@ -278,12 +401,14 @@ async function performFaceVerificationEncrypted({
 }) {
   // Hidden sensitive data logging
   commonLogger.info(
-    `performFaceVerificationEncrypted called for tsTransID: ${tsTransID}`
+    `performFaceVerificationEncrypted called for tsTransID: ${tsTransID}`,
   );
 
   const encryptedPayload = await encryptData(secretToken, username);
 
-  commonLogger.debug(`encryptedPayload in face -------->>> ${encryptedPayload}`);
+  commonLogger.debug(
+    `encryptedPayload in face -------->>> ${encryptedPayload}`,
+  );
 
   const form = new FormData();
   form.append("tsTransID", tsTransID);
@@ -311,26 +436,30 @@ async function performFaceVerificationEncrypted({
           username: username,
           ...form.getHeaders(),
         },
-      }
+      },
     );
 
-    commonLogger.debug(`Response in performFaceVerificationEncrypted: ${JSON.stringify(response.data)}`);
+    commonLogger.debug(
+      `Response in performFaceVerificationEncrypted: ${JSON.stringify(response.data)}`,
+    );
 
     const encryptedResponseData = response?.data;
 
     if (!encryptedResponseData) {
       throw new Error(
-        "Invalid or missing encrypted responseData from TruthScreen"
+        "Invalid or missing encrypted responseData from TruthScreen",
       );
     }
 
     const decrypted = await decreptData(encryptedResponseData, username);
     commonLogger.info(
-      `decrypted message in performFaceVerificationEncrypted===> ${JSON.stringify(decrypted)}`
+      `decrypted message in performFaceVerificationEncrypted===> ${JSON.stringify(decrypted)}`,
     );
     return decrypted;
   } catch (error) {
-    commonLogger.error(`Face Verification API error: ${JSON.stringify(error?.response?.data)}`);
+    commonLogger.error(
+      `Face Verification API error: ${JSON.stringify(error?.response?.data)}`,
+    );
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);
@@ -348,5 +477,6 @@ module.exports = {
   callTruth,
   performFaceVerificationEncrypted,
   callTruthScreen,
-  generateTransactionId
+  callTruthScreenAPIForImage,
+  generateTransactionId,
 };

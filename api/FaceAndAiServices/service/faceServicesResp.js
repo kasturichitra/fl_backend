@@ -1,91 +1,132 @@
-const { blurApiCall } = require("../providers/blurProviders");
-const { generateTransactionId, callTruthScreenAPI } = require("../truthScreen/callTruthScreen");
+const { response } = require("express");
+const { faceServiceLogger } = require("../../Logger/logger");
+const { generateTransactionId, callTruthScreenAPIForImage } = require("../../truthScreen/callTruthScreen");
 
-const blurServiceResponse = async (data, services = [], index = 0) => {
-  if (index >= services.length) {
+const SERVICE_CONFIG = {
+  BLUR_CHECK: {
+    TRUTHSCREEN: {
+      url: process.env.TRUTHSCREEN_IMAGE_BLURRINESS,
+      docType: 93,
+    },
+  },
+  AI_IMAGE_CHECK: {
+    TRUTHSCREEN: {
+      url: process.env.TRUTHSCREEN_IMAGE_AI,
+      docType: 579,
+    },
+  },
+  DEEPFAKE_IMAGE_CHECK: {
+    TRUTHSCREEN: {
+      url: process.env.TRUTHSCREEN_IMAGE_DEEPFAKE,
+      docType: 578,
+    },
+  },
+  AI_AND_DEEPFAKE_IMAGE_CHECK: {
+    TRUTHSCREEN: {
+      url: process.env.TRUTHSCREEN_IMAGE_AI_DEEPFAKE,
+      docType: 580,
+    },
+  },
+};
+
+const imageActiveServiceResponse = async (
+  data,
+  services = [],
+  serviceKey,
+  index = 0,
+  client,
+) => {
+  const sortedServices = [...services].sort((a, b) => a.priority - b.priority);
+
+  if (index >= sortedServices.length) {
     return { success: false, message: "All services failed" };
   }
 
-  const newService = services.find((s) => s.priority === index + 1);
-
-  if (!newService) {
-    return blurServiceResponse(data, services, index + 1);
-  }
-
-  const provider = newService.providerId;
+  const currentService = sortedServices[index];
+  const provider = currentService.providerId;
 
   try {
-    const res = await blurApiCall(data, provider);
+    const res = await imageApiCall(data, provider, serviceKey, client);
 
     if (res?.success) return res.data;
 
-    return blurServiceResponse(data, services, index + 1);
+    return imageActiveServiceResponse(
+      data,
+      sortedServices,
+      serviceKey,
+      index + 1,
+    );
   } catch (err) {
-    return blurServiceResponse(data, services, index + 1);
+    return imageActiveServiceResponse(
+      data,
+      sortedServices,
+      serviceKey,
+      index + 1,
+    );
   }
 };
 
-const blurApiCall = async (data, service) => {
-  const tskId = await generateTransactionId(12);
+const imageApiCall = async (data, service, serviceKey, CID) => {
+  const txnId = await generateTransactionId(12);
   const { file } = data;
 
-  const ApiData = {
-    TRUTHSCREEN: {
-      BodyData: {
-        transID: tskId,
-        docType: "93",
-      },
-      url: process.env.TRUTHSCREEN_IMAGE_BLURRINESS,
-      header: {
-        username: process.env.TRUTHSCREEN_USERNAME,
-        password: process.env.TRUTHSCREEN_TOKEN,
-      },
-    },
-  };
+  const config = SERVICE_CONFIG?.[serviceKey]?.[service];
 
-  const config = ApiData[service];
-  if (!config) throw new Error(`Invalid service: ${service}`);
+  faceServiceLogger.info(`config: ${config} found for this client: ${CID}`)
 
-  let ApiResponse;
+  if (!config) {
+    throw new Error(`Invalid config for ${serviceKey} - ${service}`);
+  }
+
+  let apiResponse;
 
   try {
     if (service === "TRUTHSCREEN") {
-      // multipart handled manually
-      const form = new FormData();
-      form.append("transID", tskId);
-      form.append("docType", "93");
-      form.append("file", file.buffer, { filename: file.originalname });
-
-      const axios = require("axios");
-
-      const res = await axios.post(config.url, form, {
-        headers: {
-          username: config.header.username,
-          ...form.getHeaders(),
+      const faceRes = await callTruthScreenAPIForImage({
+        url: config.url,
+        payload: {
+          transID: txnId,
+          docType: config.docType,
         },
+        file,
+        username: process.env.TRUTHSCREEN_USERNAME,
+        password: process.env.TRUTHSCREEN_TOKEN,
+        cId: CID,
       });
 
-      ApiResponse = res.data;
+      apiResponse = faceRes.data;
     }
   } catch (error) {
-    console.log(`[blurApiCall] Error in ${service}`, error.message);
-    return { success: false };
+    console.error(
+      `[ERROR] ${serviceKey} api error with service: ${service} error:`,
+      JSON.stringify(error),
+    );
+    console.error(
+      `[ERROR][MESSAGE] ${serviceKey} api error with service: ${service} error: ${error?.message}`
+    );
+
+    return {
+      success: false,
+      error: error?.response?.data || error.message,
+    };
   }
 
-  /** Normalize response */
-  let returnedObj = {};
+  console.log(`active service: ${service} and it's apiResponse: ${apiResponse}`)
+
+  // ✅ Normalize response
+  let normalized = {};
 
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = {
-        status: ApiResponse?.status,
-        result: ApiResponse?.result,
+      normalized = {
+        status: apiResponse?.status,
+        result: apiResponse?.result,
         message:
-          ApiResponse?.result === "Clear"
-            ? "Clear"
-            : ApiResponse?.result === "Blur"
-            ? "Blur"
-            : "Error",
+          apiResponse?.result === "Clear"
+            ? "CLEAR"
+            : apiResponse?.result === "Blur"
+              ? "BLUR"
+              : "ERROR",
       };
       break;
   }
@@ -93,12 +134,12 @@ const blurApiCall = async (data, service) => {
   return {
     success: true,
     data: {
-      result: returnedObj,
-      message: returnedObj.message,
-      responseOfService: ApiResponse,
+      result: normalized,
+      response: normalized,
+      responseOfService: apiResponse,
       service,
     },
   };
-}
+};
 
-module.exports = { blurServiceResponse };
+module.exports = { imageActiveServiceResponse };

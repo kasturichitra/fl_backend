@@ -88,6 +88,8 @@ const clientValidation = async (req, res, next) => {
                 req.isKycCompleted = data.isKycCompleted;
                 req.isKycApproved = data.isKycApproved;
                 req.environment = data.environment;
+                req.client_id = clientId,
+                req.client_secret = clientSecret
 
                 // Set billing client ID (B2B parent) for controllers
                 if (data.client_id) {

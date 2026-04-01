@@ -12,6 +12,7 @@ const { encryptresponseData, DecryptTruthScreenResponse } = require("./api/Truth
 const clientValidation = require("./middleware/ClientValidation.middleware");
 const { decryptMiddleware, encryptMiddleware } = require("./middleware/decryptPayload");
 const { decryptPayload, encryptPayload } = require("./middleware/clientDecryptPayload");
+const { connectDB } = require("./config/db.config");
 
 const app = express();
 
@@ -55,16 +56,7 @@ if (process.env.NODE_ENV == "production") {
   console.log("connected to uat data base ====>>>")
 }
 
-mongoose
-  .connect(mongoURI)
-  .then(() =>
-    console.log(
-      "**************************DB Connected Successfully***************************"
-    )
-  )
-  .catch((err) => {
-    console.log("DB Connection Failed", err);
-  });
+connectDB(mongoURI);
 
 // ================== Check Server is running ==================
 app.get('/health', (req, res) => {
@@ -76,11 +68,14 @@ app.get('/health', (req, res) => {
 app.use("/kyc/api/v1/ApiModuels", keysApiroutes);
 
 const serverMiddleware = [clientValidation, decryptPayload, encryptPayload];
+const server = [ decryptPayload, encryptPayload ];
+const serverSkippedMiddleware = [clientValidation];
 const clientMiddleware = [clientValidation, decryptMiddleware, encryptMiddleware];
 
 // Use Main Routes
 app.use("/kyc/api/v1/internal", ...serverMiddleware, mainRoutes); // SERVER TO SERVER
 app.use("/kyc/api/v1", mainRoutes); // SERVER TO SERVER
+app.use("/kyc/api", ...serverSkippedMiddleware, mainRoutes); // SERVER TO SERVER
 app.use("/kyc/api/v1/client", ...clientMiddleware, mainRoutes); // FRONTEND TO SERVER
 
 // ================== FOR TruthScreen Testing ==================

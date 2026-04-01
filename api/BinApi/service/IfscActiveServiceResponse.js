@@ -54,7 +54,7 @@ const ifscApiCall = async (data, service, CID) => {
   const tskId = await generateTransactionId(12);
   const ApiData = {
     RAPID: {
-      url: `https://ifsc-lookup-api.p.rapidapi.com/`,
+      url: RAPID_IFSC_SEARCH,
       header: {
         "x-rapidapi-key": process.env.RAPID_API_KEY,
         "x-rapidapi-host": process.env.RAPID_API_BANK_HOST,

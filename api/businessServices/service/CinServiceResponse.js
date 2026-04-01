@@ -103,6 +103,7 @@ const CinApiCall = async (data, service, CID="") => {
   if (!service?.trim()) {
     service = Object.keys(ApiData)[0];
     console.log("Empty provider → defaulting to:", service);
+    businessServiceLogger.info("Empty provider → defaulting to:", service);
   }
 
   const config = ApiData[service];
@@ -126,7 +127,7 @@ const CinApiCall = async (data, service, CID="") => {
     }
   } catch (error) {
     console.log(
-      `[CompanySearchApiCall] API Error in ${service}:`,
+      `[CIN Api Call] API Error in ${service}:`,
       error.message,
     );
     return { success: false, data: null };
@@ -134,6 +135,10 @@ const CinApiCall = async (data, service, CID="") => {
 
   const obj = ApiResponse?.data || ApiResponse;
   console.log(
+    `[CIN Api Call] ${service} Response Object:`,
+    JSON.stringify(obj),
+  );
+  businessServiceLogger.info(
     `[CIN Api Call] ${service} Response Object:`,
     JSON.stringify(obj),
   );

@@ -23,11 +23,7 @@ const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
-  const {
-    account_no,
-    ifsc,
-    mobileNumber = ""
-  } = req.body;
+  const { account_no, ifsc, mobileNumber = "" } = req.body;
   bankServiceLogger.debug(`account_no, ifsc===> ${account_no}, ${ifsc}`);
   bankServiceLogger.info(
     `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
@@ -53,9 +49,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       `Checked for existing Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"}`,
     );
     if (existingAccountDetails) {
-      bankServiceLogger.info(
-        `Returning cached Penny Drop response for client`,
-      );
+      bankServiceLogger.info(`Returning cached Penny Drop response for client`);
       const existingData = existingAccountDetails?.responseData;
       if (existingAccountDetails?.status == 1) {
         const decryptedAccountNumber = decryptData(
@@ -114,12 +108,16 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     const response = await accountPennyDropSerciveResponse(
       { account_no, ifsc },
       service,
-      0
+      0,
     );
 
     bankServiceLogger.info(
       `Response received from active service ${response?.service}: ${response?.message}`,
     );
+
+    if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All account services failed");
+    }
 
     if (response?.message?.toLowerCase() == "valid") {
       const modifiedResponse = {
@@ -270,13 +268,13 @@ exports.verifyPennyDropBankAccountCopy = async (req, res, next) => {
     }
 
     bankServiceLogger.debug(
-      `Checked for existing Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"}`,
+      `Checked for existing penny drop Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"}`,
     );
     if (existingAccountDetails) {
       bankServiceLogger.info(
         `Returning cached Penny Drop response for client: ${storingClient}`,
       );
-      if (existingAccountDetails?.accountHolderName) {
+      if (existingAccountDetails?.status == 1) {
         const decryptedAccountNumber = decryptData(
           existingAccountDetails?.accountNo,
         );
@@ -291,9 +289,14 @@ exports.verifyPennyDropBankAccountCopy = async (req, res, next) => {
         return res.status(200).json(createApiResponse(200, {}, "Invalid"));
       }
     }
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      storingClient,
+      req,
+    );
 
-    if (!service) {
+    if (!service?.length) {
       bankServiceLogger.info(
         `Active service not found for Penny Drop category ${categoryId}, service ${serviceId}`,
       );
@@ -348,7 +351,6 @@ exports.verifyPennyDropBankAccountCopy = async (req, res, next) => {
         serviceResponse: {},
         responseData: {
           account_no: account_no,
-          ...findingInValidResponses("accountPennyDrop"),
         },
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
@@ -364,6 +366,18 @@ exports.verifyPennyDropBankAccountCopy = async (req, res, next) => {
       `System error in Bank Account Penny Drop for client ${req.clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+    );
+
+    if (!analyticsResult?.success) {
+      bankServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+      );
+    }
     const errorObj = mapError(error);
     return res
       .status(errorObj.httpCode)
@@ -492,9 +506,9 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       });
       return res.status(200).json(createApiResponse(200, response, "Valid"));
     }
-    const service = await selectService("ACCOUNT_VERIFY_PL");
+    const service = await selectService(categoryId, serviceId);
 
-    if (!service) {
+    if (!service?.length) {
       bankServiceLogger.warn(
         `Active service not found for Penny Less category ${categoryId}, service ${serviceId}`,
       );

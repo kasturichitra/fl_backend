@@ -67,7 +67,7 @@ exports.handleDomainVerification = async (req, res) => {
       serviceId,
       "PANSERVICES",
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -309,7 +309,7 @@ exports.handleAdvanceProfile = async (req, res) => {
       serviceId,
       "PANSERVICES",
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
@@ -551,7 +551,7 @@ exports.handleDomainVerification = async (req, res) => {
       serviceId,
       "PANSERVICES",
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {

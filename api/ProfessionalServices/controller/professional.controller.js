@@ -61,7 +61,7 @@ exports.InsuranceVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -251,7 +251,7 @@ exports.CharteredAccountantVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -443,7 +443,7 @@ exports.DocterVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {
@@ -631,7 +631,7 @@ exports.DentistVerification = async (req, res) => {
             serviceId,
             categoryId,
             tnId,
-            req.environment
+            req
         );
 
         if (!maintainanceResponse?.result) {

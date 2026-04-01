@@ -89,7 +89,7 @@ exports.handleVoterIdVerify = async (req, res) => {
     //   serviceId,
     //   categoryId,
     //   tnId,
-    //   req.environment || "test",
+    //   req || "test",
     // );
 
     // if (!maintainanceResponse?.result) {
@@ -342,7 +342,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment || "test",
+      req || "test",
     );
 
     if (!maintainanceResponse?.result) {
@@ -608,7 +608,7 @@ exports.handleElectricityBill = async (req, res) =>{
       serviceId,
       categoryId,
       tnId,
-      req.environment || "test",
+      req || "test",
     );
 
     if (!maintainanceResponse?.result) {
@@ -882,7 +882,7 @@ exports.handlePassportVerify = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment || "test",
+      req || "test",
     );
 
     if (!maintainanceResponse?.result) {
@@ -1155,7 +1155,7 @@ exports.handlePassportOcrVerify = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment || "test",
+      req || "test",
     );
 
     if (!maintainanceResponse?.result) {
