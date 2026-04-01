@@ -105,7 +105,7 @@ function removeTitle(name) {
 }
 
 // names verification - own logic 
-exports.compareNamesCopy = async (req, res, next) => {
+exports.compareNames = async (req, res, next) => {
   console.log("Compare Name is triggred");
   console.log("Compare Name is triggred");
 

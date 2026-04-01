@@ -397,7 +397,7 @@ exports.handleDigilockerAccountVerify = async (req, res) => {
 }
 
 // aadhaar digilocker step 1, step 2
-exports.initiateAadhaarDigilockerCOPY = async (req, res) => {
+exports.initiateAadhaarDigilocker = async (req, res) => {
   const {
     callback_url,
     redirect_url,
@@ -507,7 +507,7 @@ exports.initiateAadhaarDigilockerCOPY = async (req, res) => {
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
-exports.checkAadhaarDigilockerStatusCOPY = async (req, res) => {
+exports.checkAadhaarDigilockerStatus = async (req, res) => {
   const startTime = new Date();
   aadhaarServiceLogger.info("Entered checkAadhaarDigilockerStatus controller");
 

@@ -1211,7 +1211,7 @@ exports.gstinViewAndTrack = async (req, res) => {
 };
 
 // CIN DOC:15 VERIFICATION (CIN Search)
-exports.handleCINVerificationCOPY = async (req, res, next) => {
+exports.handleCINVerification = async (req, res, next) => {
   const { CIN, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
 
