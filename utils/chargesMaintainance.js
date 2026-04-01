@@ -17,6 +17,9 @@ const chargesToBeDebited = async (clientId, service, category, tnxId, request) =
       objectToSent,
       {
         headers: {
+          client_id: request.client_id,
+          client_secret: request.client_secret,
+          projectId: process.env.PROJECT_ID,
           "Content-Type": "application/json",
           client_id: request.client_id,
           client_secret: request.client_secret,

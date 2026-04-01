@@ -11,14 +11,13 @@ const { BankActiveServiceResponse } = require("../services/bankingServiceRespons
 const { chequeClassifyActiveServiceResponse } = require("../service/bankingServiceResp");
 
 exports.handleBSAViaNetBanking = async (req, res) => {
-  const data = req.body;
   const {
     panNumber,
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
     clientId = "",
-  } = data;
+  } = req.body;
   const capitalPanNumber = panNumber?.toUpperCase();
 
   const isValid = handleValidation("pan", capitalPanNumber, res);
@@ -164,7 +163,7 @@ exports.handleBSAViaNetBanking = async (req, res) => {
     );
 
     bankServiceLogger.info(
-      `Response received from active service ${service.serviceFor}: ${panNumberResponse?.message}`,
+      `Response received from active service ${service}: ${panNumberResponse?.message}`,
     );
 
     if (panNumberResponse?.message?.toUpperCase() == "VALID") {
@@ -268,7 +267,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
     bankServiceLogger.info(`Executing Advance bankAccount verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
     //1. HASH DIN NUMBER
-    const indetifierHash = hashIdentifiers({accountNumber, ifscCode});
+    const indetifierHash = hashIdentifiers({ accountNumber, ifscCode });
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const bankAccRateLimitResult = await checkingRateLimit({
@@ -473,7 +472,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
 };
 
 exports.CibilVerification = async (req, res) => {
-  const { panNumber, customerName,customerMobile, mobileNumber = '' } = req.body;
+  const { panNumber, customerName, customerMobile, mobileNumber = '' } = req.body;
   const clientId = req.clientId;
 
   if (!panNumber || !customerName || !customerMobile) {
@@ -539,7 +538,7 @@ exports.CibilVerification = async (req, res) => {
     const encryptedMobile = encryptData(customerMobile);
     const encryptedName = encryptData(customerName);
 
-    const existingCibl = await CibilServicesModel.findOne({ panNumber:encryptedPanNumber, customerName:encryptedName ,customerMobile:encryptedMobile })
+    const existingCibl = await CibilServicesModel.findOne({ panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile })
 
     // 5. UPDATE TO THE ANALYTICS COLLECTION
     const analyticsResult = await AnalyticsDataUpdate(
@@ -562,7 +561,7 @@ exports.CibilVerification = async (req, res) => {
           `Returning cached Cibil response for client: ${clientId}`,
         );
 
-        const decrypted = {...existingCibl?.response, panNumber, customerName, customerMobile};
+        const decrypted = { ...existingCibl?.response, panNumber, customerName, customerMobile };
         await responseModel.create({
           serviceId,
           categoryId,
@@ -595,7 +594,7 @@ exports.CibilVerification = async (req, res) => {
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
     const service = await selectService(categoryId, serviceId);
     if (!service.length) {
-      cibilLogger.info(`[FAILED]: Active service not found for Cibil category ${categoryId}, service ${serviceId}` );
+      cibilLogger.info(`[FAILED]: Active service not found for Cibil category ${categoryId}, service ${serviceId}`);
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
     cibilLogger.info(`Active service selected for Cibil verification: ${service.serviceFor}`);
@@ -624,7 +623,7 @@ exports.CibilVerification = async (req, res) => {
       });
       const storingData = {
         status: 1,
-        panNumber:encryptedPanNumber, customerName:encryptedName,customerMobile:encryptedMobile,
+        panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile,
         response: encryptedResponse,
         serviceResponse: response?.responseOfService,
         serviceName: response?.service,
@@ -647,15 +646,15 @@ exports.CibilVerification = async (req, res) => {
         categoryId,
         clientId,
         result: {
-          panNumber, customerName,customerMobile
+          panNumber, customerName, customerMobile
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
       const storingData = {
         status: 2,
-        panNumber:encryptedPanNumber, customerName:encryptedName,customerMobile:encryptedMobile,
-        response: {panNumber, customerName, customerMobile},
+        panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile,
+        response: { panNumber, customerName, customerMobile },
         serviceResponse: {},
         serviceName: response?.service,
         mobileNumber,

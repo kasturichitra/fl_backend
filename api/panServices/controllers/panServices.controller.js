@@ -400,7 +400,7 @@ exports.verifyPanNumberCOPY = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId,storingClient,req);
 
     if (!service?.length) {
       panServiceLogger.warn(

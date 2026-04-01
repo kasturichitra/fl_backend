@@ -28,8 +28,8 @@ const clientValidation = async (req, res, next) => {
             //  environment 
         } = decodedToken;
 
-        req.clientSecret = clientSecret; // update cientSecret
-        
+        req.client_secret = clientSecret; // update cientSecret
+
         if (!clientId || !clientSecret) {
             commonLogger.warn("Invalid token structure.")
             return res.status(400).json({ message: "Invalid token structure." });
@@ -54,7 +54,9 @@ const clientValidation = async (req, res, next) => {
                         req.isKycCompleted = cachedDataObj.isKycCompleted;
                         req.isKycApproved = cachedDataObj.isKycApproved;
                         req.environment = cachedDataObj.environment;
-                        if (cachedDataObj.client_id) {  
+                        req.client_id = clientId,
+                        req.client_secret = clientSecret
+                        if (cachedDataObj.client_id) {
                             req.clientId = cachedDataObj.client_id; // Billing/Parent ID
                         }
                     }

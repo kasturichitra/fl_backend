@@ -21,68 +21,80 @@ const responseModel = require("../../serviceResponses/model/serviceResponseModel
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds")
 
 exports.verifyPennyDropBankAccount = async (req, res, next) => {
-  const {account_no, ifsc,mobileNumber = "",
-    serviceId = "",categoryId = ""} = req.body;
-  bankServiceLogger.debug(`account_no, ifsc===> ${account_no}, ${ifsc}`);
-  bankServiceLogger.info(`Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`);
+  const { account_no, ifsc, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
+
+  if (!account_no || !ifsc) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+
+  bankServiceLogger.info(`PennyDropBank Account NUMBER Details AccountNo: ${account_no}, IFSC: ${ifsc}`);
+
   const capitalIfsc = ifsc?.toUpperCase();
-
-  const isAccountValid = handleValidation("accountNumber", account_no, res);
-  if (!isAccountValid) return;
-
-  const isIfscValid = handleValidation("ifsc", capitalIfsc, res);
-  if (!isIfscValid) return;
 
   bankServiceLogger.info("All inputs are valid, continue processing...");
 
   try {
-    const storingClient = req.clientId ;
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('ACCOUNT_PENNY_DROP', clientId);
+
+    const isAccountValid = handleValidation("accountNumber", account_no, res);
+    if (!isAccountValid) return;
+
+    const isIfscValid = handleValidation("ifsc", capitalIfsc, res);
+    if (!isIfscValid) return;
+
     bankServiceLogger.info(
-      `Executing Bank Account Penny Drop verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+      `Executing Bank Account Penny Drop verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    // const identifierHash = hashIdentifiers({
-    //   accNo: account_no,
-    //   ifscCode: capitalIfsc,
-    // });
+    //1. HASH DIN NUMBER
+    const identifierHash = hashIdentifiers({
+      accNo: account_no,
+      ifscCode: capitalIfsc,
+    });
 
-    // const accountPennyDropRateLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId,
-    //   categoryId,
-    //   clientId: storingClient,
-    // });
+    //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
+    const accountPennyDropRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: clientId,
+      req: req
+    });
 
-    // if (!accountPennyDropRateLimitResult.allowed) {
-    //   bankServiceLogger.warn(`Rate limit exceeded for Penny Drop: client ${storingClient}, service ${serviceId}`);
-    //   return res.status(429).json({
-    //     success: false,
-    //     message: accountPennyDropRateLimitResult.message,
-    //   });
-    // }
+    if (!accountPennyDropRateLimitResult.allowed) {
+      bankServiceLogger.warn(`Rate limit exceeded for Penny Drop: client ${clientId}, service ${serviceId}`);
+      return res.status(429).json({
+        success: false,
+        message: accountPennyDropRateLimitResult.message,
+      });
+    }
 
-    // const tnId = genrateUniqueServiceId();
-    // bankServiceLogger.info(`Generated Penny Drop txn Id: ${tnId}`);
+    const tnId = genrateUniqueServiceId();
+    bankServiceLogger.info(`Generated Penny Drop txn Id: ${tnId}`);
 
-    // const maintainanceResponse = await deductCredits(
-    //   storingClient,
-    //   serviceId,
-    //   categoryId,
-    //   tnId,
-    //   req.environment
-    // );
+    // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      tnId,
+      req
+    );
 
-    // if (!maintainanceResponse?.result) {
-    //   bankServiceLogger.error(`Credit deduction failed for Penny Drop: client ${storingClient}, txnId ${tnId}`);
-    //   return res.status(500).json({
-    //     success: false,
-    //     message: maintainanceResponse?.message || "Invalid",
-    //     response: {},
-    //   });
-    // }
+    if (!maintainanceResponse?.result) {
+      bankServiceLogger.error(`Credit deduction failed for Penny Drop: client ${clientId}, txnId ${tnId}`);
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
 
+    // 4. CHECK IN THE DB IS DATA PRESENT 
     const encryptedAccountNumber = encryptData(account_no);
     bankServiceLogger.debug(`Encrypted account number for DB lookup`);
 
@@ -91,48 +103,58 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       accountIFSCCode: capitalIfsc,
     });
 
-    // Note: AnalyticsDataUpdate was missing, adding it for consistency
+    // 5. UPDATE TO THE ANALYTICS COLLECTION
     const analyticsResult = await AnalyticsDataUpdate(
-      storingClient,
+      clientId,
       serviceId,
       categoryId,
     );
     if (!analyticsResult.success) {
-      bankServiceLogger.warn(
-        `Analytics update failed for Penny Drop: client ${storingClient}, service ${serviceId}`,
+      bankServiceLogger.info(
+        `[FAILED]: Analytics update failed for Penny Drop: client ${clientId}, service ${serviceId}`,
       );
     }
 
-    bankServiceLogger.debug(
-      `Checked for existing penny drop Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"}`,
+    bankServiceLogger.info(
+      `Checked for existing Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"}`,
     );
+
+    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingAccountDetails) {
-      bankServiceLogger.info(
-        `Returning cached Penny Drop response for client: ${storingClient}`,
-      );
-      if (existingAccountDetails?.status == 1) {
-        const decryptedAccountNumber = decryptData(
-          existingAccountDetails?.accountNo,
-        );
+      if (existingAccountDetails?.status === 1) {
+        bankServiceLogger.info(`Returning Cached PennyDrop bank Account for ClientID: ${clientId}`);
+
         const responseToSend = {
           ...existingAccountDetails?.responseData,
-          account_no: decryptedAccountNumber,
+          account_no: account_no,
         };
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: existingAccountDetails?.responseData,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
         return res
           .status(200)
           .json(createApiResponse(200, responseToSend, "Valid"));
       } else {
-        return res.status(200).json(createApiResponse(200, {}, "Invalid"));
+        bankServiceLogger.info(`Returning Cached Pennydrop Bank Account for clientId: ${clientId}`);
+        await responseModel.create({
+          serviceId, categoryId, clientId,
+          result: existingAccountDetails?.responseData,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString()
+        });
+        const dataToShow = existingAccountDetails?.responseData
+        return res.status(404).json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
-    const service = await selectService(
-      categoryId,
-      serviceId,
-      storingClient,
-      req,
-    );
 
-    if (!service?.length) {
+    //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
+    const service = await selectService(categoryId, serviceId, clientId, req);
+    if (!service.length) {
       bankServiceLogger.info(
         `Active service not found for Penny Drop category ${categoryId}, service ${serviceId}`,
       );
@@ -142,22 +164,35 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
     bankServiceLogger.info(
       `Active service selected for Penny Drop: ${JSON.stringify(service)}`,
     );
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
     const response = await accountPennyDropSerciveResponse(
       { account_no, ifsc },
       service,
       0,
-      storingClient,
+      clientId,
     );
 
     bankServiceLogger.info(
-      `Response received from active service ${service.serviceFor}: ${response?.message}`,
+      `Response received from active service ${response?.service}Response: ${JSON.stringify(response)}`,
     );
 
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
     if (response?.message?.toLowerCase() == "valid") {
       const modifiedResponse = {
         ...response?.result,
         account_no: encryptedAccountNumber,
       };
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
       const objectToStoreInDb = {
         accountNo: encryptedAccountNumber,
         accountIFSCCode: capitalIfsc,
@@ -171,13 +206,23 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       };
       await accountdataModel.create(objectToStoreInDb);
       bankServiceLogger.info(
-        `Valid Penny Drop response stored and sent to client: ${storingClient}`,
+        `Valid Penny Drop response stored and sent to client: ${clientId}`,
       );
 
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Valid"));
+      return res.status(200).json(createApiResponse(200, response?.result, "Valid"));
     } else {
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: {
+          account_no: account_no, ifsc: capitalIfsc
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
       const objectToStoreInDb = {
         accountNo: encryptedAccountNumber,
         accountIFSCCode: capitalIfsc,
@@ -193,14 +238,15 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       };
       await accountdataModel.create(objectToStoreInDb);
       bankServiceLogger.info(
-        `Invalid Penny Drop response received and sent to client: ${storingClient}`,
+        `Invalid Penny Drop response received and sent to client: ${clientId}`,
       );
       return res.status(404).json(createApiResponse(404, {}, "Invalid"));
     }
   } catch (error) {
+
     bankServiceLogger.error(
-      `System error in Bank Account Penny Drop for client ${req.clientId}: ${error.message}`,
-      error,
+      `System error in pennydrop Bank verification for client ${clientId}: ${error.message}`,
+      error
     );
     const analyticsResult = await AnalyticsDataUpdate(
       clientId,
@@ -215,9 +261,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
       );
     }
     const errorObj = mapError(error);
-    return res
-      .status(errorObj.httpCode)
-      .json(createApiResponse(500, {}, "Server Error"));
+    return res.status(errorObj.httpCode).json(errorObj);
   }
 };
 
@@ -228,7 +272,6 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     mobileNumber = "",
     serviceId = "",
     categoryId = "",
-    clientId = "",
   } = req.body;
   const data = req.body;
   bankServiceLogger.debug(`account_no, ifsc===> ${account_no}, ${ifsc}`);
@@ -236,7 +279,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
   );
 
-  const storingClient = req.clientId || clientId;
+  const clientId = req.clientId;
 
   const isAccountValid = handleValidation("accountNumber", account_no, res);
   if (!isAccountValid) return;
@@ -249,7 +292,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
   try {
     const capitalIfsc = ifsc?.toUpperCase();
     bankServiceLogger.info(
-      `Executing Bank Account Penny Less verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+      `Executing Bank Account Penny Less verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     const identifierHash = hashIdentifiers({
@@ -261,12 +304,13 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       identifiers: { identifierHash },
       serviceId,
       categoryId,
-      clientId: storingClient,
+      clientId: clientId,
+      req:req
     });
 
     if (!accountPennyLessRateLimitResult?.allowed) {
       bankServiceLogger.warn(
-        `Rate limit exceeded for Penny Less: client ${storingClient}, service ${serviceId}`,
+        `Rate limit exceeded for Penny Less: client ${clientId}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
@@ -278,16 +322,16 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     bankServiceLogger.info(`Generated Penny Less txn Id: ${tnId}`);
 
     const maintainanceResponse = await deductCredits(
-      storingClient,
+      clientId,
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
     );
 
     if (!maintainanceResponse?.result) {
       bankServiceLogger.error(
-        `Credit deduction failed for Penny Less: client ${storingClient}, txnId ${tnId}`,
+        `Credit deduction failed for Penny Less: client ${clientId}, txnId ${tnId}`,
       );
       return res.status(500).json({
         success: false,
@@ -304,13 +348,13 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     });
 
     const analyticsResult = await AnalyticsDataUpdate(
-      storingClient,
+      clientId,
       serviceId,
       categoryId,
     );
     if (!analyticsResult.success) {
       bankServiceLogger.warn(
-        `Analytics update failed for Penny Less: client ${storingClient}, service ${serviceId}`,
+        `Analytics update failed for Penny Less: client ${clientId}, service ${serviceId}`,
       );
       return res.status(400).json({
         response: `clientId or serviceId or categoryId is Missing or Invalid 🤦‍♂️`,
@@ -323,7 +367,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     );
     if (existingAccountDetails) {
       bankServiceLogger.info(
-        `Returning cached Penny Less response for client: ${storingClient}`,
+        `Returning cached Penny Less response for client: ${clientId}`,
       );
       const response = {
         BeneficiaryName: existingAccountDetails?.accountHolderName,
@@ -335,7 +379,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: storingClient,
+        clientId: clientId,
         result: response,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -361,7 +405,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       { account_no, ifsc },
       service,
       0,
-      storingClient,
+      clientId,
     );
 
     bankServiceLogger.info(
@@ -383,14 +427,14 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: storingClient,
+        clientId: clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
       await accountdataModel.create(objectToStoreInDb);
       bankServiceLogger.info(
-        `Valid Penny Less response stored and sent to client: ${storingClient}`,
+        `Valid Penny Less response stored and sent to client: ${clientId}`,
       );
 
       return res
@@ -400,7 +444,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: storingClient,
+        clientId: clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -420,13 +464,13 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       };
       await accountdataModel.create(objectToStoreInDb);
       bankServiceLogger.info(
-        `Invalid Penny Less response received and sent to client: ${storingClient}`,
+        `Invalid Penny Less response received and sent to client: ${clientId}`,
       );
       return res.status(200).json(createApiResponse(200, {}, "Invalid"));
     }
   } catch (error) {
     bankServiceLogger.error(
-      `System error in Bank Account Penny Less for client ${storingClient}: ${error.message}`,
+      `System error in Bank Account Penny Less for client ${clientId}: ${error.message}`,
       error,
     );
     const errorObj = mapError(error);

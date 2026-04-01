@@ -16,6 +16,8 @@ async function selectService(servicecategory, serviceName, client = "", req) {
     if (success) {
       console.log("Final selected service =>", data);
       return data;
+    }else{
+      return [];
     }
   } catch (error) {
     console.log("SelectService Error:", error);
