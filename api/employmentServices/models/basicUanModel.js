@@ -4,6 +4,9 @@ const basicUan = new mongoose.Schema({
   uanNumber:{
     type: String,
   },
+  userName:{
+    type: String,
+  },
   mobileNumber: {
     type: String,
   },

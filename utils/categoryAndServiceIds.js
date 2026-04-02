@@ -11,7 +11,7 @@ const CATEGORIES = {
   GOVERNMENT: "GOVERNMENTIDSERVICES",
   FACE: "FACEAIVERIFICATION",
   BANK: "BANKINGFINANCIAL",
-  
+  EMPLOYMENT: "EMPLOYMENTINCOME"
 };
 
 const SERVICES = {
@@ -201,10 +201,14 @@ const SERVICES = {
     serviceId: "ADVANCEDMOBILEDATASEARCH",
   },
 
-  // emplyment services
+  // employment services
   UAN_BASIC: {
-    category: "GOVERNMENT",
-    serviceId: "ADVANCEDMOBILEDATASEARCH",
+    category: "EMPLOYMENT",
+    serviceId: "BASICUANVERIFICATION",
+  },
+    DUAL_EMPLOYMENT: {
+    category: "EMPLOYMENT",
+    serviceId: "DUALEMPLOYMENTCHECK",
   },
 };
 

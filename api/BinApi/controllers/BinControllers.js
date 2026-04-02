@@ -51,51 +51,52 @@ exports.getCardDetailsByNumber = async (req, res) => {
       `Executing Card BIN check for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    // const identifierHash = hashIdentifiers({
-    //   binNumber: bin,
-    // });
+    const identifierHash = hashIdentifiers({
+      binNumber: bin,
+    });
 
-    // const binRateLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId,
-    //   categoryId,
-    //   clientId: storingClient,
-    // });
+    const binRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      req
+    });
 
-    // if (!binRateLimitResult.allowed) {
-    //   bankServiceLogger.info(
-    //     `[Bin validation] Rate limit exceed for this client: ${storingClient}`,
-    //   );
-    //   console.log(
-    //     `[Bin validation] Rate limit exceed for this client: ${storingClient}`,
-    //   );
-    //   return res.status(429).json({
-    //     success: false,
-    //     message: binRateLimitResult.message,
-    //   });
-    // }
+    if (!binRateLimitResult.allowed) {
+      bankServiceLogger.info(
+        `[Bin validation] Rate limit exceed for this client: ${storingClient}`,
+      );
+      console.log(
+        `[Bin validation] Rate limit exceed for this client: ${storingClient}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: binRateLimitResult.message,
+      });
+    }
 
-    // const tnId = genrateUniqueServiceId();
-    // console.log(`bin txn Id: ${tnId} for this client: ${storingClient}`);
-    // bankServiceLogger.info(`bin txn Id: ${tnId} for this client: ${storingClient}`);
-    // const maintainanceResponse = await deductCredits(
-    //   storingClient,
-    //   serviceId,
-    //   categoryId,
-    //   tnId,
-    //   req.environment,
-    // );
+    const tnId = genrateUniqueServiceId();
+    console.log(`bin txn Id: ${tnId} for this client: ${storingClient}`);
+    bankServiceLogger.info(`bin txn Id: ${tnId} for this client: ${storingClient}`);
+    const maintainanceResponse = await deductCredits(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+      req.environment,
+    );
 
-    // if (!maintainanceResponse?.result) {
-    //   bankServiceLogger.error(
-    //     `Credit deduction failed for Card BIN check: client ${storingClient}, txnId ${tnId}`,
-    //   );
-    //   return res.status(500).json({
-    //     success: false,
-    //     message: maintainanceResponse?.message || "Invalid",
-    //     response: {},
-    //   });
-    // }
+    if (!maintainanceResponse?.result) {
+      bankServiceLogger.error(
+        `Credit deduction failed for Card BIN check: client ${storingClient}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
 
     const existingBinNumber = await RapidApiModel.findOne({
       bin: encryptedBinNumber,
@@ -261,6 +262,7 @@ exports.getBankDetailsByIfsc = async (req, res) => {
     serviceId,
     categoryId,
     clientId: storingClient,
+    req
   });
 
   if (!ifscRateLimitResult.allowed) {

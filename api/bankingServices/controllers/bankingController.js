@@ -274,7 +274,8 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
       identifiers: { indetifierHash },
       serviceId,
       categoryId,
-      clientId
+      clientId,
+      req
     });
 
     if (!bankAccRateLimitResult.allowed) {
@@ -501,7 +502,8 @@ exports.CibilVerification = async (req, res) => {
       identifiers: { indetifierHash },
       serviceId,
       categoryId,
-      clientId
+      clientId,
+      req
     });
 
     if (!cibilRateLimitResult.allowed) {

@@ -11,6 +11,7 @@ const responseModel = require("../../serviceResponses/model/serviceResponseModel
 const { selectService } = require("../../service/serviceSelector");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const { imageActiveServiceResponse } = require("../service/faceServicesResp");
+const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 
 async function handleImageVerification({ req, res, serviceKey }) {
   const { mobileNumber = "" } = req.body;

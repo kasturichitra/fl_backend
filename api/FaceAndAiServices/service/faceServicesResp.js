@@ -72,7 +72,7 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
 
   const config = SERVICE_CONFIG?.[serviceKey]?.[service];
 
-  faceServiceLogger.info(`config: ${config} found for this client: ${CID}`)
+  faceServiceLogger.info(`config: ${JSON.stringify(config)} found for this client: ${CID}`)
 
   if (!config) {
     throw new Error(`Invalid config for ${serviceKey} - ${service}`);
@@ -94,7 +94,9 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
         cId: CID,
       });
 
-      apiResponse = faceRes.data;
+      console.log("faceRes ===>>", faceRes)
+
+      apiResponse = faceRes;
     }
   } catch (error) {
     console.error(
@@ -111,7 +113,8 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
     };
   }
 
-  console.log(`active service: ${service} and it's apiResponse: ${apiResponse}`)
+  console.log(`active service: ${service} and it's apiResponse: ${apiResponse} for this client: ${CID}`)
+  faceServiceLogger.info(`active service: ${service} and it's apiResponse: ${apiResponse} for this client: ${CID}`)
 
   // ✅ Normalize response
   let normalized = {};

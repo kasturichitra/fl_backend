@@ -1,50 +1,51 @@
 const { employmentServiceLogger } = require("../../Logger/logger");
-const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
+const {
+  generateTransactionId,
+  callTruthScreenAPI,
+} = require("../../truthScreen/callTruthScreen");
 
 const basicUanActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client = ""
 ) => {
-  console.log("basicUanActiveServiceResponse called");
-  if (index >= services?.length) {
+  const cid = client || "UN_KNOWN"
+  employmentServiceLogger.info(`basicUanActiveServiceResponse called for this client: ${cid}`);
+
+  if (index >= services.length) {
     return { success: false, message: "All services failed" };
   }
 
-  const newService = services?.find((ser) => ser.priority === index + 1);
+  const currentService = services[index];
 
-  if (!newService) {
-    console.log(`No service with priority ${index + 1}, trying next`);
-    return basicUanActiveServiceResponse(data, services, index + 1);
+  if (!currentService) {
+    return basicUanActiveServiceResponse(data, services, index + 1, client);
   }
 
-  const serviceName = newService.providerId || "";
-  console.log(
-    `[basicUanActiveServiceResponse] Trying service with priority ${index + 1}:`,
-    newService,
-  );
+  const serviceName = currentService.providerId || "";
+
+  console.log(`Trying service [${index + 1}]:`, serviceName);
 
   try {
     const res = await basicUanApiCall(data, serviceName, 0, client);
 
+    // ✅ SUCCESS → STOP
     if (res?.success) {
+      console.log(`Success from ${serviceName}`);
       return res.data;
     }
 
-    console.log(
-      `[basicUanActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
-    );
-    return basicUanActiveServiceResponse(data, services, index + 1);
+    // ❌ FAIL → NEXT
+    console.log(`Failed from ${serviceName}, trying next...`);
+    return basicUanActiveServiceResponse(data, services, index + 1, client);
+
   } catch (err) {
-    console.log(
-      `[basicUanActiveServiceResponse] Error from ${serviceName}:`,
-      err.message,
-    );
-    return basicUanActiveServiceResponse(data, services, index + 1);
+    console.log(`Error from ${serviceName}:`, err.message);
+    return basicUanActiveServiceResponse(data, services, index + 1, client);
   }
 };
-const basicUanApiCall = async (data, service, CID) => {
+const basicUanApiCall = async (data, service, CID= "") => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -52,9 +53,9 @@ const basicUanApiCall = async (data, service, CID) => {
       BodyData: {
         transID: tskId,
         docType: "337",
-        docNumber: data,
+        uan: data,
       },
-      url: process.env.TRUTHSCREEN_DUAL_EMPLOYMENT_CHECK,
+      url: process.env.TRUTHSCREEN_EMPLOYMENT_SERVICE,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -62,11 +63,8 @@ const basicUanApiCall = async (data, service, CID) => {
     },
   };
 
-  // If service is empty → use first service entry
   if (!service?.trim()) {
     service = Object.keys(ApiData)[0];
-    console.log("Empty provider → defaulting to:", service);
-    employmentServiceLogger.info("Empty provider → defaulting to:", service);
   }
 
   const config = ApiData[service];
@@ -82,51 +80,70 @@ const basicUanApiCall = async (data, service, CID) => {
         username: config.header.username,
         password: config.header.token,
       });
-      console.log(
-        "[PanApiCall] TruthScreen API response:",
-        JSON.stringify(ApiResponse),
-      );
     }
   } catch (error) {
-    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
-    return { success: false, data: null }; // fallback trigger
+    console.log(`[API ERROR - ${service}]`, error.message);
+    return { success: false, data: null };
   }
 
-  const obj = ApiResponse.data;
-  console.log(
-    `[GSTApiCall] ${service} API Response Object:`,
-    JSON.stringify(obj),
-  );
+  // ✅ FIX: normalize response safely
+  const obj = ApiResponse?.data || ApiResponse;
 
-  let returnedObj = {};
+  console.log(`[${service}] Normalized Response:`, JSON.stringify(obj));
+  employmentServiceLogger.info(`service: [${service}] for this client: ${CID} Normalized Response:`, JSON.stringify(obj));
 
-  if (obj.response_code === "101") {
+  // ❌ FAIL CASE: No data found
+  if (
+    obj?.status === 0 &&
+    typeof obj?.msg === "string" &&
+    obj.msg.toLowerCase().includes("no record")
+  ) {
+      employmentServiceLogger.info(`[${service}] no record for this client: ${CID}`);
     return {
       success: false,
       data: {
         result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
+        message: "NO RECORD FOUND",
+        responseOfService: obj,
+        service,
       },
     };
   }
 
-  switch (service) {
-    case "TRUTHSCREEN":
-      returnedObj = {
-        gstinNumber: obj?.result?.essentials?.gstin || "",
-      };
-      break;
+  // ❌ FAIL CASE: invalid structure
+  // ❌ Treat as HARD FAILURE → do NOT store
+  if (obj?.status !== 1) {
+    console.log(`[${service}] Invalid status received → fallback`);
+    console.log(`[${service}] Invalid status received → fallback for this client: ${CID}`);
+    return { success: false, data: null };
   }
+
+  // ✅ SUCCESS CASE
+  let returnedObj = [];
+
+  if (Array.isArray(obj?.msg)) {
+    returnedObj = obj.msg;
+  } else if (typeof obj?.msg === "object") {
+    returnedObj = [obj.msg];
+  } else {
+    return {
+      success: false,
+      data: {
+        result: "InvalidFormat",
+        message: "Unexpected msg format",
+        responseOfService: obj,
+        service,
+      },
+    };
+  }
+
   return {
     success: true,
     data: {
-      gstinNumber: data || "",
       result: returnedObj,
       message: "Valid",
       responseOfService: obj,
-      service: service,
+      service,
     },
   };
 };
@@ -135,7 +152,7 @@ const dualEmploymentCheckActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("dualEmploymentCheckActiveServiceResponse called");
   if (index >= services?.length) {
@@ -182,6 +199,138 @@ const dualEmploymentCheckApiCall = async (data, service, CID) => {
       BodyData: {
         transID: tskId,
         docType: "464",
+        uan: data?.uanNumber,
+        employer_name: data?.employer
+      },
+      url: process.env.TRUTHSCREEN_EMPLOYMENT_SERVICE,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        token: process.env.TRUTHSCREEN_TOKEN,
+      },
+    },
+  };
+
+  // If service is empty → use first service entry
+  if (!service?.trim()) {
+    service = Object.keys(ApiData)[0];
+    console.log("Empty provider → defaulting to:", service);
+    employmentServiceLogger.info("Empty provider → defaulting to:", service);
+  }
+
+  const config = ApiData[service];
+  if (!config) throw new Error(`Invalid service: ${service}`);
+
+  let ApiResponse;
+
+  try {
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+        cId: CID,
+      });
+      console.log(
+        "[PanApiCall] TruthScreen API response:",
+        JSON.stringify(ApiResponse),
+      );
+    }
+  } catch (error) {
+    console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
+    return { success: false, data: null }; // fallback trigger
+  }
+
+  const obj = ApiResponse;
+  console.log(
+    `[GSTApiCall] ${service} API Response Object:`,
+    JSON.stringify(obj),
+  );
+
+  let returnedObj = {};
+
+  if (obj.response_code === "101") {
+    return {
+      success: false,
+      data: {
+        result: "NoDataFound",
+        message: "Invalid",
+        responseOfService: {},
+        service: service,
+      },
+    };
+  }
+
+  switch (service) {
+    case "TRUTHSCREEN":
+      returnedObj = {
+        gstinNumber: obj?.result?.essentials?.gstin || "",
+      };
+      break;
+  }
+  return {
+    success: true,
+    data: {
+      gstinNumber: data || "",
+      result: returnedObj,
+      message: "Valid",
+      responseOfService: obj,
+      service: service,
+    },
+  };
+};
+
+const form16CheckActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  client,
+) => {
+  console.log("form16CheckActiveServiceResponse called");
+  if (index >= services?.length) {
+    return { success: false, message: "All services failed" };
+  }
+
+  const newService = services?.find((ser) => ser.priority === index + 1);
+
+  if (!newService) {
+    console.log(`No service with priority ${index + 1}, trying next`);
+    return form16CheckActiveServiceResponse(data, services, index + 1);
+  }
+
+  const serviceName = newService.providerId || "";
+  console.log(
+    `[form16CheckActiveServiceResponse] Trying service with priority ${index + 1}:`,
+    newService,
+  );
+
+  try {
+    const res = await form16VerifyApiCall(data, serviceName, 0, client);
+
+    if (res?.success) {
+      return res.data;
+    }
+
+    console.log(
+      `[form16CheckActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
+    return form16CheckActiveServiceResponse(data, services, index + 1);
+  } catch (err) {
+    console.log(
+      `[form16CheckActiveServiceResponse] Error from ${serviceName}:`,
+      err.message,
+    );
+    return form16CheckActiveServiceResponse(data, services, index + 1);
+  }
+};
+const form16VerifyApiCall = async (data, service, CID) => {
+  const tskId = generateTransactionId(12);
+
+  const ApiData = {
+    TRUTHSCREEN: {
+      BodyData: {
+        transID: tskId,
+        docType: "464",
         docNumber: data,
       },
       url: process.env.TRUTHSCREEN_DUAL_EMPLOYMENT_CHECK,
@@ -211,7 +360,7 @@ const dualEmploymentCheckApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        cId: CID
+        cId: CID,
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -263,5 +412,7 @@ const dualEmploymentCheckApiCall = async (data, service, CID) => {
 };
 
 module.exports = {
-  basicUanActiveServiceResponse, dualEmploymentCheckActiveServiceResponse
+  basicUanActiveServiceResponse,
+  dualEmploymentCheckActiveServiceResponse,
+  form16CheckActiveServiceResponse,
 };

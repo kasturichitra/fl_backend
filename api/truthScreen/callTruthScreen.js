@@ -232,12 +232,25 @@ async function callTruthScreenAPIForImage({
   try {
     const encryptedData = encrypt(JSON.stringify(payload), password);
 
-    form.append("data", encryptedData.data);
-    form.append("docType", payload.docType);
-    // file stays raw (usually required)
-    form.append("file", file.buffer, {
-      filename: file.originalname,
-    });
+    commonLogger.info(
+      `encryptedData: ${encryptedData} in truthscreen for this client: ${cId}`,
+    );
+
+    if (payload.docType == 93) {
+      form.append("docType", payload.docType);
+      form.append("transID", payload.transID);
+      // file stays raw (usually required)
+      form.append("file", file.buffer, {
+        filename: file.originalname,
+      });
+    } else {
+      form.append("doc_type", payload.docType);
+      form.append("trans_id", payload.transID);
+      // file stays raw (usually required)
+      form.append("img", file.buffer, {
+        filename: file.originalname,
+      });
+    }
 
     commonLogger.info(
       `encrypted Data successfully in truth screen for this client: ${cId} ====>>>`,
@@ -246,7 +259,6 @@ async function callTruthScreenAPIForImage({
     const response = await axios.post(url, form, {
       headers: {
         ...form.getHeaders(),
-        "Content-Type": "multipart/form-data",
         username: username,
         password: password,
       },
@@ -254,7 +266,7 @@ async function callTruthScreenAPIForImage({
 
     commonLogger.info(`HTTP Status: ${response?.status}`);
     commonLogger.debug(
-      `response in truth screen ====>>> ${JSON.stringify(response?.data)}`,
+      `response in truth screen ====>>> ${JSON.stringify(response?.data)} for this client ${cId}`,
     );
 
     const encryptedResponseData =
@@ -279,7 +291,6 @@ async function callTruthScreenAPIForImage({
       "error in truthscreen error?.response?.data===>>",
       error?.response?.data,
     );
-    console.log("error in truthscreen error?.response===>>", error?.response);
     commonLogger.error(
       `TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`,
     );

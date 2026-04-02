@@ -38,7 +38,7 @@ const panFatherNameModel = require("../models/panFatherNameModel");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const panTanModel = require("../models/panTanModel");
 const panTogst_inModel = require("../models/panTogst_inModel");
-const { SERVICE_TYPES, handlePanVerification, reusablePanNumberFieldVerification } = require("../reuse/panReusable");
+const { SERVICE_TYPES, handlePanVerification, reusablePanNumberFieldVerification, buildInvalidResponse } = require("../reuse/panReusable");
 
 exports.verifyPanBasic = (req, res) =>
   handlePanVerification({

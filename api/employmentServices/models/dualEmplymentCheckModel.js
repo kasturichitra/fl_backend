@@ -1,7 +1,10 @@
 const mongoose = require("mongoose");
 
-const vehicleverificationDetails = new mongoose.Schema({
-  RegistrationNumber: {
+const dualEmploymentCheck = new mongoose.Schema({
+  uanNumber:{
+    type: String,
+  },
+  employer:{
     type: String,
   },
   mobileNumber: {
@@ -15,6 +18,9 @@ const vehicleverificationDetails = new mongoose.Schema({
   },
   status:{
     type: Number,
+  },
+  serviceId:{
+    type: String,
   },
   serviceName:{
     type: String
@@ -33,4 +39,4 @@ const vehicleverificationDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("vehicleVerification", vehicleverificationDetails);
+module.exports = mongoose.model("dualEmploymentCheck", dualEmploymentCheck);

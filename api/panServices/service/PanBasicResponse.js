@@ -24,7 +24,7 @@ const PanActiveServiceResponse = async (data, services=[], index = 0, client="")
     try {
         const res = await PanApiCall(data, serviceName, client);
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 
@@ -103,8 +103,6 @@ const PanApiCall = async (data, service, CID) => {
                 password: config.header.token,
                 cId: CID
             });
-            console.log('[PanApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
-
         } else {
             ApiResponse = await axios.post(
                 config.url,
@@ -112,7 +110,6 @@ const PanApiCall = async (data, service, CID) => {
                 { headers: config.header }
             );
         }
-        console.log(`[PanApiCall] ${service} API response:`, JSON.stringify(ApiResponse?.data || ApiResponse));
     } catch (error) {
         console.log(`[PanApiCall] API Error in ${service}:`, error.message);
         console.log(`[PanApiCall] API Error Response in ${service}:`, error.response);
@@ -123,6 +120,7 @@ const PanApiCall = async (data, service, CID) => {
 
     const obj = ApiResponse?.data || ApiResponse;
     console.log(`Response—${service}:`, obj);
+    panServiceLogger.info(`[PanApiCall] service: ${service} API response: ${JSON.stringify(obj)}`, );
 
 
     // =======================================

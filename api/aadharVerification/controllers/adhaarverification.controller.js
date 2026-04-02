@@ -55,6 +55,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       serviceId,
       categoryId,
       client_Id,
+      req
     });
 
     if (!rateLimitResult.allowed) {
