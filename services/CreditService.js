@@ -1,40 +1,41 @@
 const chargesToBeDebited = require("../utils/chargesMaintainance");
 const creditsToBeDebited = require("../utils/creditsMaintainance");
-const { commonLogger } = require("../api/Logger/logger");
 
 
-const deductCredits = async (clientId, serviceId, categoryId, tnId, req) => {
+const deductCredits = async (clientId, serviceId, categoryId, TxnID, req,logger) => {
     const environment = req.environment
     try {
-        commonLogger.info(`Deducting credits for client: ${clientId}, service: ${serviceId}, env: ${environment}`);
+        logger.info(`Deducting credits for client: ${clientId},txnId: ${TxnID} service: ${serviceId}, env: ${environment}`);
         let maintainanceResponse;
         if (environment?.toLowerCase() === "test") {
             maintainanceResponse = await creditsToBeDebited(
                 clientId,
                 serviceId,
                 categoryId,
-                tnId,
-                req
+                req,
+                TxnID,
+                logger
             );
         } else {
             maintainanceResponse = await chargesToBeDebited(
                 clientId,
                 serviceId,
                 categoryId,
-                tnId,
-                req
+                req,
+                TxnID,
+                logger
             );
         }
 
         if (maintainanceResponse?.result) {
-            commonLogger.info(`Successfully deducted credits for client: ${clientId}, txnId: ${tnId}`);
+            logger.info(`Successfully deducted credits for client: ${clientId}, txnId: ${TxnID}`);
         } else {
-            commonLogger.warn(`Failed to deduct credits for client: ${clientId}, txnId: ${tnId}. Response: ${JSON.stringify(maintainanceResponse)}`);
+            logger.warn(`Failed to deduct credits for client: ${clientId}, txnId: ${TxnID}. Response: ${JSON.stringify(maintainanceResponse)}`);
         }
 
         return maintainanceResponse;
     } catch (error) {
-        commonLogger.error(`Error in deductCredits service for client ${clientId}: ${error.message}`, error);
+        logger.error(`Error in deductCredits service for client ${clientId}, txnId: ${TxnID} ${error.message}`, error);
         return {
             result: false,
             message: error?.response?.data.message || "Credit deduction failed",

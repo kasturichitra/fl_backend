@@ -142,12 +142,53 @@ const ID_RULES = {
     regex: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,
     displayName: "Email Address",
   },
+  din: {
+    length: 8,
+    regex: /^\d{8}$/,
+    displayName: "Director Identification Number (DIN)",
+  },
+  CompanyName: {
+    min: 2,
+    max: 100,
+    regex: /^[A-Za-z0-9\s,.\-&#()]+$/,
+    displayName: "Company Name",
+  },
+  DGFT: {
+    length: 10,
+    regex: /^([A-Z]{5}[0-9]{4}[A-Z]{1}|\d{10})$/,
+    displayName: "DGFT / IEC Number",
+  },
+  LEI: {
+    length: 20,
+    regex: /^[0-9A-Z]{20}$/,
+    displayName: "Legal Entity Identifier (LEI)",
+  },
+  UAM: {
+    length: 12,
+    regex: /^[A-Z]{2}[0-9]{2}[A-Z]{1}[0-9]{7}$/,
+    displayName: "Udyog Aadhaar Memorandum (UAM)",
+  },
+  UAMPhone: {
+    length: 12,
+    regex: /^[A-Z]{2}[0-9]{2}[A-Z]{1}[0-9]{7}$/,
+    displayName: "Udyog Aadhaar Memorandum (UAM)",
+  },
+  iec: {
+    length: 10,
+    regex: /^([A-Z]{5}[0-9]{4}[A-Z]{1}|\d{10})$/,
+    displayName: "Import Export Code (IEC)",
+  },
+  tin: {
+    length: 11,
+    regex: /^\d{11}$/,
+    displayName: "Tax Identification Number (TIN)",
+  },
 };
 
-const validateId = (type, value, clientId) => {
+const validateId = (type, value, TxnID,logger) => {
   const rule = ID_RULES[type];
-  commonLogger.info(
-    `Rule for this type: ${type} of value: ${value} for this client: ${clientId} ====>> ${JSON.stringify(rule)}`,
+  logger.info(
+    `Rule for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>> ${JSON.stringify(rule)}`,
   );
   if (!rule) throw new Error(`Unknown type: ${type}`);
 
@@ -155,29 +196,29 @@ const validateId = (type, value, clientId) => {
 
   const trimmed = value.trim();
 
-  commonLogger.info(
-    `Validating ${type} value ${trimmed} for client ${clientId}`,
+  logger.info(
+    `Validating ${type} value ${trimmed} for TxnID ${TxnID}`,
   );
 
   if (rule.length && trimmed.length !== rule.length) return false;
   if (rule.min && trimmed.length < rule.min) return false;
   if (rule.max && trimmed.length > rule.max) return false;
 
-  commonLogger.info(
-    `length check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
+  logger.info(
+    `length check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
   );
 
   // Check format
   if (!rule.regex.test(trimmed)) return false;
 
-  commonLogger.info(
-    `regex check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
+  logger.info(
+    `regex check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
   );
 
   return true;
 };
 
-const handleValidation = (type, value, res, storingClient) => {
+const handleValidation = (type, value, res, TxnID,logger) => {
   const rule = ID_RULES[type];
   const stringValue = String(value || "").trim();
   if (!stringValue?.trim() && !["email", "domain"].includes(type)) {
@@ -187,11 +228,11 @@ const handleValidation = (type, value, res, storingClient) => {
     });
     return false;
   }
-  const isValid = validateId(type, value, storingClient);
+  const isValid = validateId(type, value, TxnID,logger);
 
   if (!isValid) {
-    commonLogger.info(
-      `Validation failed for ${type}: ${value} client: ${storingClient}`,
+    logger.info(
+      `Validation failed for ${type}: ${value} TxnID: ${TxnID}`,
     );
 
     res.status(400).json({
@@ -201,8 +242,8 @@ const handleValidation = (type, value, res, storingClient) => {
     return false;
   }
 
-  commonLogger.info(
-    `Validation passed for ${type}: with value: ${value} for this client: ${storingClient}`,
+  logger.info(
+    `Validation passed for ${type}: with value: ${value} for this TxnID: ${TxnID}`,
   );
   return true;
 };

@@ -1,4 +1,3 @@
-const { commonLogger } = require("../api/Logger/logger");
 
 const CATEGORIES = {
   PAN: "PANSERVICES",
@@ -11,7 +10,6 @@ const CATEGORIES = {
   GOVERNMENT: "GOVERNMENTIDSERVICES",
   FACE: "FACEAIVERIFICATION",
   BANK: "BANKINGFINANCIAL",
-  
 };
 
 const SERVICES = {
@@ -116,17 +114,33 @@ const SERVICES = {
     category: "Business",
     serviceId: "CINVERIFICATION",
   },
-  CompanyName: {
+  COMPANYNAME: {
     category: "Business",
-    serviceId: "CIN Based Company Search",
+    serviceId: "COMPANYNAMESEARCH",
   },
   DIN: {
     category: "Business",
     serviceId: "DINVERIFICATION",
   },
+  TIN: {
+    category: "GOVERNMENT",
+    serviceId: "TINVERIFICATION",
+  },
   GSTIN: {
     category: "Business",
     serviceId: "GSTINVERIFICATION",
+  },
+  GSTINTOPAN: {
+    category: "Business",
+    serviceId: "GSTINTOPANVERIFICATION",
+  },
+  GSTINTAXPAYER: {
+    category: "Business",
+    serviceId: "GSTINTAXPAYER",
+  },
+  GSTINVIEWANDTRACK: {
+    category: "Business",
+    serviceId: "GSTINVIEWANDTRACKRETURN",
   },
   SHOP: {
     category: "Business",
@@ -208,16 +222,16 @@ const SERVICES = {
   },
 };
 
-const getCategoryIdAndServiceId = (type, client) => {
+const getCategoryIdAndServiceId = (type, TxnID, logger) => {
   if (!type) return { categoryId: "", serviceId: "" };
 
   const key = type.toUpperCase();
-  commonLogger.info(
-    `[SERVICE AND CATEGORY] key: ${key} in getting category and service for this client: ${client}====>>>`,
+  logger.info(
+    `[SERVICE AND CATEGORY] key: ${key} in getting category and service for this TxnID: ${TxnID}====>>>`,
   );
   const service = SERVICES[key];
-  commonLogger.info(
-    `[SERVICE AND CATEGORY] service: ${JSON.stringify(service)} in getting category and service for this client: ${client}====>>>`,
+  logger.info(
+    `[SERVICE AND CATEGORY] service: ${JSON.stringify(service)} in getting category and service for this TxnID: ${TxnID}====>>>`,
   );
 
   if (!service) return { categoryId: "", serviceId: "" };

@@ -39,6 +39,7 @@ const GSTActiveServiceResponse = async (data, services, index = 0, client="") =>
     return GSTActiveServiceResponse(data, services, index + 1);
   }
 };
+
 const GSTApiCall = async (data, service, CID) => {
   const tskId = await generateTransactionId(12);
 
@@ -78,7 +79,7 @@ const GSTApiCall = async (data, service, CID) => {
         docType: 23,
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_API_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -258,6 +259,7 @@ const GSTtoPANActiveServiceResponse = async (
     return GSTtoPANActiveServiceResponse(data, services, index + 1);
   }
 };
+
 const GSTToPANApiCall = async (data, service) => {
   const tskId = generateTransactionId(12);
 
@@ -265,10 +267,10 @@ const GSTToPANApiCall = async (data, service) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "47",
+        docType: 47,
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_API_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

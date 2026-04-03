@@ -1,4 +1,4 @@
-const { dinServiceLogger } = require("../../Logger/logger");
+const { businessServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
@@ -9,7 +9,7 @@ const TinActiveServiceResponse = async (data, services=[], index = 0) => {
 
     const newService = services?.find((ser) => ser.priority === index + 1);
     console.log("[TinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    dinServiceLogger.info("[TinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    businessServiceLogger.info("[TinActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
@@ -18,7 +18,7 @@ const TinActiveServiceResponse = async (data, services=[], index = 0) => {
 
     const serviceName = newService.providerId || "";
     console.log(`[TinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-    dinServiceLogger.info(`[TinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    businessServiceLogger.info(`[TinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await TinApiCall(data, serviceName);

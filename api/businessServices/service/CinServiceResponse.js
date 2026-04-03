@@ -35,13 +35,13 @@ const CinActiveServiceResponse = async (
     let res;
     switch (ActiveSerice) {
       case "CinApiCall":
-        res = await CinApiCall(data, serviceName, client="");
+        res = await CinApiCall(data, serviceName, client = "");
         break;
       case "CompanyListApiCall":
-        res = await CinCompanyApiCall(data, serviceName, client="");
+        res = await CinCompanyApiCall(data, serviceName, client = "");
         break;
       case "CompanySearchApiCall":
-        res = await CompanySearchApiCall(data, serviceName, client="");
+        res = await CompanySearchApiCall(data, serviceName, client = "");
         break;
     }
 
@@ -70,7 +70,7 @@ const CinActiveServiceResponse = async (
 };
 
 // ActiveService
-const CinApiCall = async (data, service, CID="") => {
+const CinApiCall = async (data, service, CID = "") => {
   console.log("[CompanySearchApiCall] Triggered with data:", data);
   const tskId = generateTransactionId(12);
 
@@ -250,7 +250,7 @@ const CinCompanyApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
-                cId: CID,
+        cId: CID,
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -322,7 +322,7 @@ const CinCompanyApiCall = async (data, service, CID) => {
   };
 };
 
-const CompanySearchApiCall = async (data, service) => {
+const CompanySearchApiCall = async (data, service,CID) => {
   console.log("[CompanySearchApiCall] Triggered with data:", data);
   const tskId = generateTransactionId(12);
 
@@ -358,7 +358,7 @@ const CompanySearchApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
-                cId: CID,
+        cId: CID,
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -378,7 +378,7 @@ const CompanySearchApiCall = async (data, service) => {
     `[CompanySearchApiCall] ${service} Response Object:`,
     JSON.stringify(obj),
   );
-    businessServiceLogger.info(
+  businessServiceLogger.info(
     `[CompanySearchApiCall] activeService: ${service} for this client: ${CID} Response Object:`,
     JSON.stringify(obj),
   );

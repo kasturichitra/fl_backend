@@ -14,7 +14,7 @@ async function selectService(servicecategory, serviceName, client = "", req) {
     console.log("Final selected service =>", FinalService?.data);
     const { success, statusCode, data } = FinalService?.data;
     if (success) {
-      console.log("Final selected service =>", data);
+      console.log("Final selected service =>", data, success);
       return data;
     }else{
       return [];

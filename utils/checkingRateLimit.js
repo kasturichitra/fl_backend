@@ -11,10 +11,12 @@ const checkingRateLimit = async ({
   categoryId,
   clientId,
   req,
+  TxnID,
+  logger
 }) => {
   try {
-    commonLogger.info(
-      `Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`,
+    logger.info(
+      `TxnID:${TxnID}, Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`,
     );
 
     console.log("req.client_id and req.client_secret ====>>", req.client_secret, req.client_id)
@@ -35,14 +37,14 @@ const checkingRateLimit = async ({
       { headers: headers },
     );
 
-    commonLogger.debug(
-      `Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)} for this client: ${clientId}`,
+    logger.info(
+      `TxnID:${TxnID}, Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)} for this client: ${clientId}`,
     );
 
     const dayLimit = rateLimitResponse.data?.data?.rateLimit;
 
-    commonLogger.info(
-      `Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit} for this client: ${clientId}`,
+    logger.info(
+      `TxnID:${TxnID}, Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit} for this client: ${clientId}`,
     );
 
     if (!dayLimit) {
@@ -65,8 +67,8 @@ const checkingRateLimit = async ({
     const apiHitCount = await apiHitCountModel.findOne(query);
 
     if (apiHitCount?.dayHitCount >= dayLimit) {
-      commonLogger.warn(
-        `Rate limit exceeded for client ${clientId} of service ${serviceId} and category: ${categoryId}`,
+      logger.warn(
+        `Rate limit exceeded for client ${clientId},TxnID:${TxnID} of service ${serviceId} and category: ${categoryId}`,
       );
       return {
         allowed: false,
@@ -85,8 +87,8 @@ const checkingRateLimit = async ({
       },
     );
 
-    commonLogger.info(
-      `Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount} for this client: ${clientId}`,
+    logger.info(
+      `TxnID:${TxnID}, Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount} for this client: ${clientId}`,
     );
 
     return {
@@ -95,11 +97,11 @@ const checkingRateLimit = async ({
     };
   } catch (error) {
     console.log("error ==========>>", error);
-    commonLogger.error(
-      `Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error)}`,
+    logger.error(
+      `TxnID:${TxnID}, Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error)}`,
     );
-    commonLogger.info(
-      `[ERROR] Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error?.response?.data)}`,
+    logger.info(
+      `[ERROR] Rate limit system error for client ${clientId}, TxnID:${TxnID}, service ${serviceId}: ${JSON.stringify(error?.response?.data)}`,
     );
     if (error?.response?.data?.statusCode == 400) {
       return {

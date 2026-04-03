@@ -44,7 +44,7 @@ const verifyFullCardNumber = async (req, res, next) => {
   const categoryId = idOfCategory;
   const serviceId = idOfService;
 
-  bankServiceLogger.info(`clientId in card ===>> ${clientId}`);
+  bankServiceLogger.info(`clientId in card ===>> ${storingClient}`);
 
   const identifierHash = hashIdentifiers({
     cardNo: creditCardNumber,
@@ -55,6 +55,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     serviceId,
     categoryId,
     clientId: storingClient,
+    req
   });
 
   if (!fullCardRateLimitResult.allowed) {

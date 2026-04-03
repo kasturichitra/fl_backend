@@ -1,11 +1,10 @@
 const crypto = require("crypto");
-const { commonLogger } = require("../api/Logger/logger");
 
-function hashIdentifiers(identifiers) {
-  commonLogger.info("identifiers in hashIdentifiers ===>>", identifiers)
+function hashIdentifiers(identifiers,logger) {
+  logger.info("identifiers in hashIdentifiers ===>>", identifiers)
 
   if (!identifiers || typeof identifiers !== "object") {
-    commonLogger.info("identifiers in hashIdentifiers are empty or undefined===>>", identifiers)
+    logger.info("identifiers in hashIdentifiers are empty or undefined===>>", identifiers)
     throw new Error("Identifiers must be an object");
   }
 
@@ -16,7 +15,7 @@ function hashIdentifiers(identifiers) {
     )
     .join("|");
 
-  commonLogger.info("normalizedString in hashIdentifiers ===>>", normalizedString);
+  logger.info("normalizedString in hashIdentifiers ===>>", normalizedString);
 
   return crypto
     .createHash("sha256")

@@ -45,7 +45,7 @@ if (process.env.NODE_ENV == "production") {
   mongoURI = `mongodb://${database.user}:${database.pass}@${database.host}:${database.port}/${database.db}`;
 } else {
   mongoURI = `mongodb://${uatdatabase.user}:${uatdatabase.pass}@${uatdatabase.host}:${uatdatabase.port}/${uatdatabase.db}?authSource=admin`;
-  console.log("connected to uat data base ====>>>")
+  console.log("connected to uat data base ====>>>");
 }
 
 connectDB(mongoURI);

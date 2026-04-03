@@ -2,7 +2,7 @@ const { businessServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const DinActiveServiceResponse = async (data, services=[], index = 0) => {
+const DinActiveServiceResponse = async (data, services=[], index = 0, CID) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -13,7 +13,7 @@ const DinActiveServiceResponse = async (data, services=[], index = 0) => {
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return DinActiveServiceResponse(data, services, index + 1);
+        return DinActiveServiceResponse(data, services, index + 1,CID);
     }
 
     const serviceName = newService.providerId || "";
@@ -21,18 +21,18 @@ const DinActiveServiceResponse = async (data, services=[], index = 0) => {
     businessServiceLogger.info(`[DinActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await DinApiCall(data, serviceName);
+        const res = await DinApiCall(data, serviceName,CID);
 
         if (res?.success) {
             return res.data;
         }
 
         console.log(`[DinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return DinActiveServiceResponse(data, services, index + 1);
+        return DinActiveServiceResponse(data, services, index + 1,CID);
 
     } catch (err) {
         console.log(`[DinActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return DinActiveServiceResponse(data, services, index + 1);
+        return DinActiveServiceResponse(data, services, index + 1,CID);
     }
 };
 
@@ -40,7 +40,7 @@ const DinActiveServiceResponse = async (data, services=[], index = 0) => {
 //         TIN API CALL (ALL SERVICES)
 // =======================================
 
-const DinApiCall = async (data, service) => {
+const DinApiCall = async (data, service,CID) => {
     const tskId = await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
@@ -75,6 +75,8 @@ const DinApiCall = async (data, service) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                cId:CID,
+                logger:businessServiceLogger
             });
             console.log('[DinApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 

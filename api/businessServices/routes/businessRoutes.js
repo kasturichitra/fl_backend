@@ -14,13 +14,13 @@ const { dinVerification, gstinverify, handleCINVerification,
         udyogwithPhoneAadhaarVerification} = require("../controller/businessServices.Controller");
 
 businessRouters.post("/din/verify", dinVerification);
-businessRouters.post('/Gstinverify', gstinverify);
-businessRouters.post('/getpanwithgstin', handleGST_INtoPANDetails);
-businessRouters.post('/gstIn/TaxPayer/verify', gstInTaxPayerVerification);
-businessRouters.post('/gstinViewAndTrack', gstinViewAndTrack);
+businessRouters.post('/Gstin/verify', gstinverify);
+businessRouters.post('/Gstintopan/verify', handleGST_INtoPANDetails);
+businessRouters.post('/GstIn/TaxPayer/verify', gstInTaxPayerVerification);
+businessRouters.post('/Gstin/ViewAndTrack/verfiy', gstinViewAndTrack);
 businessRouters.post('/Cin/verify', handleCINVerification);
 businessRouters.post('/companylist/verify', CompanVerification);
-businessRouters.post('/company/search', CompanSearchVerification);
+businessRouters.post('/company/tocin/search', CompanSearchVerification);
 businessRouters.post('/tin/verify', handleTINVerification);
 businessRouters.post('/IEC/verify', handleIECVerification);
 businessRouters.post('/udyam/verify', udyamNumberVerfication);
