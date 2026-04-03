@@ -38,11 +38,11 @@ const imageActiveServiceResponse = async (
   index = 0,
   client,
 ) => {
-  const fn = "imageActiveServiceResponse"
-  const cid = client || "UN_KNOWN"
-   faceServiceLogger.info(
-      `[${fn}] request started for this client: ${cid}===>>`,
-    );
+  const fn = "imageActiveServiceResponse";
+  const cid = client || "UN_KNOWN";
+  faceServiceLogger.info(
+    `[${fn}] request started for this client: ${cid}===>>`,
+  );
   const sortedServices = [...services].sort((a, b) => a.priority - b.priority);
 
   if (index >= sortedServices.length) {
@@ -56,23 +56,30 @@ const imageActiveServiceResponse = async (
   const provider = currentService.providerId;
 
   faceServiceLogger.info(
-      `[${fn}] Trying service ${provider} with priority index: ${index + 1} for this client: ${cid}`
-    );
+    `[${fn}] Trying service ${provider} with priority index: ${index + 1} for this client: ${cid}`,
+  );
 
   try {
     const res = await imageApiCall(data, provider, serviceKey, client);
 
     faceServiceLogger.info(
-      `[${fn}] response: ${JSON.stringify(res)} from imageApiCall for this client: ${idOfclient} with data: ${data?.slice(0,4)}`,
+      `[${fn}] response: ${JSON.stringify(res)} from imageApiCall for this client: ${cid} with data: ${JSON.stringify(data)?.slice(0, 40)}`,
     );
 
-    if (res?.data) return res.data;
+    if (res?.data) {
+      return res.data;
+    }
+    
+    faceServiceLogger.info(
+      `[${fn}] ${provider} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
+    );
 
     return imageActiveServiceResponse(
       data,
       sortedServices,
       serviceKey,
       index + 1,
+      client,
     );
   } catch (err) {
     return imageActiveServiceResponse(
@@ -80,13 +87,14 @@ const imageActiveServiceResponse = async (
       sortedServices,
       serviceKey,
       index + 1,
+      client,
     );
   }
 };
 
 const imageApiCall = async (data, service, serviceKey, CID) => {
   const txnId = await generateTransactionId(12);
-  const fn = "imageApiCall"
+  const fn = "imageApiCall";
   const { file } = data;
 
   const config = SERVICE_CONFIG?.[serviceKey]?.[service];
@@ -114,8 +122,6 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
         password: process.env.TRUTHSCREEN_TOKEN,
         cId: CID,
       });
-
-      console.log("faceRes ===>>", faceRes);
 
       apiResponse = faceRes;
     }
@@ -145,19 +151,27 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
     case "TRUTHSCREEN":
       if (
         apiResponse?.status == 0 &&
-        apiResponse?.msg?.toLowerCase().includes("something went wrong")
+        apiResponse?.msg?.toLowerCase().includes("went wrong")
       ) {
+        faceServiceLogger.info(
+          `[${serviceKey}]active service: ${service} failed for this client: ${CID}`,
+        );
         return {
           success: false,
           data: null,
         };
       }
       if (config.docType == 93) {
-        if (apiResponse?.status) {
+        faceServiceLogger.info(
+          `[BLUR_CHECK]active service: ${service} success for this client: ${CID}`,
+        );
+        if (apiResponse?.msg?.toLowerCase().trim() == "success") {
           return {
             success: true,
             data: {
-              result: apiResponse?.result,
+              result: {
+                result: apiResponse?.result
+              },
               message: "Valid",
               responseOfService: apiResponse,
               service,
@@ -165,6 +179,9 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
           };
         }
       } else {
+        faceServiceLogger.info(
+          `[${serviceKey}]active service: ${service} success for this client: ${CID}`,
+        );
         if (apiResponse?.status) {
           const isValid = apiResponse?.status == 1;
           normalized = isValid ? apiResponse?.msg : {};

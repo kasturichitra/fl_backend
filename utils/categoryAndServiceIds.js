@@ -193,7 +193,7 @@ const SERVICES = {
     category: "FACE",
     serviceId: "DEEPFAKEDETECTION",
   },
-  AI_DEEPFAKE_IMAGE: {
+  AI_AND_DEEPFAKE_IMAGE_CHECK: {
     category: "FACE",
     serviceId: "AIANDDEEPFAKEDETECTION",
   },

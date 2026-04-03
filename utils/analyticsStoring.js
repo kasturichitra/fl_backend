@@ -1,36 +1,47 @@
 const analyticsModel = require("../api/analytics/model/analyticsModel")
 
-const AnalyticsDataUpdate = async (client, serviceId, categoryId, scenario = "", logger) => {
+const AnalyticsDataUpdate = async (client, serviceId, categoryId, scenario = "", TxnID, logger) => {
   if (!client || !serviceId || !categoryId) {
     logger.warn(`Invalid parameters for AnalyticsDataUpdate: client=${client}, serviceId=${serviceId}, categoryId=${categoryId}`);
-    return { success: false }
-  };
+    return { success: false };
+  }
 
   try {
-    logger.debug(`Updating analytics for client: ${client}, service: ${serviceId}, category: ${categoryId}`);
-    // First try to increment if service already exists
-    const updateResult = await analyticsModel.updateOne(
-      { clientId: client },
-      {
-        $inc: {
-          "services.$[elem].totalCount": 1,
-          ...(scenario === "success"
-            ? { "services.$[elem].successCount": 1 }
-            : { "services.$[elem].failedCount": 1 }),
+    logger.info(`Updating analytics for client: ${client}, service: ${serviceId}, category: ${categoryId}`);
+
+    // 🔍 Check if service+category already exists
+    const existing = await analyticsModel.findOne({
+      clientId: client,
+      services: {
+        $elemMatch: {
+          service: serviceId,
+          category: categoryId,
         },
       },
-      {
-        arrayFilters: [
-          { "elem.service": serviceId, "elem.category": categoryId },
-        ],
-      },
-    );
+    });
 
-    // If no matching service found, push new one
-    if (updateResult.modifiedCount === 0) {
-      logger.info(
-        `No existing analytics entry for service ${serviceId} found for client ${client}. Creating new entry.`,
+    if (existing) {
+      // ✅ Update counts
+      await analyticsModel.updateOne(
+        { clientId: client },
+        {
+          $inc: {
+            "services.$[elem].totalCount": 1,
+            ...(scenario === "success"
+              ? { "services.$[elem].successCount": 1 }
+              : { "services.$[elem].failedCount": 1 }),
+          },
+        },
+        {
+          arrayFilters: [
+            { "elem.service": serviceId, "elem.category": categoryId },
+          ],
+        }
       );
+
+      logger.info(`Counts updated for existing service.`);
+    } else {
+      // ✅ Push new entry (even if category already exists)
       await analyticsModel.updateOne(
         { clientId: client },
         {
@@ -39,21 +50,25 @@ const AnalyticsDataUpdate = async (client, serviceId, categoryId, scenario = "",
               service: serviceId,
               category: categoryId,
               totalCount: 1,
-              successCount: scenario == "success" ? 1 : 0,
-              failedCount: scenario == "success" ? 0 : 1,
+              successCount: scenario === "success" ? 1 : 0,
+              failedCount: scenario === "success" ? 0 : 1,
             },
           },
         },
-        { upsert: true },
+        { upsert: true }
       );
+
+      logger.info(`New service entry added.`);
     }
 
-    logger.info(`Analytics updated successfully for client: ${client}, service: ${serviceId}`);
-    return { success: true }
+    return { success: true };
+
   } catch (error) {
-    logger.error(`Error in AnalyticsDataUpdate for client ${client}, service ${serviceId}: ${error.message}`);
+    logger.error(`Error in AnalyticsDataUpdate: ${error.message}`);
     return { success: false, error: error.message };
   }
 };
 
 module.exports = AnalyticsDataUpdate;
+
+

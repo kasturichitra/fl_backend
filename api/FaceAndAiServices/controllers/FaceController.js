@@ -24,7 +24,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
       "mobile",
       mobileNumber,
       res,
-      clientId,
+      txnId,
       faceServiceLogger,
     );
 
@@ -58,7 +58,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     serviceKey,
-    clientId,
+    txnId,
     faceServiceLogger,
   );
 
@@ -85,6 +85,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
       categoryId: idOfCategory,
       clientId,
       req,
+      TxnID:txnId,
       logger: faceServiceLogger,
     });
 
@@ -95,7 +96,6 @@ async function handleImageVerification({ req, res, serviceKey }) {
     }
 
     // ✅ Deduct credits FIRST (as per your flow)
-
     const credits = await deductCredits(
       clientId,
       idOfService,
@@ -119,6 +119,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
       idOfService,
       idOfCategory,
       "success",
+      txnId,
       faceServiceLogger,
     );
     if (!analyticsResult.success) {
@@ -139,7 +140,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
         result: existing?.response,
         createdDate,
         createdTime,
-        TxnID: txnId
+        TxnID: txnId,
       });
 
       faceServiceLogger.info(
@@ -163,7 +164,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
       idOfService,
       txnId,
       req,
-      faceServiceLogger
+      faceServiceLogger,
     );
 
     if (!service?.length) {
@@ -188,7 +189,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
     }
 
     // ✅ Safer success detection
-    const isSuccess = imageResponse?.message?.toLowerCase() == "valid" 
+    const isSuccess = imageResponse?.message?.toLowerCase() == "valid";
     // ✅ Store response log
     await responseModel.create({
       serviceId: idOfService,
@@ -197,7 +198,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
       result: imageResponse?.result,
       createdDate,
       createdTime,
-      TxnID: txnId
+      TxnID: txnId,
     });
 
     // ✅ UPSERT main collection
@@ -215,7 +216,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
         createdDate,
       },
       $setOnInsert: {
-        fileHash
+        fileHash,
       },
     };
 
@@ -238,7 +239,7 @@ async function handleImageVerification({ req, res, serviceKey }) {
       .json(
         createApiResponse(
           isSuccess ? 200 : 404,
-          response?.result,
+          imageResponse?.result,
           isSuccess ? "Valid" : "Invalid",
         ),
       );
