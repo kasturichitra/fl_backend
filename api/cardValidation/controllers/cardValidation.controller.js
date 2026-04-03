@@ -30,6 +30,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     creditCardNumber,
     res,
     storingClient,
+    bankServiceLogger
   );
   if (!isValid) return;
 
@@ -38,23 +39,23 @@ const verifyFullCardNumber = async (req, res, next) => {
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "CARD_VERIFY",
     storingClient,
+    bankServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
   const categoryId = idOfCategory;
   const serviceId = idOfService;
 
-  bankServiceLogger.info(`clientId in card ===>> ${clientId}`);
-
   const identifierHash = hashIdentifiers({
     cardNo: creditCardNumber,
-  });
+  },bankServiceLogger);
 
   const fullCardRateLimitResult = await checkingRateLimit({
     identifiers: { identifierHash },
     serviceId,
     categoryId,
     clientId: storingClient,
+    logger: bankServiceLogger
   });
 
   if (!fullCardRateLimitResult.allowed) {

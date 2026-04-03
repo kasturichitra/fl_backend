@@ -1,6 +1,8 @@
-const { response } = require("express");
 const { faceServiceLogger } = require("../../Logger/logger");
-const { generateTransactionId, callTruthScreenAPIForImage } = require("../../truthScreen/callTruthScreen");
+const {
+  generateTransactionId,
+  callTruthScreenAPIForImage,
+} = require("../../truthScreen/callTruthScreen");
 
 const SERVICE_CONFIG = {
   BLUR_CHECK: {
@@ -36,19 +38,35 @@ const imageActiveServiceResponse = async (
   index = 0,
   client,
 ) => {
+  const fn = "imageActiveServiceResponse"
+  const cid = client || "UN_KNOWN"
+   faceServiceLogger.info(
+      `[${fn}] request started for this client: ${cid}===>>`,
+    );
   const sortedServices = [...services].sort((a, b) => a.priority - b.priority);
 
   if (index >= sortedServices.length) {
+    faceServiceLogger.info(
+      `[${fn}] all services failed for this client: ${cid} ===>>`,
+    );
     return { success: false, message: "All services failed" };
   }
 
   const currentService = sortedServices[index];
   const provider = currentService.providerId;
 
+  faceServiceLogger.info(
+      `[${fn}] Trying service ${provider} with priority index: ${index + 1} for this client: ${cid}`
+    );
+
   try {
     const res = await imageApiCall(data, provider, serviceKey, client);
 
-    if (res?.success) return res.data;
+    faceServiceLogger.info(
+      `[${fn}] response: ${JSON.stringify(res)} from imageApiCall for this client: ${idOfclient} with data: ${data?.slice(0,4)}`,
+    );
+
+    if (res?.data) return res.data;
 
     return imageActiveServiceResponse(
       data,
@@ -68,11 +86,14 @@ const imageActiveServiceResponse = async (
 
 const imageApiCall = async (data, service, serviceKey, CID) => {
   const txnId = await generateTransactionId(12);
+  const fn = "imageApiCall"
   const { file } = data;
 
   const config = SERVICE_CONFIG?.[serviceKey]?.[service];
 
-  faceServiceLogger.info(`config: ${JSON.stringify(config)} found for this client: ${CID}`)
+  faceServiceLogger.info(
+    `[${fn}] config: ${JSON.stringify(config)} found for serviceKey: ${serviceKey} for this client: ${CID}`,
+  );
 
   if (!config) {
     throw new Error(`Invalid config for ${serviceKey} - ${service}`);
@@ -94,7 +115,7 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
         cId: CID,
       });
 
-      console.log("faceRes ===>>", faceRes)
+      console.log("faceRes ===>>", faceRes);
 
       apiResponse = faceRes;
     }
@@ -103,8 +124,8 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
       `[ERROR] ${serviceKey} api error with service: ${service} error:`,
       JSON.stringify(error),
     );
-    console.error(
-      `[ERROR][MESSAGE] ${serviceKey} api error with service: ${service} error: ${error?.message}`
+    faceServiceLogger.error(
+      `[ERROR][MESSAGE] ${serviceKey} api error with service: ${service} error: ${error?.message}`,
     );
 
     return {
@@ -113,24 +134,51 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
     };
   }
 
-  console.log(`active service: ${service} and it's apiResponse: ${apiResponse} for this client: ${CID}`)
-  faceServiceLogger.info(`active service: ${service} and it's apiResponse: ${apiResponse} for this client: ${CID}`)
+  faceServiceLogger.info(
+    `[${serviceKey}]active service: ${service} and it's apiResponse: ${JSON.stringify(apiResponse)} for this client: ${CID}`,
+  );
 
   // ✅ Normalize response
   let normalized = {};
 
   switch (service) {
     case "TRUTHSCREEN":
-      normalized = {
-        status: apiResponse?.status,
-        result: apiResponse?.result,
-        message:
-          apiResponse?.result === "Clear"
-            ? "CLEAR"
-            : apiResponse?.result === "Blur"
-              ? "BLUR"
-              : "ERROR",
-      };
+      if (
+        apiResponse?.status == 0 &&
+        apiResponse?.msg?.toLowerCase().includes("something went wrong")
+      ) {
+        return {
+          success: false,
+          data: null,
+        };
+      }
+      if (config.docType == 93) {
+        if (apiResponse?.status) {
+          return {
+            success: true,
+            data: {
+              result: apiResponse?.result,
+              message: "Valid",
+              responseOfService: apiResponse,
+              service,
+            },
+          };
+        }
+      } else {
+        if (apiResponse?.status) {
+          const isValid = apiResponse?.status == 1;
+          normalized = isValid ? apiResponse?.msg : {};
+          return {
+            success: isValid ? true : false,
+            data: {
+              result: normalized,
+              message: isValid ? "Valid" : "Invalid",
+              responseOfService: isValid ? apiResponse : {},
+              service,
+            },
+          };
+        }
+      }
       break;
   }
 
@@ -138,7 +186,7 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
     success: true,
     data: {
       result: normalized,
-      response: normalized,
+      message: "Valid",
       responseOfService: apiResponse,
       service,
     },

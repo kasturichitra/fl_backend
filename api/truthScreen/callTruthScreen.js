@@ -16,7 +16,7 @@ function generateTransactionId(length = 14) {
     const randomIndex = Math.floor(Math.random() * characters.length);
     result += characters[randomIndex];
   }
-  const transactionId = `NTAR_${result}`;
+  const transactionId = `FLOWPIPE_${result}`;
   return transactionId;
 }
 
@@ -146,15 +146,16 @@ async function callTruthScreenAPI({
   username,
   password,
   cId = "",
+  logger = "" 
 }) {
   // displaying password in logs is bad practice, removing it.
-  commonLogger.info(
+  logger.info(
     `Details for the request with client: ${cId} url: ${url} payload: ${JSON.stringify(payload)} username: ${username} ===>>`,
   );
   try {
     const encryptedData = encrypt(JSON.stringify(payload), password);
 
-    commonLogger.info(
+    logger.info(
       `encrypted Data successfully in truth screen for this client: ${cId} ====>>>`,
     );
 
@@ -170,14 +171,14 @@ async function callTruthScreenAPI({
       },
     );
 
-    commonLogger.info(`HTTP Status: ${response?.status}`);
-    commonLogger.debug(
+    logger.info(`HTTP Status: ${response?.status}`);
+    logger.debug(
       `response in truth screen ====>>> ${JSON.stringify(response?.data)}`,
     );
 
     const encryptedResponseData =
       response?.data?.responseData || response?.data;
-    commonLogger.debug(
+    logger.debug(
       `encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`,
     );
 
@@ -188,7 +189,7 @@ async function callTruthScreenAPI({
     }
 
     const decrypted = decrypt(encryptedResponseData, password);
-    commonLogger.info(`decrypted in truth screen ====>>> ${decrypted}`);
+    logger.info(`decrypted in truth screen ====>>> ${decrypted}`);
 
     return JSON.parse(decrypted);
   } catch (error) {
@@ -197,15 +198,15 @@ async function callTruthScreenAPI({
       "error in truthscreen error?.response?.data===>>",
       error?.response?.data,
     );
-    commonLogger.error(
+    logger.error(
       `TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`,
     );
     if (error?.response?.data?.responseData) {
       try {
         const decrypted = decrypt(error.response.data.responseData, password);
-        commonLogger.error(`decrypted in error: ${decrypted}`);
+        logger.error(`decrypted in error: ${decrypted}`);
       } catch (decryptionErr) {
-        commonLogger.error(
+        logger.error(
           `Decryption failed for error response: ${decryptionErr.message}`,
         );
       }

@@ -1,6 +1,6 @@
 const { default: axios } = require("axios");
 
-async function selectService(servicecategory, serviceName, client = "", req) {
+async function selectService(servicecategory, serviceName, tnId = "", req, logger = "") {
   const headers = {
     client_id: req.client_id,
     client_secret: req.client_secret,
@@ -11,16 +11,15 @@ async function selectService(servicecategory, serviceName, client = "", req) {
       `${process.env.SUPERADMIN_URL}/api/v1/apimodule/getAllProvidersByService?serviceId=${serviceName}&categoryId=${servicecategory}`,
       { headers: headers },
     );
-    console.log("Final selected service =>", FinalService?.data);
     const { success, statusCode, data } = FinalService?.data;
     if (success) {
-      console.log("Final selected service =>", data);
+      logger.info(`providers list with TXNID: ${tnId} for this category: ${servicecategory} and service: ${serviceName} Data ${JSON.stringify(data)} =>`);
       return data;
     }else{
       return [];
     }
   } catch (error) {
-    console.log("SelectService Error:", error);
+    logger.error(`SelectService Error for this TXNID: ${tnId}: ${error}`);
     return [];
   }
 }

@@ -9,6 +9,7 @@ const { selectService } = require("../../service/serviceSelector");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { contactServiceLogger } = require("../../Logger/logger");
 const handleValidation = require("../../../utils/lengthCheck");
+const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 
 dotenv.config();
 
@@ -140,7 +141,7 @@ const mobileOtpGeneration = async (req, res, next) => {
 
   const storingClient = req.clientId;
 
-  const isValid = handleValidation("mobile", mobileNumber, res, storingClient);
+  const isValid = handleValidation("mobile", mobileNumber, res, storingClient, contactServiceLogger);
   if (!isValid) return;
 
   try {
@@ -153,11 +154,13 @@ const mobileOtpGeneration = async (req, res, next) => {
       serviceId,
       categoryId,
       clientId: storingClient,
+      req,
+      logger: contactServiceLogger
     });
 
     if (!mobileRateLimitResult.allowed) {
       contactServiceLogger.info(
-        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+        `Rate limit exceeded for mobile number verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
@@ -175,7 +178,8 @@ const mobileOtpGeneration = async (req, res, next) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
+      contactServiceLogger
     );
 
     if (!maintainanceResponse?.result) {

@@ -1,5 +1,3 @@
-const { commonLogger } = require("../api/Logger/logger");
-
 const CATEGORIES = {
   PAN: "PANSERVICES",
   GEO: "GEOLOCATION",
@@ -11,7 +9,8 @@ const CATEGORIES = {
   GOVERNMENT: "GOVERNMENTIDSERVICES",
   FACE: "FACEAIVERIFICATION",
   BANK: "BANKINGFINANCIAL",
-  EMPLOYMENT: "EMPLOYMENTINCOME"
+  EMPLOYMENT: "EMPLOYMENTINCOME",
+  OTHER: "OTHERSERVICES"
 };
 
 const SERVICES = {
@@ -210,17 +209,23 @@ const SERVICES = {
     category: "EMPLOYMENT",
     serviceId: "DUALEMPLOYMENTCHECK",
   },
+
+   // other services
+   NAME_MATCH: {
+    category: "OTHER",
+    serviceId: "NAMEMATCH",
+  },
 };
 
-const getCategoryIdAndServiceId = (type, client) => {
+const getCategoryIdAndServiceId = (type, client="", logger) => {
   if (!type) return { categoryId: "", serviceId: "" };
 
   const key = type.toUpperCase();
-  commonLogger.info(
+  logger.info(
     `[SERVICE AND CATEGORY] key: ${key} in getting category and service for this client: ${client}====>>>`,
   );
   const service = SERVICES[key];
-  commonLogger.info(
+  logger.info(
     `[SERVICE AND CATEGORY] service: ${JSON.stringify(service)} in getting category and service for this client: ${client}====>>>`,
   );
 

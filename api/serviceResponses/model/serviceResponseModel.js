@@ -7,6 +7,10 @@ const responseSchema = new mongoose.Schema(
       required: true,
       index: true
     },
+    TxnID:{
+      type: String,
+      required: true,
+    },
     categoryId: {
       type: String,
       required: true,

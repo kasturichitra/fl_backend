@@ -412,6 +412,10 @@ exports.gstinverify = async (req, res, next) => {
             `Response received from active service ${response.service}: ${response?.message}`,
         );
 
+           if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message?.toUpperCase() == "VALID") {
             const encryptedResponse = {
@@ -1251,6 +1255,9 @@ exports.handleCINVerification = async (req, res, next) => {
 
         businessServiceLogger.info(`Active service selected for CINverification service ${response?.service}: ${response?.message}`);
 
+           if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
         // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message?.toUpperCase() == "VALID") {
             const encryptedResponse = {
@@ -3454,6 +3461,10 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         );
 
         let response = await shopActiveServiceResponse({ registrationNumber, state }, service, 0);
+
+           if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
 
         if (response?.message?.toUpperCase() == "VALID" || response?.message?.toUpperCase() == "SUCCESS" || response?.result) {
             const encryptedResponse = {

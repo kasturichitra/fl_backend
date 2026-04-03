@@ -1,8 +1,7 @@
 const { default: axios } = require("axios");
-const { commonLogger } = require("../api/Logger/logger");
 const superAdminUrl = process.env.SUPERADMIN_URL;
 
-const creditsToBeDebited = async (clientId, service, categoryId, request) => {
+const creditsToBeDebited = async (clientId, service, categoryId, request, logger) => {
   try {
     const objectToSent = {
       serviceId: service,
@@ -10,7 +9,7 @@ const creditsToBeDebited = async (clientId, service, categoryId, request) => {
       categoryId: categoryId,
     };
 
-    commonLogger.debug(
+    logger.debug(
       `Credits deduction request for client: ${clientId}, service: ${service}, category: ${categoryId}`,
     );
     const response = await axios.post(
@@ -29,19 +28,19 @@ const creditsToBeDebited = async (clientId, service, categoryId, request) => {
       },
     );
 
-    commonLogger.info(
+    logger.info(
       `Credits deduction response: ${JSON.stringify(response?.data)}`,
     );
     if (response?.data?.success) {
       return { result: true };
     } else {
-      commonLogger.warn(
+      logger.warn(
         `Credits deduction failed for client ${clientId}: ${JSON.stringify(response?.data)}`,
       );
       return { result: false };
     }
   } catch (error) {
-    commonLogger.error(
+    logger.error(
       `Error in credits maintainance for client ${clientId}: ${error.message}`,
     );
     throw error;

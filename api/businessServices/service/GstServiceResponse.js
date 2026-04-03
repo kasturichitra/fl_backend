@@ -1,8 +1,19 @@
-const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
+const { businessServiceLogger } = require("../../Logger/logger");
+const {
+  generateTransactionId,
+  callTruthScreenAPI,
+} = require("../../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
-const GSTActiveServiceResponse = async (data, services, index = 0, client="") => {
+const GSTActiveServiceResponse = async (
+  data,
+  services,
+  index = 0,
+  client = "",
+) => {
+  const cid = client || "UN_KNOWN"
   console.log("GSTActiveServiceResponse called");
+  businessServiceLogger.info(`GSTActiveServiceResponse called for this client: ${cid} with value: ${data?.slice(-4)}`);
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -39,7 +50,7 @@ const GSTActiveServiceResponse = async (data, services, index = 0, client="") =>
     return GSTActiveServiceResponse(data, services, index + 1);
   }
 };
-const GSTApiCall = async (data, service, CID) => {
+const GSTApiCall = async (data, service, CID = "") => {
   const tskId = await generateTransactionId(12);
 
   const ApiData = {
@@ -104,7 +115,7 @@ const GSTApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        cId: CID
+        cId: CID,
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -117,28 +128,42 @@ const GSTApiCall = async (data, service, CID) => {
     }
   } catch (error) {
     console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
-    return { success: false, data: null }; // fallback trigger
+        if (service?.toLowerCase() == "invincible" && error.status == 404) {
+      return {
+        success: false,
+        data: {
+          result: "No Data Found",
+          message: "Invalid",
+          responseOfService: error || {},
+          service,
+        },
+      };
+    } else {
+      return { success: false, data: null };
+    }
   }
 
-  const obj = ApiResponse.data;
+  const obj = ApiResponse.data || ApiResponse;
   console.log(`[GSTApiCall] ${service} Response Object:`, JSON.stringify(obj));
+  businessServiceLogger.info(
+    `[GSTApiCall] with service: ${service} Response Object: ${JSON.stringify(obj)} for this client: ${CID}`
+  );
 
   let returnedObj = {};
 
-  if (obj.response_code === "101") {
-    return {
-      success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
-      },
-    };
-  }
-
   switch (service) {
     case "ZOOP":
+      if (obj.response_code === "101") {
+        return {
+          success: false,
+          data: {
+            result: "NoDataFound",
+            message: "Invalid",
+            responseOfService: {},
+            service: service,
+          },
+        };
+      }
       returnedObj = {
         gstinNumber: obj?.result?.gstin,
         business_constitution: obj?.result?.business_constitution,
@@ -178,6 +203,32 @@ const GSTApiCall = async (data, service, CID) => {
       };
       break;
     case "TRUTHSCREEN":
+      if (
+        obj?.status === 0 &&
+        typeof obj?.msg === "string" &&
+        obj.msg.toLowerCase().includes("no record")
+      ) {
+        employmentServiceLogger.info(
+          `[${service}] no record for this client: ${CID}`,
+        );
+        return {
+          success: false,
+          data: {
+            result: "NoDataFound",
+            message: "NO RECORD FOUND",
+            responseOfService: obj,
+            service,
+          },
+        };
+      }
+
+      if (obj?.status !== 1) {
+        console.log(`[${service}] Invalid status received → fallback`);
+        console.log(
+          `[${service}] Invalid status received → fallback for this client: ${CID}`,
+        );
+        return { success: false, data: null };
+      }
       returnedObj = {
         gstinNumber: obj?.result?.essentials?.gstin || "",
         business_constitution:
@@ -218,6 +269,7 @@ const GSTtoPANActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
+  client = "",
 ) => {
   console.log(
     "GSTtoPANActiveServiceResponse called",
@@ -245,7 +297,7 @@ const GSTtoPANActiveServiceResponse = async (
   console.log(`Trying service:`, newService);
 
   try {
-    const res = await GSTToPANApiCall(data, serviceName, 0);
+    const res = await GSTToPANApiCall(data, serviceName, client);
 
     if (res?.success) {
       return res.data;
@@ -258,7 +310,7 @@ const GSTtoPANActiveServiceResponse = async (
     return GSTtoPANActiveServiceResponse(data, services, index + 1);
   }
 };
-const GSTToPANApiCall = async (data, service) => {
+const GSTToPANApiCall = async (data, service, CID = "") => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -296,7 +348,7 @@ const GSTToPANApiCall = async (data, service) => {
         password: config.header.token,
       });
       console.log(
-        "[PanApiCall] TruthScreen API response:",
+        "[gst to Pan Api Call] TruthScreen API response:",
         JSON.stringify(ApiResponse),
       );
     }
@@ -305,21 +357,39 @@ const GSTToPANApiCall = async (data, service) => {
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse.data;
+  const obj = ApiResponse.data || ApiResponse;
   console.log("obj ==>", obj);
+  businessServiceLogger.info(
+    `[gst to pan api call] service: ${service} API response: ${JSON.stringify(obj)} for this client: ${CID}`,
+  );
 
   let returnedObj = {};
 
-  if (obj.response_code === "101") {
+  if (
+    obj?.status == 0 &&
+    typeof obj?.msg === "string" &&
+    obj.msg.toLowerCase().includes("no record")
+  ) {
+    employmentServiceLogger.info(
+      `[${service}] no record for this client: ${CID}`,
+    );
     return {
       success: false,
       data: {
         result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
+        message: "NO RECORD FOUND",
+        responseOfService: obj,
+        service,
       },
     };
+  }
+
+  if (obj?.status !== 1) {
+    console.log(`[${service}] Invalid status received → fallback`);
+    console.log(
+      `[${service}] Invalid status received → fallback for this client: ${CID}`,
+    );
+    return { success: false, data: null };
   }
 
   switch (service) {

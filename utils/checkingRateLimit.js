@@ -1,6 +1,5 @@
 const axios = require("axios");
 const apiHitCountModel = require("../api/apiHitCount/model/apiHitCountModel");
-const { commonLogger } = require("../api/Logger/logger");
 
 const superAdminUrl = process.env.SUPERADMIN_URL;
 const RATE_LIMIT_URL = `${superAdminUrl}/api/v1/apimodule/get-service-rate-limit`;
@@ -11,9 +10,10 @@ const checkingRateLimit = async ({
   categoryId,
   clientId,
   req,
+  logger
 }) => {
   try {
-    commonLogger.info(
+    logger.info(
       `Rate limit check for service: ${serviceId}, category: ${categoryId}, client: ${clientId}`,
     );
 
@@ -35,13 +35,13 @@ const checkingRateLimit = async ({
       { headers: headers },
     );
 
-    commonLogger.debug(
+    logger.debug(
       `Rate limit response from super admin: ${JSON.stringify(rateLimitResponse?.data)} for this client: ${clientId}`,
     );
 
     const dayLimit = rateLimitResponse.data?.data?.rateLimit;
 
-    commonLogger.info(
+    logger.info(
       `Rate limit for category ${categoryId} and service ${serviceId}: ${dayLimit} for this client: ${clientId}`,
     );
 
@@ -65,7 +65,7 @@ const checkingRateLimit = async ({
     const apiHitCount = await apiHitCountModel.findOne(query);
 
     if (apiHitCount?.dayHitCount >= dayLimit) {
-      commonLogger.warn(
+      logger.warn(
         `Rate limit exceeded for client ${clientId} of service ${serviceId} and category: ${categoryId}`,
       );
       return {
@@ -85,7 +85,7 @@ const checkingRateLimit = async ({
       },
     );
 
-    commonLogger.info(
+    logger.info(
       `Rate limit hit recorded. Remaining for day: ${dayLimit - apiHit.dayHitCount} for this client: ${clientId}`,
     );
 
@@ -95,10 +95,10 @@ const checkingRateLimit = async ({
     };
   } catch (error) {
     console.log("error ==========>>", error);
-    commonLogger.error(
+    logger.error(
       `Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error)}`,
     );
-    commonLogger.info(
+    logger.info(
       `[ERROR] Rate limit system error for client ${clientId}, service ${serviceId}: ${JSON.stringify(error?.response?.data)}`,
     );
     if (error?.response?.data?.statusCode == 400) {

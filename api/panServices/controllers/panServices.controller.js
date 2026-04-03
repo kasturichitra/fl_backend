@@ -767,7 +767,7 @@ exports.handlePanTanVerification = async (req, res) => {
 
     const service = await selectService(categoryId, serviceId);
 
-    if (!service) {
+    if (!service.length) {
       panServiceLogger.warn(
         `Active service not found for PAN NameDob category ${categoryId}, service ${serviceId}`,
       );

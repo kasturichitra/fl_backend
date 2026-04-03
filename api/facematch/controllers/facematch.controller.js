@@ -2,15 +2,22 @@ const axios = require("axios");
 const checkingDetails = require("../../../utils/authorization");
 const FaceMatchModel = require("../models/facematch.model");
 const loginAndSms = require("../../loginAndSms/model/loginAndSmsModel");
-const {faceServiceLogger} = require("../../Logger/logger");
+const { faceServiceLogger } = require("../../Logger/logger");
 const ERROR_CODES = require("../../../utils/errorCodes");
-const { faceMatch } = require("../../service/provider.zoop")
+const { faceMatch } = require("../../service/provider.zoop");
 const zoop = require("../../service/provider.zoop");
 const invincible = require("../../service/provider.invincible");
 const truthscreen = require("../../service/provider.truthscreen");
-const { selectService, updateFailure } = require("../../service/serviceSelector");
-const { callTruth, performFaceVerificationEncrypted } = require("../../truthScreen/callTruthScreen");
+const {
+  selectService,
+  updateFailure,
+} = require("../../service/serviceSelector");
+const {
+  callTruth,
+  performFaceVerificationEncrypted,
+} = require("../../truthScreen/callTruthScreen");
 const { generateTransactionId } = require("../../../utils/helper");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 
 const convertImageToBase64 = async (url) => {
   try {
@@ -157,16 +164,33 @@ const convertImageToBase64 = async (url) => {
 // };
 
 exports.faceMatchVerification = async (req, res) => {
-  const { userImage, aadhaarImage, categoryId = "", serviceId = "", clientId="" } = req.body;
-  const service = await selectService();
+  const { userImage, aadhaarImage } = req.body;
   console.log("----active service for FACEMATCH Verify is ----", service);
-  faceServiceLogger.info(`----active service for FACEMATCH Verify is ----, ${service}`);
+  faceServiceLogger.info(
+    `----active service for FACEMATCH Verify is ----, ${service}`,
+  );
 
-  const storingClient = req.clientId || clientId;
+  const storingClient = req.clientId || "";
+
+  if (!userImage || !aadhaarImage) {
+    return res.status(400).json({
+      ...ERROR_CODES?.BAD_REQUEST,
+      response: "Images are missing"
+    });
+  }
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "FACE_MATCH",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   const identifierHash = hashIdentifiers({
-    user: userImage?.slice(0,10),
-    aadhaar:aadhaarImage?.slice(0,10)
+    user: userImage?.slice(0, 10),
+    aadhaar: aadhaarImage?.slice(0, 10),
   });
 
   const faceRateLimitResult = await checkingRateLimit({
@@ -174,6 +198,7 @@ exports.faceMatchVerification = async (req, res) => {
     serviceId,
     categoryId,
     clientId: storingClient,
+    req
   });
 
   if (!faceRateLimitResult.allowed) {
@@ -186,24 +211,13 @@ exports.faceMatchVerification = async (req, res) => {
   const tnId = genrateUniqueServiceId();
   console.log("bin txn Id ===>>", tnId);
   faceServiceLogger.info("bin txn Id ===>>", tnId);
-  let maintainanceResponse;
-  if (req.environment?.toLowercase() == "test") {
-    faceServiceLogger.info("credits maintainance started===>>", req.environment);
-    maintainanceResponse = await creditsToBeDebited(
-      storingClient,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  } else {
-    faceServiceLogger.info("charges maintainance started===>>", req.environment);
-    maintainanceResponse = await chargesToBeDebited(
-      storingClient,
-      serviceId,
-      categoryId,
-      tnId,
-    );
-  }
+  const maintainanceResponse = await deductCredits(
+    storingClient,
+    serviceId,
+    categoryId,
+    tnId,
+    req,
+  );
 
   if (!maintainanceResponse?.result) {
     return res.status(500).json({
@@ -212,11 +226,10 @@ exports.faceMatchVerification = async (req, res) => {
       response: {},
     });
   }
-  if (!userImage || !aadhaarImage) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
-  }
 
-  if (!service || service === undefined) {
+  const service = await selectService(categoryId, serviceId, storingClient, req);
+
+  if (!service.length || service === undefined) {
     return res.status(503).json({ error: "No service available" });
   }
   try {

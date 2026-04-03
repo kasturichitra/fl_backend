@@ -11,10 +11,13 @@ const imageSchema = new mongoose.Schema(
       required: true,
     },
     mobileNumber: {
-      type: String,
-      default: "",
+      type: String
     },
     response: {
+      type: Object,
+      default: {},
+    },
+     serviceResponse: {
       type: Object,
       default: {},
     },

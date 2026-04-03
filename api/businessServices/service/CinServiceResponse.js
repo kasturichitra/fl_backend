@@ -12,6 +12,7 @@ const CinActiveServiceResponse = async (
   index = 0,
   client = "",
 ) => {
+  const idOfclient = client || "UN_KNOWN";
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -20,30 +21,43 @@ const CinActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
+    businessServiceLogger.info(
+      `No service with priority ${index + 1}, trying next for this client ${idOfclient} with data: ${data?.slice(-4)}`,
+    );
     return CinActiveServiceResponse(data, services, ActiveSerice, index + 1);
   }
 
   const serviceName = newService.providerId || "";
-  console.log(
-    `[CinActiveServiceResponse] Trying service with activeService: ${ActiveSerice} priority ${index + 1}:`,
-    newService,
+  businessServiceLogger.info(
+    `[CinActiveServiceResponse] Trying service: ${serviceName} for verification of active api call: ${ActiveSerice} with priority: ${index + 1} for this client: ${idOfclient} with data: ${data?.slice(-4)}`,
   );
 
   try {
-    // const res = await CinApiCall(data, serviceName);
-
     let res;
     switch (ActiveSerice) {
       case "CinApiCall":
-        res = await CinApiCall(data, serviceName, client="");
+        businessServiceLogger.info(
+          `[CinActiveServiceResponse] ${ActiveSerice} started for this client: ${idOfclient} with data: ${data?.slice(-4)}`,
+        );
+        res = await CinApiCall(data, serviceName, idOfclient);
         break;
       case "CompanyListApiCall":
-        res = await CinCompanyApiCall(data, serviceName, client="");
+        businessServiceLogger.info(
+          `[CinActiveServiceResponse] ${ActiveSerice} started for this client: ${idOfclient} with data: ${data?.slice(-4)}`,
+        );
+        res = await CinCompanyApiCall(data, serviceName, idOfclient);
         break;
       case "CompanySearchApiCall":
-        res = await CompanySearchApiCall(data, serviceName, client="");
+        businessServiceLogger.info(
+          `[CinActiveServiceResponse] ${ActiveSerice} started for this client: ${idOfclient} with data: ${data?.slice(-4)}`,
+        );
+        res = await CompanySearchApiCall(data, serviceName, idOfclient);
         break;
     }
+
+    businessServiceLogger.info(
+      `[CinActiveServiceResponse] ${ActiveSerice} response: ${JSON.stringify(res)} for this client: ${idOfclient} with data: ${data?.slice(-4)}`,
+    );
 
     if (res?.success) {
       if (
@@ -56,12 +70,12 @@ const CinActiveServiceResponse = async (
       return res.data;
     }
 
-    console.log(
-      `[CinActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service of index: ${index}`,
+    businessServiceLogger.info(
+      `[CinActiveServiceResponse] ${serviceName} with data: ${data?.slice(-4)} responded failure. Data: ${JSON.stringify(res)} → trying next service of index: ${index}`,
     );
     return CinActiveServiceResponse(data, services, ActiveSerice, index + 1);
   } catch (err) {
-    console.log(
+    businessServiceLogger.info(
       `[CinActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
@@ -70,8 +84,10 @@ const CinActiveServiceResponse = async (
 };
 
 // ActiveService
-const CinApiCall = async (data, service, CID="") => {
-  console.log("[CompanySearchApiCall] Triggered with data:", data);
+const CinApiCall = async (data, service, CID = "") => {
+  businessServiceLogger.info(
+    `[CinApiCall] Triggered with for this client: ${CID} data: ${data?.slice(-4)}`,
+  );
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -126,11 +142,24 @@ const CinApiCall = async (data, service, CID="") => {
       });
     }
   } catch (error) {
-    console.log(
-      `[CIN Api Call] API Error in ${service}:`,
+    console.log(`[CIN Api Call] API Error in ${service}:`, error.message);
+    businessServiceLogger.info(
+      `[CIN Api Call] with data: ${data?.slice(-4)} API Error in ${service}:`,
       error.message,
     );
-    return { success: false, data: null };
+    if (service?.toLowerCase() == "invincible" && error.status == 404) {
+      return {
+        success: false,
+        data: {
+          result: "No Data Found",
+          message: "Invalid",
+          responseOfService: error || {},
+          service,
+        },
+      };
+    } else {
+      return { success: false, data: null };
+    }
   }
 
   const obj = ApiResponse?.data || ApiResponse;
@@ -139,22 +168,9 @@ const CinApiCall = async (data, service, CID="") => {
     JSON.stringify(obj),
   );
   businessServiceLogger.info(
-    `[CIN Api Call] ${service} Response Object:`,
+    `[CIN Api Call] ${service} with data: ${data?.slice(-4)} Response Object:`,
     JSON.stringify(obj),
   );
-
-  // If truthscreen/others return invalid code
-  if (obj?.response_code === "101") {
-    return {
-      success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: obj,
-        service,
-      },
-    };
-  }
 
   /** -------------------------
    *  RESULT NORMALIZATION
@@ -183,6 +199,34 @@ const CinApiCall = async (data, service, CID="") => {
   }
 
   if (service === "TRUTHSCREEN") {
+    if (
+      obj?.status === 0 &&
+      typeof obj?.msg === "string" &&
+      obj.msg.toLowerCase().includes("no record")
+    ) {
+      businessServiceLogger.info(
+        `[${service}] no record for this client: ${CID}`,
+      );
+      return {
+        success: false,
+        data: {
+          result: "NoDataFound",
+          message: "NO RECORD FOUND",
+          responseOfService: obj,
+          service,
+        },
+      };
+    }
+
+    if (obj?.status !== 1) {
+      console.log(
+        `[${service}] Invalid status received → fallback for this client: ${CID}`,
+      );
+      businessServiceLogger.info(
+        `[${service}] Invalid status received → fallback for this client: ${CID}`,
+      );
+      return { success: false, data: null };
+    }
     const msg = obj?.msg;
 
     if (!msg || msg?.STATUS === "INVALID") {
@@ -201,7 +245,10 @@ const CinApiCall = async (data, service, CID="") => {
       },
     };
   }
-  console.log("[CompanySearchApiCall] Returned Object:", JSON.stringify(returnedObj));
+  console.log(
+    "[CompanySearchApiCall] Returned Object:",
+    JSON.stringify(returnedObj),
+  );
   return {
     success: true,
     data: {
@@ -250,7 +297,7 @@ const CinCompanyApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
-                cId: CID,
+        cId: CID,
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -358,7 +405,7 @@ const CompanySearchApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
-                cId: CID,
+        cId: CID,
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -378,7 +425,7 @@ const CompanySearchApiCall = async (data, service) => {
     `[CompanySearchApiCall] ${service} Response Object:`,
     JSON.stringify(obj),
   );
-    businessServiceLogger.info(
+  businessServiceLogger.info(
     `[CompanySearchApiCall] activeService: ${service} for this client: ${CID} Response Object:`,
     JSON.stringify(obj),
   );

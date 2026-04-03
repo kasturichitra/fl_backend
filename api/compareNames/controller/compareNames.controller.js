@@ -103,34 +103,47 @@ function removeTitle(name) {
   const titleRegex = /^(MR|MRS|MISS|MS|DR|SIR|LADY|LORD|PROF|REV)\.?\s*/i;
   return name.replace(titleRegex, "").trim();
 }
-
-// names verification - own logic 
 exports.compareNames = async (req, res, next) => {
-  console.log("Compare Name is triggred");
   console.log("Compare Name is triggred");
 
   const {
     firstName,
     secondName,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
+    mobileNumber = ""
   } = req.body;
   console.log("firstName and secondName ===>>", secondName, firstName);
   console.log("firstName and secondName ===>>", secondName, firstName);
   const capitalFirstName = firstName?.toUpperCase();
   const capitalSecondName = secondName?.toUpperCase();
-  const isFirstValid = handleValidation("firstName", capitalFirstName, res);
+  const storingClient = req.clientId || clientId;
+  const isFirstValid = handleValidation(
+    "firstName",
+    capitalFirstName,
+    res,
+    storingClient,
+  );
   if (!isFirstValid) return;
 
-  const isSecondValid = handleValidation("firstName", capitalSecondName, res);
+  const isSecondValid = handleValidation(
+    "firstName",
+    capitalSecondName,
+    res,
+    storingClient,
+  );
   if (!isSecondValid) return;
 
-  const storingClient = req.clientId || clientId;
+    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "NAME_MATCH",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   const identifierHash = hashIdentifiers({
-    accNo: account_no,
-    ifscCode: capitalIfsc,
+    FN: capitalFirstName,
+    SN: capitalSecondName,
   });
 
   const nameRateLimitResult = await checkingRateLimit({
@@ -138,6 +151,7 @@ exports.compareNames = async (req, res, next) => {
     serviceId,
     categoryId,
     clientId: storingClient,
+    req,
   });
 
   if (!nameRateLimitResult.allowed) {
@@ -155,7 +169,7 @@ exports.compareNames = async (req, res, next) => {
     serviceId,
     categoryId,
     tnId,
-    req.environment,
+    req,
   );
 
   if (!maintainanceResponse?.result) {
@@ -173,9 +187,18 @@ exports.compareNames = async (req, res, next) => {
     secondName: capitalSecondName,
   });
   console.log("response in existing===>", existingDetails);
+  otherServiceLogger.info("response in existing===>", existingDetails);
 
   try {
     if (existingDetails) {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: existingDetails?.responseData,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
       return res.status(200).json({
         message: "Valid",
         success: true,
@@ -218,6 +241,14 @@ exports.compareNames = async (req, res, next) => {
           similarity,
           reverseSimilarity,
         );
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          clientId,
+          result: nameMatchResponse,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
         await comparingNamesModel.create({
           firstName: capitalFirstName,
           secondName: capitalSecondName,
@@ -235,7 +266,7 @@ exports.compareNames = async (req, res, next) => {
           message: "something Went Wrong 🤦‍♂️",
           ...ERROR_CODES?.SERVICE_UNAVAILABLE,
         };
-        return res.status(400).json(errorMessage);
+        return res.status(500).json(errorMessage);
       }
     }
   } catch (error) {
@@ -333,7 +364,7 @@ exports.compareNamesWithServices = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
-      "success"
+      "success",
     );
 
     if (!analyticsResult?.success) {
@@ -484,7 +515,7 @@ exports.compareNamesWithServices = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
-      "failed"
+      "failed",
     );
 
     if (!analyticsResult?.success) {
@@ -577,7 +608,7 @@ exports.FSSAIVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
-      "success"
+      "success",
     );
     if (!analyticsResult.success) {
       otherServiceLogger.info(
@@ -721,11 +752,11 @@ exports.FSSAIVerification = async (req, res) => {
       `System error in DIN verification for client ${clientId}: ${error.message}`,
       error,
     );
-        const analyticsResult = await AnalyticsDataUpdate(
+    const analyticsResult = await AnalyticsDataUpdate(
       clientId,
       serviceId,
       categoryId,
-      "failed"
+      "failed",
     );
 
     if (!analyticsResult?.success) {

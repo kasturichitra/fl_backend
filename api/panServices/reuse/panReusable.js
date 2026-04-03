@@ -63,7 +63,7 @@ async function handleBillingAndRateLimit({
   clientId,
   req,
 }) {
-  const identifierHash = hashIdentifiers({ panNo: pan });
+  const identifierHash = hashIdentifiers({ panNo: pan }, panServiceLogger);
 
   const rateLimit = await checkingRateLimit({
     identifiers: { identifierHash },

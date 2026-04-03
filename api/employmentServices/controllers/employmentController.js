@@ -295,6 +295,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
     uanNumber,
     res,
     storingClient,
+    employmentServiceLogger
   );
   if (!isValid) return;
 
@@ -305,6 +306,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DUAL_EMPLOYMENT",
     storingClient,
+    employmentServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -328,20 +330,22 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       uanNo: uanNumber,
     });
 
-    const mobileToUanRateLimitResult = await checkingRateLimit({
+    const dualEmploymentRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
+      req,
+      logger: employmentServiceLogger
     });
 
-    if (!mobileToUanRateLimitResult.allowed) {
+    if (!dualEmploymentRateLimitResult.allowed) {
       employmentServiceLogger.warn(
         `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
-        message: mobileToUanRateLimitResult.message,
+        message: dualEmploymentRateLimitResult.message,
       });
     }
 
@@ -355,7 +359,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
 
     if (!maintainanceResponse?.result) {
       employmentServiceLogger.error(
-        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+        `Credit deduction failed for dual employment with client: ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
         success: false,
@@ -365,7 +369,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
     }
 
     const existingUanNumber = await dualEmplymentCheckModel.findOne({
-      uanNumber: uanNumber,
+      uanNumber: uanNumber, employer: employer
     });
 
     const analyticsResult = await AnalyticsDataUpdate(
@@ -373,24 +377,25 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       serviceId,
       categoryId,
       "success",
+      employmentServiceLogger
     );
     if (!analyticsResult.success) {
       employmentServiceLogger.warn(
-        `Analytics update failed for PAN verification: client ${storingClient}, service ${serviceId}`,
+        `Analytics update failed for dual employment with client: ${storingClient} and service: ${serviceId}`,
       );
     }
 
     employmentServiceLogger.debug(
-      `Checked for existing PAN record in DB: ${existingUanNumber ? "Found" : "Not Found"}`,
+      `Checked for existing dual employment record in DB: ${existingUanNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
     if (existingUanNumber) {
-      const decryptedPanNumber = decryptData(existingUanNumber?.uanNumber);
+      const decryptedUanNumber = decryptData(existingUanNumber?.uanNumber);
       const resOfUan = existingUanNumber?.response;
 
       if (existingUanNumber?.status == 1) {
         const decryptedResponse = {
           ...existingUanNumber?.response,
-          UAN: decryptedPanNumber,
+          UAN: decryptedUanNumber,
         };
         await responseModel.create({
           serviceId,
@@ -401,7 +406,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
           createdDate: new Date().toLocaleDateString(),
         });
         employmentServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
+          `Returning cached valid dual employment response for client: ${storingClient}`,
         );
         return res
           .status(200)
@@ -416,7 +421,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
           createdDate: new Date().toLocaleDateString(),
         });
         employmentServiceLogger.info(
-          `Returning cached invalid PAN response for client: ${storingClient}`,
+          `Returning cached invalid dual employment response for client: ${storingClient}`,
         );
         return res
           .status(404)
@@ -424,9 +429,9 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, storingClient, req, employmentServiceLogger);
 
-    if (!service) {
+    if (!service?.length) {
       employmentServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
@@ -434,19 +439,20 @@ exports.handleDualEmploymentCheck = async (req, res) => {
     }
 
     employmentServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
+      `Active service selected for dual employment check: ${service.serviceFor}`,
     );
     let dualEmploymentResponse = await basicUanActiveServiceResponse(
-      panNumber,
+      {uanNumber, employer},
       service,
       0,
+      storingClient
     );
 
     employmentServiceLogger.info(
-      `Response received from active service ${service.serviceFor}: ${dualEmploymentResponse?.message}`,
+      `Response received from active service ${dualEmploymentResponse?.service} with message: ${dualEmploymentResponse?.message}`,
     );
 
-    if (apiResponse?.message?.toLowerCase() === "all services failed") {
+    if (dualEmploymentResponse?.message?.toLowerCase() === "all services failed") {
       throw new Error("All services failed");
     }
 
@@ -584,20 +590,20 @@ exports.handleForm16Verification = async (req, res) => {
       mobileNo: mobileNumber,
     });
 
-    const mobileToUanRateLimitResult = await checkingRateLimit({
+    const form16ValidationRateLimit = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
     });
 
-    if (!mobileToUanRateLimitResult.allowed) {
+    if (!form16ValidationRateLimit.allowed) {
       employmentServiceLogger.warn(
         `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
-        message: mobileToUanRateLimitResult.message,
+        message: form16ValidationRateLimit.message,
       });
     }
 

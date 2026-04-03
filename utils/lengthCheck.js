@@ -1,4 +1,3 @@
-const { commonLogger } = require("../api/Logger/logger");
 const { ERROR_CODES } = require("./errorCodes");
 
 const ID_RULES = {
@@ -144,9 +143,9 @@ const ID_RULES = {
   },
 };
 
-const validateId = (type, value, clientId) => {
+const validateId = (type, value, clientId="", logger) => {
   const rule = ID_RULES[type];
-  commonLogger.info(
+  logger.info(
     `Rule for this type: ${type} of value: ${value} for this client: ${clientId} ====>> ${JSON.stringify(rule)}`,
   );
   if (!rule) throw new Error(`Unknown type: ${type}`);
@@ -155,29 +154,29 @@ const validateId = (type, value, clientId) => {
 
   const trimmed = value.trim();
 
-  commonLogger.info(
+  logger.info(
     `Validating ${type} value ${trimmed} for client ${clientId}`,
   );
 
-  if (rule.length && trimmed.length !== rule.length) return false;
-  if (rule.min && trimmed.length < rule.min) return false;
-  if (rule.max && trimmed.length > rule.max) return false;
+  if (rule.length && trimmed.length !== rule.length) return {success:false, message: `${value} should be ${rule?.length} in length`};
+  if (rule.min && trimmed.length < rule.min) return {success:false, message: `${value} length should be more than ${rule?.min} `};
+  if (rule.max && trimmed.length > rule.max) return {success:false, message: `${value} length should be more than ${rule?.length} `};
 
-  commonLogger.info(
+  logger.info(
     `length check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
   );
 
   // Check format
   if (!rule.regex.test(trimmed)) return false;
 
-  commonLogger.info(
+  logger.info(
     `regex check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
   );
 
-  return true;
+  return {success:true};
 };
 
-const handleValidation = (type, value, res, storingClient) => {
+const handleValidation = (type, value, res, storingClient="", logger) => {
   const rule = ID_RULES[type];
   const stringValue = String(value || "").trim();
   if (!stringValue?.trim() && !["email", "domain"].includes(type)) {
@@ -187,22 +186,22 @@ const handleValidation = (type, value, res, storingClient) => {
     });
     return false;
   }
-  const isValid = validateId(type, value, storingClient);
+  const isValid = validateId(type, stringValue, storingClient, logger);
 
-  if (!isValid) {
-    commonLogger.info(
-      `Validation failed for ${type}: ${value} client: ${storingClient}`,
+  if (!isValid?.success) {
+    logger.info(
+      `Validation failed for ${type}: ${stringValue?.length > 5 ? stringValue?.slice(-4) : stringValue} client: ${storingClient}`,
     );
 
     res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
-      response: `${rule.displayName} is Invalid 🤦‍♂️`,
+      response: isValid?.message ? isValid?.message : `${rule.displayName} is Invalid 🤦‍♂️`,
     });
     return false;
   }
 
-  commonLogger.info(
-    `Validation passed for ${type}: with value: ${value} for this client: ${storingClient}`,
+  logger.info(
+    `Validation passed for ${type}: with value: ${stringValue?.length > 5 ? stringValue?.slice(-4) : stringValue} for this client: ${storingClient}`,
   );
   return true;
 };
