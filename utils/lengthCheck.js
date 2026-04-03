@@ -141,12 +141,60 @@ const ID_RULES = {
     regex: /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/,
     displayName: "Email Address",
   },
+  din: {
+    length: 8,
+    regex: /^\d{8}$/,
+    displayName: "Director Identification Number (DIN)",
+  },
+  CompanyName: {
+    min: 2,
+    max: 100,
+    regex: /^[A-Za-z0-9\s,.\-&#()]+$/,
+    displayName: "Company Name",
+  },
+  DGFT: {
+    length: 10,
+    regex: /^([A-Z]{5}[0-9]{4}[A-Z]{1}|\d{10})$/,
+    displayName: "DGFT / IEC Number",
+  },
+  LEI: {
+    length: 20,
+    regex: /^[0-9A-Z]{20}$/,
+    displayName: "Legal Entity Identifier (LEI)",
+  },
+  UAM: {
+    length: 12,
+    regex: /^[A-Z]{2}[0-9]{2}[A-Z]{1}[0-9]{7}$/,
+    displayName: "Udyog Aadhaar Memorandum (UAM)",
+  },
+  UAMPhone: {
+    length: 12,
+    regex: /^[A-Z]{2}[0-9]{2}[A-Z]{1}[0-9]{7}$/,
+    displayName: "Udyog Aadhaar Memorandum (UAM)",
+  },
+  iec: {
+    length: 10,
+    regex: /^([A-Z]{5}[0-9]{4}[A-Z]{1}|\d{10})$/,
+    displayName: "Import Export Code (IEC)",
+  },
+  tin: {
+    length: 11,
+    regex: /^\d{11}$/,
+    displayName: "Tax Identification Number (TIN)",
+  },
 };
 
+<<<<<<< HEAD
 const validateId = (type, value, clientId="", logger) => {
   const rule = ID_RULES[type];
   logger.info(
     `Rule for this type: ${type} of value: ${value} for this client: ${clientId} ====>> ${JSON.stringify(rule)}`,
+=======
+const validateId = (type, value, TxnID,logger) => {
+  const rule = ID_RULES[type];
+  logger.info(
+    `Rule for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>> ${JSON.stringify(rule)}`,
+>>>>>>> vishnu
   );
   if (!rule) throw new Error(`Unknown type: ${type}`);
 
@@ -155,7 +203,11 @@ const validateId = (type, value, clientId="", logger) => {
   const trimmed = value.trim();
 
   logger.info(
+<<<<<<< HEAD
     `Validating ${type} value ${trimmed} for client ${clientId}`,
+=======
+    `Validating ${type} value ${trimmed} for TxnID ${TxnID}`,
+>>>>>>> vishnu
   );
 
   if (rule.length && trimmed.length !== rule.length) return {success:false, message: `${value} should be ${rule?.length} in length`};
@@ -163,20 +215,28 @@ const validateId = (type, value, clientId="", logger) => {
   if (rule.max && trimmed.length > rule.max) return {success:false, message: `${value} length should be more than ${rule?.length} `};
 
   logger.info(
+<<<<<<< HEAD
     `length check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
+=======
+    `length check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
+>>>>>>> vishnu
   );
 
   // Check format
   if (!rule.regex.test(trimmed)) return false;
 
   logger.info(
+<<<<<<< HEAD
     `regex check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
+=======
+    `regex check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
+>>>>>>> vishnu
   );
 
   return {success:true};
 };
 
-const handleValidation = (type, value, res, storingClient="", logger) => {
+const handleValidation = (type, value, res, TxnID,logger) => {
   const rule = ID_RULES[type];
   const stringValue = String(value || "").trim();
   if (!stringValue?.trim() && !["email", "domain"].includes(type)) {
@@ -190,7 +250,7 @@ const handleValidation = (type, value, res, storingClient="", logger) => {
 
   if (!isValid?.success) {
     logger.info(
-      `Validation failed for ${type}: ${stringValue?.length > 5 ? stringValue?.slice(-4) : stringValue} client: ${storingClient}`,
+      `Validation failed for ${type}: ${stringValue?.length > 5 ? stringValue?.slice(-4) : stringValue} TxnID: ${TxnID} `,
     );
 
     res.status(400).json({
@@ -201,7 +261,7 @@ const handleValidation = (type, value, res, storingClient="", logger) => {
   }
 
   logger.info(
-    `Validation passed for ${type}: with value: ${stringValue?.length > 5 ? stringValue?.slice(-4) : stringValue} for this client: ${storingClient}`,
+    `Validation passed for ${type}: with value: ${stringValue?.length > 5 ? stringValue?.slice(-4) : stringValue} for this TxnID: ${TxnID}`,
   );
   return true;
 };

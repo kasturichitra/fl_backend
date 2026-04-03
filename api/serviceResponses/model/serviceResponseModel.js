@@ -8,7 +8,7 @@ const responseSchema = new mongoose.Schema(
       index: true
     },
     TxnID:{
-      type: String,
+      type:String,
       required: true,
     },
     categoryId: {

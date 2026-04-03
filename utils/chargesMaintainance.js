@@ -1,15 +1,15 @@
 const { default: axios } = require("axios");
 const superAdminUrl = process.env.SUPERADMIN_URL;
 
-const chargesToBeDebited = async (clientId, service, category, tnxId, request, logger) => {
+const chargesToBeDebited = async (clientId, service, category, request,TxnID,logger) => {
   try {
     const objectToSent = {
       serviceId: service,
       categoryId: category,
       clientId: clientId,
-      transactionId: tnxId,
+      transactionId: TxnID,
     };
-    logger.debug(`Charges deduction request for client: ${clientId}, service: ${service}, category: ${category}, txnId: ${tnxId}`);
+    logger.info(`txnId: ${TxnID},Charges deduction request for client: ${clientId}, service: ${service}, category: ${category}`);
     let response;
     response = await axios.post(
       `${superAdminUrl}/api/v1/apimodule/calculate-charges`,
@@ -26,15 +26,15 @@ const chargesToBeDebited = async (clientId, service, category, tnxId, request, l
         },
       }
     );
-    logger.info(`Charges deduction response: ${JSON.stringify(response?.data)}`);
+    logger.info(`txnId: ${TxnID}Charges deduction response: ${JSON.stringify(response?.data)}`);
     if (response?.data?.success) {
       return { result: true }
     } else {
-      logger.warn(`Charges deduction failed for client ${clientId}, txnId: ${tnxId}: ${JSON.stringify(response?.data)}`);
+      logger.warn(`Charges deduction failed for client ${clientId}, txnId: ${TxnID}: ${JSON.stringify(response?.data)}`);
       return { result: false }
     }
   } catch (error) {
-    logger.error(`Error in charges maintainance for client ${clientId}, txnId: ${tnxId}: ${error?.response?.data.message || error.message} `);
+    logger.error(`Error in charges maintainance for client ${clientId}, txnId: ${TxnID}: ${error?.response?.data.message || error.message} `);
     throw error
   }
 };

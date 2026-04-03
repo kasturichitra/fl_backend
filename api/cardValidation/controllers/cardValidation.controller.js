@@ -25,6 +25,7 @@ const verifyFullCardNumber = async (req, res, next) => {
   const { creditCardNumber, mobileNumber = "" } = req.body;
 
   const storingClient = req.clientId || clientId;
+  const tnId = genrateUniqueServiceId();
   const isValid = handleValidation(
     "creditCard",
     creditCardNumber,
@@ -55,6 +56,8 @@ const verifyFullCardNumber = async (req, res, next) => {
     serviceId,
     categoryId,
     clientId: storingClient,
+    req,
+    TxnID:tnId,
     logger: bankServiceLogger
   });
 
@@ -65,7 +68,6 @@ const verifyFullCardNumber = async (req, res, next) => {
     });
   }
 
-  const tnId = genrateUniqueServiceId();
   bankServiceLogger.info("full card verify txn Id ===>>", tnId);
   const maintainanceResponse = await deductCredits(
     storingClient,
@@ -73,6 +75,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     categoryId,
     tnId,
     req,
+    bankServiceLogger
   );
 
   if (!maintainanceResponse?.result) {
@@ -114,6 +117,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     serviceId,
     categoryId,
     "success",
+    bankServiceLogger
   );
   if (!analyticsRes?.success) {
     return res.status(400).json({
@@ -126,6 +130,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID:tnId,
         clientId: storingClient,
         result: existingCreditCardNumber?.response,
         createdTime: new Date().toLocaleTimeString(),
@@ -140,6 +145,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID:tnId,
         clientId: storingClient,
         result: existingCreditCardNumber?.response,
         createdTime: new Date().toLocaleTimeString(),
@@ -232,6 +238,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       serviceId,
       categoryId,
       "failed",
+      bankServiceLogger
     );
 
     if (!analyticsResult?.success) {

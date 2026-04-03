@@ -369,7 +369,7 @@ const CinCompanyApiCall = async (data, service, CID) => {
   };
 };
 
-const CompanySearchApiCall = async (data, service) => {
+const CompanySearchApiCall = async (data, service,CID) => {
   console.log("[CompanySearchApiCall] Triggered with data:", data);
   const tskId = generateTransactionId(12);
 
