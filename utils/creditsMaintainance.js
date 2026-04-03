@@ -1,11 +1,7 @@
 const { default: axios } = require("axios");
 const superAdminUrl = process.env.SUPERADMIN_URL;
 
-<<<<<<< HEAD
-const creditsToBeDebited = async (clientId, service, categoryId, request, logger) => {
-=======
 const creditsToBeDebited = async (clientId, service, categoryId, request,TxnID,logger) => {
->>>>>>> vishnu
   try {
     const objectToSent = {
       serviceId: service,
@@ -13,13 +9,8 @@ const creditsToBeDebited = async (clientId, service, categoryId, request,TxnID,l
       categoryId: categoryId,
     };
 
-<<<<<<< HEAD
-    logger.debug(
-      `Credits deduction request for client: ${clientId}, service: ${service}, category: ${categoryId}`,
-=======
     logger.info(
       `txnId: ${TxnID} Credits deduction request for client: ${clientId}, service: ${service}, category: ${categoryId}`,
->>>>>>> vishnu
     );
     const response = await axios.post(
       `${superAdminUrl}/api/v1/apimodule/deduct-credit`,

@@ -184,17 +184,10 @@ const ID_RULES = {
   },
 };
 
-<<<<<<< HEAD
-const validateId = (type, value, clientId="", logger) => {
-  const rule = ID_RULES[type];
-  logger.info(
-    `Rule for this type: ${type} of value: ${value} for this client: ${clientId} ====>> ${JSON.stringify(rule)}`,
-=======
 const validateId = (type, value, TxnID,logger) => {
   const rule = ID_RULES[type];
   logger.info(
     `Rule for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>> ${JSON.stringify(rule)}`,
->>>>>>> vishnu
   );
   if (!rule) throw new Error(`Unknown type: ${type}`);
 
@@ -203,11 +196,7 @@ const validateId = (type, value, TxnID,logger) => {
   const trimmed = value.trim();
 
   logger.info(
-<<<<<<< HEAD
-    `Validating ${type} value ${trimmed} for client ${clientId}`,
-=======
     `Validating ${type} value ${trimmed} for TxnID ${TxnID}`,
->>>>>>> vishnu
   );
 
   if (rule.length && trimmed.length !== rule.length) return {success:false, message: `${value} should be ${rule?.length} in length`};
@@ -215,22 +204,14 @@ const validateId = (type, value, TxnID,logger) => {
   if (rule.max && trimmed.length > rule.max) return {success:false, message: `${value} length should be more than ${rule?.length} `};
 
   logger.info(
-<<<<<<< HEAD
-    `length check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
-=======
     `length check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
->>>>>>> vishnu
   );
 
   // Check format
   if (!rule.regex.test(trimmed)) return false;
 
   logger.info(
-<<<<<<< HEAD
-    `regex check completed successfully for this type: ${type} of value: ${value} for this client: ${clientId} ====>>`,
-=======
     `regex check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
->>>>>>> vishnu
   );
 
   return {success:true};
@@ -246,7 +227,7 @@ const handleValidation = (type, value, res, TxnID,logger) => {
     });
     return false;
   }
-  const isValid = validateId(type, stringValue, storingClient, logger);
+  const isValid = validateId(type, stringValue, TxnID, logger);
 
   if (!isValid?.success) {
     logger.info(
