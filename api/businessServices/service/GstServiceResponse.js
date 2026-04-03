@@ -9,11 +9,10 @@ const GSTActiveServiceResponse = async (
   data,
   services,
   index = 0,
-  client = "",
+  TxnID = "",
 ) => {
-  const cid = client || "UN_KNOWN"
   console.log("GSTActiveServiceResponse called");
-  businessServiceLogger.info(`GSTActiveServiceResponse called for this client: ${cid} with value: ${data?.slice(-4)}`);
+  businessServiceLogger.info(`GSTActiveServiceResponse called for this with value: ${data?.slice(-4)}`);
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -22,7 +21,7 @@ const GSTActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return GSTActiveServiceResponse(data, services, index + 1);
+    return GSTActiveServiceResponse(data, services, index + 1, TxnID);
   }
 
   const serviceName = newService.providerId || "";
@@ -32,7 +31,7 @@ const GSTActiveServiceResponse = async (
   );
 
   try {
-    const res = await GSTApiCall(data, serviceName, client);
+    const res = await GSTApiCall(data, serviceName, TxnID);
 
     if (res?.success) {
       return res.data;
@@ -41,17 +40,17 @@ const GSTActiveServiceResponse = async (
     console.log(
       `[GSTActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return GSTActiveServiceResponse(data, services, index + 1);
+    return GSTActiveServiceResponse(data, services, index + 1, TxnID);
   } catch (err) {
     console.log(
       `[GSTActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return GSTActiveServiceResponse(data, services, index + 1);
+    return GSTActiveServiceResponse(data, services, index + 1, TxnID);
   }
 };
-const GSTApiCall = async (data, service, CID = "") => {
-  const tskId = await generateTransactionId(12);
+const GSTApiCall = async (data, service, TxnID = "") => {
+  const tskId = TxnID;
 
   const ApiData = {
     ZOOP: {
@@ -115,7 +114,7 @@ const GSTApiCall = async (data, service, CID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        cId: CID,
+        logger:businessServiceLogger
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -146,7 +145,7 @@ const GSTApiCall = async (data, service, CID = "") => {
   const obj = ApiResponse.data || ApiResponse;
   console.log(`[GSTApiCall] ${service} Response Object:`, JSON.stringify(obj));
   businessServiceLogger.info(
-    `[GSTApiCall] with service: ${service} Response Object: ${JSON.stringify(obj)} for this client: ${CID}`
+    `[GSTApiCall] with service: ${service} Response Object: ${JSON.stringify(obj)}`
   );
 
   let returnedObj = {};
@@ -209,7 +208,7 @@ const GSTApiCall = async (data, service, CID = "") => {
         obj.msg.toLowerCase().includes("no record")
       ) {
         employmentServiceLogger.info(
-          `[${service}] no record for this client: ${CID}`,
+          `[${service}] no record`,
         );
         return {
           success: false,
@@ -225,7 +224,7 @@ const GSTApiCall = async (data, service, CID = "") => {
       if (obj?.status !== 1) {
         console.log(`[${service}] Invalid status received → fallback`);
         console.log(
-          `[${service}] Invalid status received → fallback for this client: ${CID}`,
+          `[${service}] Invalid status received → fallback`,
         );
         return { success: false, data: null };
       }
@@ -269,7 +268,7 @@ const GSTtoPANActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client = "",
+  TxnID = "",
 ) => {
   console.log(
     "GSTtoPANActiveServiceResponse called",
@@ -290,28 +289,28 @@ const GSTtoPANActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return GSTtoPANActiveServiceResponse(data, services, index + 1);
+    return GSTtoPANActiveServiceResponse(data, services, index + 1, TxnID);
   }
 
   const serviceName = newService.providerId || "";
   console.log(`Trying service:`, newService);
 
   try {
-    const res = await GSTToPANApiCall(data, serviceName, client);
+    const res = await GSTToPANApiCall(data, serviceName, TxnID);
 
     if (res?.success) {
       return res.data;
     }
 
     console.log(`${serviceName} responded failure → trying next`);
-    return GSTtoPANActiveServiceResponse(data, services, index + 1);
+    return GSTtoPANActiveServiceResponse(data, services, index + 1, TxnID);
   } catch (err) {
     console.log(`Error from ${serviceName}:`, err.message);
-    return GSTtoPANActiveServiceResponse(data, services, index + 1);
+    return GSTtoPANActiveServiceResponse(data, services, index + 1, TxnID);
   }
 };
-const GSTToPANApiCall = async (data, service, CID = "") => {
-  const tskId = generateTransactionId(12);
+const GSTToPANApiCall = async (data, service, TxnID = "") => {
+  const tskId = TxnID;
 
   const ApiData = {
     TRUTHSCREEN: {
@@ -346,6 +345,7 @@ const GSTToPANApiCall = async (data, service, CID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        logger:businessServiceLogger
       });
       console.log(
         "[gst to Pan Api Call] TruthScreen API response:",
@@ -360,7 +360,7 @@ const GSTToPANApiCall = async (data, service, CID = "") => {
   const obj = ApiResponse.data || ApiResponse;
   console.log("obj ==>", obj);
   businessServiceLogger.info(
-    `[gst to pan api call] service: ${service} API response: ${JSON.stringify(obj)} for this client: ${CID}`,
+    `[gst to pan api call] service: ${service} API response: ${JSON.stringify(obj)}`,
   );
 
   let returnedObj = {};
@@ -371,7 +371,7 @@ const GSTToPANApiCall = async (data, service, CID = "") => {
     obj.msg.toLowerCase().includes("no record")
   ) {
     employmentServiceLogger.info(
-      `[${service}] no record for this client: ${CID}`,
+      `[${service}] no record`,
     );
     return {
       success: false,
@@ -387,7 +387,7 @@ const GSTToPANApiCall = async (data, service, CID = "") => {
   if (obj?.status !== 1) {
     console.log(`[${service}] Invalid status received → fallback`);
     console.log(
-      `[${service}] Invalid status received → fallback for this client: ${CID}`,
+      `[${service}] Invalid status received → fallback`,
     );
     return { success: false, data: null };
   }

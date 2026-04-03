@@ -2,7 +2,7 @@ const { businessServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const GstTaxpayerActiveServiceResponse = async (data, services=[], index = 0) => {
+const GstTaxpayerActiveServiceResponse = async (data, services = [], index = 0, TxnID = "") => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -13,7 +13,7 @@ const GstTaxpayerActiveServiceResponse = async (data, services=[], index = 0) =>
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return GstTaxpayerActiveServiceResponse(data, services, index + 1);
+        return GstTaxpayerActiveServiceResponse(data, services, index + 1, TxnID);
     }
 
     const serviceName = newService.providerId || "";
@@ -21,18 +21,18 @@ const GstTaxpayerActiveServiceResponse = async (data, services=[], index = 0) =>
     businessServiceLogger.info(`[GstTaxpayerActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await GstInTaxPayerApiCall(data, serviceName);
+        const res = await GstInTaxPayerApiCall(data, serviceName, TxnID);
 
         if (res?.success) {
             return res.data;
         }
 
         console.log(`[GstTaxpayerActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return GstTaxpayerActiveServiceResponse(data, services, index + 1);
+        return GstTaxpayerActiveServiceResponse(data, services, index + 1, TxnID);
 
     } catch (err) {
         console.log(`[GstTaxpayerActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return GstTaxpayerActiveServiceResponse(data, services, index + 1);
+        return GstTaxpayerActiveServiceResponse(data, services, index + 1, TxnID);
     }
 };
 
@@ -40,8 +40,8 @@ const GstTaxpayerActiveServiceResponse = async (data, services=[], index = 0) =>
 //         PAN API CALL (ALL SERVICES)
 // =======================================
 
-const GstInTaxPayerApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const GstInTaxPayerApiCall = async (data, service, TxnID = "") => {
+    const tskId = TxnID || await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
@@ -75,6 +75,7 @@ const GstInTaxPayerApiCall = async (data, service) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                logger: businessServiceLogger
             });
             console.log('[GstInTaxPayerApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 

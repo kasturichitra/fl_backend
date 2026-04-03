@@ -2,7 +2,7 @@ const { businessServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const IecActiveServiceResponse = async (data, services=[], index = 0) => {
+const IecActiveServiceResponse = async (data, services = [], index = 0, TxnID = "") => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -13,7 +13,7 @@ const IecActiveServiceResponse = async (data, services=[], index = 0) => {
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return IecActiveServiceResponse(data, services, index + 1);
+        return IecActiveServiceResponse(data, services, index + 1, TxnID);
     }
 
     const serviceName = newService.providerId || "";
@@ -21,18 +21,18 @@ const IecActiveServiceResponse = async (data, services=[], index = 0) => {
     businessServiceLogger.info(`[IecActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await IecApiCall(data, serviceName);
+        const res = await IecApiCall(data, serviceName, TxnID);
 
         if (res?.success) {
             return res.data;
         }
 
         console.log(`[IecActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return IecActiveServiceResponse(data, services, index + 1);
+        return IecActiveServiceResponse(data, services, index + 1, TxnID);
 
     } catch (err) {
         console.log(`[IecActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return IecActiveServiceResponse(data, services, index + 1);
+        return IecActiveServiceResponse(data, services, index + 1, TxnID);
     }
 };
 
@@ -40,8 +40,8 @@ const IecActiveServiceResponse = async (data, services=[], index = 0) => {
 //         TIN API CALL (ALL SERVICES)
 // =======================================
 
-const IecApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const IecApiCall = async (data, service, TxnID = "") => {
+    const tskId = TxnID || await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
@@ -75,6 +75,7 @@ const IecApiCall = async (data, service) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                logger: businessServiceLogger
             });
             console.log('[IecApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 

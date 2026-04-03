@@ -208,7 +208,7 @@ exports.InsuranceVerification = async (req, res) => {
         const errorObj = mapError(error);
         return res.status(errorObj.httpCode).json(errorObj);
     }
-}
+};
 
 exports.CharteredAccountantVerification = async (req, res) => {
     const { MembershipNumber, MobileNumber } = req.body;
@@ -783,4 +783,4 @@ exports.eSignAadhaarBased = async (req,res)=>{
     }catch(error){
 
     }
-}
+};
