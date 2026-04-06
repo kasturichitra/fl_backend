@@ -59,19 +59,6 @@ const accountPennyLessApiCall = async (data, service) => {
                 clientId: process.env.INVINCIBLE_CLIENT_ID,
                 secretKey: process.env.INVINCIBLE_SECRET_KEY,
             }
-        },
-        "TRUTHSCREEN": {
-            BodyData: {
-                transID: tskId,
-                docType: "92",
-                beneAccNo: account_no,
-                ifsc: ifsc,
-            },
-            url: process.env.TRUTNSCREEN_ACC_PENNYLESS_URL,
-            header: {
-                username: process.env.TRUTHSCREEN_USERNAME,
-                password: process.env.TRUTHSCREEN_TOKEN
-            }
         }
     };
 

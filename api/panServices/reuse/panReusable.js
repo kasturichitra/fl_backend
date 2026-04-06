@@ -3,7 +3,10 @@ const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
-const { encryptData, decryptData } = require("../../../utils/EncryptAndDecrypt");
+const {
+  encryptData,
+  decryptData,
+} = require("../../../utils/EncryptAndDecrypt");
 const { mapError } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
@@ -70,7 +73,7 @@ async function handleBillingAndRateLimit({
     serviceId,
     categoryId,
     clientId,
-    req
+    req,
   });
 
   if (!rateLimit.allowed) {
@@ -92,7 +95,7 @@ async function handleBillingAndRateLimit({
     serviceId,
     categoryId,
     txnId,
-    req
+    req,
   );
 
   if (!billing?.result) {
@@ -155,7 +158,13 @@ async function handleCacheHit({
 const reusablePanNumberFieldVerification = (panNo, client, res) => {
   const capitalPanNumber = panNo?.toUpperCase();
 
-  const isValid = handleValidation("pan", capitalPanNumber, res, client);
+  const isValid = handleValidation(
+    "pan",
+    capitalPanNumber,
+    res,
+    client,
+    panServiceLogger,
+  );
   if (!isValid) return false;
 
   panServiceLogger.info("All inputs in pan are valid, continue processing...");
@@ -177,13 +186,13 @@ async function handlePanVerification({
   const capitalPan = reusablePanNumberFieldVerification(
     panNumber,
     clientId,
-    res
+    res,
   );
   if (!capitalPan) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     serviceType,
-    clientId
+    clientId,
   );
 
   const categoryId = idOfCategory;
@@ -235,12 +244,7 @@ async function handlePanVerification({
     }
 
     // ✅ External service call
-    const apiResponse = await activeServiceFn(
-      capitalPan,
-      service,
-      0,
-      clientId
-    );
+    const apiResponse = await activeServiceFn(capitalPan, service, 0, clientId);
 
     if (apiResponse?.message?.toLowerCase() === "all services failed") {
       throw new Error("All services failed");
@@ -259,16 +263,20 @@ async function handlePanVerification({
         result: apiResponse.result,
       });
 
-      await model.create({
-        panNumber: encryptedPan,
-        response: result,
-        serviceResponse: apiResponse.responseOfService,
-        status: STATUS.VALID,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: apiResponse.service,
-        createdTime,
-        createdDate,
-      });
+      await model.findOneAndUpdate(
+        { panNumber: encryptedPan },
+        {
+          panNumber: encryptedPan,
+          response: result,
+          serviceResponse: apiResponse.responseOfService,
+          status: STATUS.VALID,
+          ...(mobileNumber && { mobileNumber }),
+          serviceName: apiResponse.service,
+          createdTime,
+          createdDate,
+        },
+        { upsert: true, new: true }, // creates if not found
+      );
 
       return res
         .status(200)
@@ -285,16 +293,20 @@ async function handlePanVerification({
       result: invalidResult,
     });
 
-    await model.create({
-      panNumber: encryptedPan,
-      response: invalidResult,
-      serviceResponse: {},
-      status: STATUS.INVALID,
-      ...(mobileNumber && { mobileNumber }),
-      serviceName: apiResponse.service,
-      createdTime,
-      createdDate,
-    });
+    await model.findOneAndUpdate(
+      { panNumber: encryptedPan },
+      {
+        panNumber: encryptedPan,
+        response: invalidResult,
+        serviceResponse: {},
+        status: STATUS.INVALID,
+        ...(mobileNumber && { mobileNumber }),
+        serviceName: apiResponse.service,
+        createdTime,
+        createdDate,
+      },
+      { upsert: true, new: true },
+    );
 
     return res
       .status(404)
@@ -311,5 +323,10 @@ async function handlePanVerification({
 }
 
 module.exports = {
-    handleBillingAndRateLimit, handleCacheHit, handlePanVerification, buildInvalidResponse, SERVICE_TYPES, reusablePanNumberFieldVerification
-}
+  handleBillingAndRateLimit,
+  handleCacheHit,
+  handlePanVerification,
+  buildInvalidResponse,
+  SERVICE_TYPES,
+  reusablePanNumberFieldVerification,
+};
