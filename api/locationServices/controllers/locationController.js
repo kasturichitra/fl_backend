@@ -359,7 +359,7 @@ exports.handleLongLatGeofencing = async (req, res) => {
       );
     }
 
-    locationServiceLogger.debug(
+    locationServiceLogger.info(
       `Checked for existing GSTIN record in DB: ${existingLongLatGeofencing ? "Found" : "Not Found"}`,
     );
     if (existingLongLatGeofencing) {
@@ -594,7 +594,7 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       );
     }
 
-    locationServiceLogger.debug(
+    locationServiceLogger.info(
       `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
     if (existingGstin) {
@@ -826,7 +826,7 @@ exports.handleDigiPinToLongLat = async (req, res) => {
       );
     }
 
-    locationServiceLogger.debug(
+    locationServiceLogger.info(
       `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
     if (existingGstin) {
@@ -1058,7 +1058,7 @@ exports.handleAddressToDigiPin = async (req, res) => {
       );
     }
 
-    locationServiceLogger.debug(
+    locationServiceLogger.info(
       `Checked for existing Address to digipin record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
     if (existingGstin) {
@@ -1300,7 +1300,7 @@ exports.handleGeoTagging = async (req, res) => {
       );
     }
 
-    locationServiceLogger.debug(
+    locationServiceLogger.info(
       `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
     if (existingGstin) {
@@ -1536,7 +1536,7 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
       );
     }
 
-    locationServiceLogger.debug(
+    locationServiceLogger.info(
       `Checked for existing Address to digipin record in DB: ${existingDistance ? "Found" : "Not Found"} for this client: ${clientId}`,
     );
     if (existingDistance) {

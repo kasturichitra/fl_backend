@@ -8,17 +8,22 @@ const Adhaardetails = new mongoose.Schema(
     response: {
       type: Object,
     },
+    serviceResponse: {
+      type: Object,
+    },
     status: {
       type: Number,
     },
     serviceName: {
       type: Number,
     },
-    message: {
+      createdTime: {
       type: String,
+      default: Date.now,
     },
-    success: {
-      type: Boolean,
+    createdDate: {
+      type: String,
+      default: Date.now,
     },
   },
   {

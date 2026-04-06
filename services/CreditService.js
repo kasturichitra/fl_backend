@@ -2,7 +2,7 @@ const chargesToBeDebited = require("../utils/chargesMaintainance");
 const creditsToBeDebited = require("../utils/creditsMaintainance");
 
 
-const deductCredits = async (clientId, serviceId, categoryId, TxnID, req,logger) => {
+const deductCredits = async (clientId, serviceId, categoryId, TxnID, req, logger) => {
     const environment = req.environment
     try {
         logger.info(`Deducting credits for client: ${clientId},txnId: ${TxnID} service: ${serviceId}, env: ${environment}`);

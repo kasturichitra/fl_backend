@@ -97,7 +97,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     });
   }
   const encryptedCreditCardNumber = encryptData(creditCardNumber);
-  bankServiceLogger.debug(
+  bankServiceLogger.info(
     `encryptedCreditCardNumber ====>>> ${encryptedCreditCardNumber}`,
   );
   bankServiceLogger.info(
@@ -106,7 +106,7 @@ const verifyFullCardNumber = async (req, res, next) => {
   const existingCreditCardNumber = await cardValidationModel.findOne({
     cardNumber: encryptedCreditCardNumber,
   });
-  bankServiceLogger.debug(
+  bankServiceLogger.info(
     `existingCreditCardNumber===> ${JSON.stringify(existingCreditCardNumber)}`,
   );
   bankServiceLogger.info(
@@ -176,7 +176,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       0,
       storingClient,
     );
-    bankServiceLogger.debug(
+    bankServiceLogger.info(
       `cardNumberResponse ===>> ${JSON.stringify(cardNumberResponse)}`,
     );
     const encryptedNumber = encryptData(creditCardNumber);

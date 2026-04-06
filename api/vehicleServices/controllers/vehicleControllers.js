@@ -120,7 +120,7 @@ exports.handleRcVerification = async (req, res) => {
       );
     }
 
-    vehicleServiceLogger.debug(
+    vehicleServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingRcNumber ? "Found" : "Not Found"}`,
     );
     if (existingRcNumber) {
@@ -585,7 +585,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
       );
     }
 
-    vehicleServiceLogger.debug(
+    vehicleServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingVehicleNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
     if (existingVehicleNumber) {
@@ -809,7 +809,7 @@ exports.handleChallanViaRc = async (req, res) => {
       );
     }
 
-    vehicleServiceLogger.debug(
+    vehicleServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
@@ -1068,7 +1068,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
       );
     }
 
-    vehicleServiceLogger.debug(
+    vehicleServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingLicenseNumber ? "Found" : "Not Found"}`,
     );
     if (existingLicenseNumber) {

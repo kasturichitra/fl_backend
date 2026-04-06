@@ -8,17 +8,22 @@ const digilockerDetails = new mongoose.Schema(
     response: {
       type: Object,
     },
+    serviceResponse: {
+      type: Object,
+    },
     status: {
       type: Number,
     },
     serviceName: {
-      type: Number,
-    },
-    message: {
       type: String,
     },
-    success: {
-      type: Boolean,
+    createdTime: {
+      type: String,
+      default: Date.now,
+    },
+    createdDate: {
+      type: String,
+      default: Date.now,
     },
   },
   {
@@ -26,6 +31,9 @@ const digilockerDetails = new mongoose.Schema(
   },
 );
 
-const digilockerverify = mongoose.model("digilockerverification", digilockerDetails);
+const digilockerverify = mongoose.model(
+  "digilockerverification",
+  digilockerDetails,
+);
 
 module.exports = digilockerverify;

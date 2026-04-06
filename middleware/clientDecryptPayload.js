@@ -42,7 +42,7 @@ exports.encryptPayload = async (req, res, next) => {
 const decrypt = (encryptedText, password) => {
 
     const key = generateKey(password);
-    commonLogger.debug(`encryptedText ===> ${encryptedText} ${typeof encryptedText}`);
+    commonLogger.info(`encryptedText ===> ${encryptedText} ${typeof encryptedText}`);
 
     if (typeof encryptedText !== "string") {
         throw new Error("Invalid encryptedText: must be a string");

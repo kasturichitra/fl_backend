@@ -5,9 +5,7 @@ const RapidApiBankModel = require("../models/BinApiBankModel");
 const handleValidation = require("../../../utils/lengthCheck");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { bankServiceLogger } = require("../../Logger/logger");
-const {
-  BinActiveServiceResponse,
-} = require("../service/BinServiceResponse");
+const { BinActiveServiceResponse } = require("../service/BinServiceResponse");
 const {
   IfscActiveServiceResponse,
 } = require("../service/IfscActiveServiceResponse");
@@ -39,7 +37,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
   if (!isValid) return;
 
   const encryptedBinNumber = encryptData(bin);
-  bankServiceLogger.debug(
+  bankServiceLogger.info(
     `encryptedBinNumber: ${encryptedBinNumber} for this client: ${storingClient} ====>>`,
   );
   bankServiceLogger.info(
@@ -60,7 +58,7 @@ exports.getCardDetailsByNumber = async (req, res) => {
       serviceId,
       categoryId,
       clientId: storingClient,
-      req
+      req,
     });
 
     if (!binRateLimitResult.allowed) {
@@ -78,7 +76,9 @@ exports.getCardDetailsByNumber = async (req, res) => {
 
     const tnId = genrateUniqueServiceId();
     console.log(`bin txn Id: ${tnId} for this client: ${storingClient}`);
-    bankServiceLogger.info(`bin txn Id: ${tnId} for this client: ${storingClient}`);
+    bankServiceLogger.info(
+      `bin txn Id: ${tnId} for this client: ${storingClient}`,
+    );
     const maintainanceResponse = await deductCredits(
       storingClient,
       serviceId,
@@ -238,14 +238,25 @@ exports.getBankDetailsByIfsc = async (req, res) => {
   const data = req.body;
   bankServiceLogger.info(`IFSC Code: ${ifsc}`);
   const storingClient = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  bankServiceLogger.info(
+    `IFSC search txn Id ===>> ${tnId} for the client: ${storingClient}`,
+  );
 
-  const isValid = await handleValidation("ifsc", ifsc, res, storingClient);
+  const isValid = await handleValidation(
+    "ifsc",
+    ifsc,
+    res,
+    tnId,
+    bankServiceLogger,
+  );
 
   if (!isValid) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "IFSC_SEARCH",
-    storingClient,
+    tnId,
+    bankServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -253,16 +264,21 @@ exports.getBankDetailsByIfsc = async (req, res) => {
   const serviceId = idOfService;
 
   // Common: hash identifier
-  const identifierHash = hashIdentifiers({
-    ifsc: ifsc,
-  });
+  const identifierHash = hashIdentifiers(
+    {
+      ifsc: ifsc,
+    },
+    bankServiceLogger,
+  );
 
   const ifscRateLimitResult = await checkingRateLimit({
     identifiers: { identifierHash },
     serviceId,
     categoryId,
     clientId: storingClient,
-    req
+    req,
+    TxnID: tnId,
+    logger: bankServiceLogger,
   });
 
   if (!ifscRateLimitResult.allowed) {
@@ -275,17 +291,14 @@ exports.getBankDetailsByIfsc = async (req, res) => {
     });
   }
 
-  const tnId = genrateUniqueServiceId();
-  bankServiceLogger.info(
-    `IFSC search txn Id ===>> ${tnId} for the client: ${storingClient}`,
-  );
   let maintainanceResponse;
   maintainanceResponse = await deductCredits(
     storingClient,
     serviceId,
     categoryId,
     tnId,
-    req.environment,
+    req,
+    bankServiceLogger,
   );
 
   if (!maintainanceResponse?.result) {
@@ -302,6 +315,9 @@ exports.getBankDetailsByIfsc = async (req, res) => {
     storingClient,
     serviceId,
     categoryId,
+    "success",
+    tnId,
+    bankServiceLogger,
   );
   if (!analyticsRes?.success) {
     return res.status(400).json({
@@ -311,33 +327,32 @@ exports.getBankDetailsByIfsc = async (req, res) => {
   }
 
   if (existingBankDetails) {
-    if (existingBankDetails?.status == 1) {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: existingBankDetails?.response,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      return res
-        .status(200)
-        .json(createApiResponse(200, existingBankDetails?.response, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: existingBankDetails?.response,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      return res
-        .status(404)
-        .json(createApiResponse(200, existingBankDetails?.response, "Invalid"));
-    }
+    const statusOne = existingBankDetails?.status == 1;
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      result: statusOne ? existingBankDetails?.response : { ifsc },
+      createdTime: new Date().toLocaleTimeString(),
+      createdDate: new Date().toLocaleDateString(),
+    });
+    return res
+      .status(statusOne ? 200 : 404)
+      .json(
+        createApiResponse(
+          statusOne ? 200 : 404,
+          statusOne ? existingBankDetails?.response : { ifsc },
+          statusOne ? "Valid" : "Invalid",
+        ),
+      );
   }
-  const service = await selectService(categoryId, serviceId);
+  const service = await selectService(
+    categoryId,
+    serviceId,
+    tnId,
+    req,
+    bankServiceLogger,
+  );
 
   try {
     const ifscResponse = await IfscActiveServiceResponse(
@@ -347,45 +362,43 @@ exports.getBankDetailsByIfsc = async (req, res) => {
       storingClient,
     );
     bankServiceLogger.info(
-      `Bank details fetched successfully: ${JSON.stringify(ifscResponse)}`,
+      `Response received from active service: ${ifscResponse?.service} with message: ${ifscResponse?.message} of response: ${JSON.stringify(ifscResponse)}`,
     );
-    if (ifscResponse) {
-      let saveData = await RapidApiBankModel({
-        Ifsc: ifsc,
-        status: 1,
-        response: ifscResponse?.result,
-        serviceName: ifscResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      });
-      let done = await saveData.save();
-      if (done) {
-        bankServiceLogger.info(
-          `Bank Data save to db successfully for this client: ${storingClient}`,
-        );
-      }
-      return res
-        .status(200)
-        .json(createApiResponse(200, ifscResponse?.result, "Valid"));
-    } else {
-      let saveData = await RapidApiBankModel({
-        Ifsc: ifsc,
-        status: 2,
-        response: ifscResponse?.result,
-        serviceName: ifscResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      });
-      let done = await saveData.save();
-      if (done) {
-        bankServiceLogger.info(
-          `Bank Data save to db successfully for this client: ${storingClient}`,
-        );
-      }
-      return res
-        .status(404)
-        .json(createApiResponse(404, ifscResponse?.result, "Invalid"));
+    const isValid = aadhaarResponse?.message?.toUpperCase() === "VALID";
+    const noRecord =
+      aadhaarResponse?.message?.toUpperCase() === "NO RECORD FOUND";
+    let done = await RapidApiBankModel.findOneAndUpdate(
+      { Ifsc: ifsc }, // search condition
+      {
+        $set: {
+          Ifsc: ifsc,
+          status: 1,
+          response: ifscResponse?.result,
+          serviceName: ifscResponse?.service,
+          createdDate: new Date().toLocaleDateString(),
+          createdTime: new Date().toLocaleTimeString(),
+        },
+      },
+      {
+        new: true, // return updated document
+        upsert: true, // create if not exists
+      },
+    );
+
+    if (done) {
+      bankServiceLogger.info(
+        `${isValid ? "Valid" : "Invalid"} Bank Data save to db successfully for this client: ${storingClient} with this txnId: ${tnId}`,
+      );
     }
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          isValid ? ifscResponse?.result : { ifsc },
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
   } catch (error) {
     bankServiceLogger.error(
       `Error fetching Bank info through ifsc for this client: ${storingClient}: ${error.message}`,

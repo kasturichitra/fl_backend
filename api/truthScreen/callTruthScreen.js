@@ -34,7 +34,7 @@ function encrypt(plainText, password) {
 function decrypt(encryptedText, password) {
   const key = generateKey(password);
 
-  commonLogger.debug(
+  commonLogger.info(
     `encryptedText ===> ${encryptedText} ${typeof encryptedText}`,
   );
 
@@ -53,7 +53,7 @@ function decrypt(encryptedText, password) {
 }
 
 async function encryptingData(encryptedData, username) {
-  commonLogger.debug(`encryptedData in decreptData ${encryptedData}`);
+  commonLogger.info(`encryptedData in decreptData ${encryptedData}`);
   const url = "https://www.truthscreen.com/InstantSearch/encrypted_string";
   const payload = encryptedData;
 
@@ -64,7 +64,7 @@ async function encryptingData(encryptedData, username) {
 
   const decreptedresponse = await axios.post(url, payload, { headers });
 
-  commonLogger.debug(
+  commonLogger.info(
     `response in decreptData ${JSON.stringify(decreptedresponse?.data)}`,
   );
 
@@ -78,7 +78,7 @@ async function callTruthScreen({ url, payload, username, password }) {
   try {
     const encryptedData = await encryptingData(payload, username);
 
-    commonLogger.debug(
+    commonLogger.info(
       `encryptedData in truth screen ====>>> ${JSON.stringify(encryptedData?.data)}`,
     );
 
@@ -94,13 +94,13 @@ async function callTruthScreen({ url, payload, username, password }) {
     );
 
     commonLogger.info(`HTTP Status: ${response?.status}`);
-    commonLogger.debug(
+    commonLogger.info(
       `response in shop establishment truth screen ====>>> ${JSON.stringify(response?.data)}`,
     );
 
     const encryptedResponseData = response?.data;
 
-    commonLogger.debug(
+    commonLogger.info(
       `encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`,
     );
 
@@ -172,13 +172,13 @@ async function callTruthScreenAPI({
     );
 
     logger.info(`HTTP Status: ${response?.status}`);
-    logger.debug(
+    logger.info(
       `response in truth screen ====>>> ${JSON.stringify(response?.data)}`,
     );
 
     const encryptedResponseData =
       response?.data?.responseData || response?.data;
-    logger.debug(
+    logger.info(
       `encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`,
     );
 
@@ -266,13 +266,13 @@ async function callTruthScreenAPIForImage({
     });
 
     commonLogger.info(`HTTP Status: ${response?.status}`);
-    commonLogger.debug(
+    commonLogger.info(
       `response in truth screen ====>>> ${JSON.stringify(response?.data)} for this client ${cId}`,
     );
 
     const encryptedResponseData =
       response?.data?.responseData || response?.data;
-    commonLogger.debug(
+    commonLogger.info(
       `encryptedResponseData ====>>> ${JSON.stringify(encryptedResponseData)}`,
     );
 
@@ -312,7 +312,7 @@ async function callTruthScreenAPIForImage({
 }
 
 async function decreptData(encryptedData, username) {
-  commonLogger.debug(`encryptedData in decreptData ${encryptedData}`);
+  commonLogger.info(`encryptedData in decreptData ${encryptedData}`);
   const url =
     "https://www.truthscreen.com/InstantSearch/decrypt_encrypted_string";
   const payload = encryptedData;
@@ -324,7 +324,7 @@ async function decreptData(encryptedData, username) {
 
   const decreptedresponse = await axios.post(url, payload, { headers });
 
-  commonLogger.debug(
+  commonLogger.info(
     `response in decreptData ${JSON.stringify(decreptedresponse?.data)}`,
   );
 
@@ -332,7 +332,7 @@ async function decreptData(encryptedData, username) {
 }
 
 async function encryptData(encrypt, username) {
-  commonLogger.debug(`encryptedData in decreptData ${encrypt}`);
+  commonLogger.info(`encryptedData in decreptData ${encrypt}`);
   const url = "https://www.truthscreen.com/api/v2.2/faceapi/tokenEncrypt";
 
   const form = new FormData();
@@ -346,7 +346,7 @@ async function encryptData(encrypt, username) {
     },
   });
 
-  commonLogger.debug(
+  commonLogger.info(
     `response in decreptData ${JSON.stringify(decreptedresponse?.data)}`,
   );
 
@@ -370,7 +370,7 @@ async function callTruth({ url, payload, username, password }) {
       },
     });
 
-    commonLogger.debug(
+    commonLogger.info(
       `response in first step of face verification ${JSON.stringify(response?.data)}`,
     );
 
@@ -418,7 +418,7 @@ async function performFaceVerificationEncrypted({
 
   const encryptedPayload = await encryptData(secretToken, username);
 
-  commonLogger.debug(
+  commonLogger.info(
     `encryptedPayload in face -------->>> ${encryptedPayload}`,
   );
 
@@ -451,7 +451,7 @@ async function performFaceVerificationEncrypted({
       },
     );
 
-    commonLogger.debug(
+    commonLogger.info(
       `Response in performFaceVerificationEncrypted: ${JSON.stringify(response.data)}`,
     );
 

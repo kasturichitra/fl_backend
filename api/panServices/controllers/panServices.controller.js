@@ -206,7 +206,7 @@ exports.verifyPanNameMatch = async (req, res) => {
       nameToMatch: nameToMatch,
     });
 
-    panServiceLogger.debug(
+    panServiceLogger.info(
       `Checked for existing PAN NameMatch record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
 
@@ -462,7 +462,7 @@ exports.verifyPanNameDob = async (req, res) => {
       dateOfBirth: dateOfBirth,
     });
 
-    panServiceLogger.debug(
+    panServiceLogger.info(
       `Checked for existing PAN NameDob record in DB: ${existingPanNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
 
@@ -711,7 +711,7 @@ exports.handlePanTanVerification = async (req, res) => {
       tanNumber: encryptedTan,
     });
 
-    panServiceLogger.debug(
+    panServiceLogger.info(
       `Checked for existing PAN To Father name record in DB: ${existingPanTanResponse ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
 
@@ -949,7 +949,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
       panNumber: encryptedPan,
     });
 
-    panServiceLogger.debug(
+    panServiceLogger.info(
       `Checked for existing PAN To Father name record in DB: ${existingPanNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
 

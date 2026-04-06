@@ -385,7 +385,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       );
     }
 
-    employmentServiceLogger.debug(
+    employmentServiceLogger.info(
       `Checked for existing dual employment record in DB: ${existingUanNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
     if (existingUanNumber) {
@@ -641,7 +641,7 @@ exports.handleForm16Verification = async (req, res) => {
       );
     }
 
-    employmentServiceLogger.debug(
+    employmentServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {

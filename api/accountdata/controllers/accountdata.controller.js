@@ -96,7 +96,7 @@ exports.verifyPennyDropBankAccount = async (req, res, next) => {
 
     // 4. CHECK IN THE DB IS DATA PRESENT 
     const encryptedAccountNumber = encryptData(account_no);
-    bankServiceLogger.debug(`Encrypted account number for DB lookup`);
+    bankServiceLogger.info(`Encrypted account number for DB lookup`);
 
     const existingAccountDetails = await accountdataModel.findOne({
       accountNo: encryptedAccountNumber,
@@ -275,7 +275,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
     categoryId = "",
   } = req.body;
   const data = req.body;
-  bankServiceLogger.debug(`account_no, ifsc===> ${account_no}, ${ifsc}`);
+  bankServiceLogger.info(`account_no, ifsc===> ${account_no}, ${ifsc}`);
   bankServiceLogger.info(
     `Account Details ===>> Acc_No: ${account_no} Ifsc: ${ifsc}`,
   );
@@ -364,8 +364,8 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       });
     }
 
-    bankServiceLogger.debug(
-      `Checked for existing Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"}`,
+    bankServiceLogger.info(
+      `Checked for existing Account record in DB: ${existingAccountDetails ? "Found" : "Not Found"} for this txnId: ${tnId} of client: ${clientId}`,
     );
     if (existingAccountDetails) {
       bankServiceLogger.info(

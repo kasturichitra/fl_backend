@@ -2267,7 +2267,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
     }
 
     const encryptedUdhyam = encryptData(capitalUdyamNumber);
-    businessServiceLogger.debug(`Encrypted Udyam number for DB lookup`);
+    businessServiceLogger.info(`Encrypted Udyam number for DB lookup`);
 
     const existingUdhyamNumber = await udhyamVerify.findOne({
       udyamNumber: encryptedUdhyam,
@@ -2284,7 +2284,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
       );
     }
 
-    businessServiceLogger.debug(
+    businessServiceLogger.info(
       `Checked for existing Udyam record in DB: ${existingUdhyamNumber ? "Found" : "Not Found"}`,
     );
 
