@@ -26,13 +26,19 @@ const checkingRateLimit = async ({
       projectId: process.env.PROJECT_ID,
     };
 
-    const rateLimitResponse = await axios.post(
-      RATE_LIMIT_URL,
-      {
+    const payLoad =  {
         serviceId,
         categoryId,
         clientId,
-      },
+      }
+
+    logger.info(
+      `TxnID:${TxnID}, Rate limit payload to super admin: ${JSON.stringify(payLoad)}`,
+    );
+
+    const rateLimitResponse = await axios.post(
+      RATE_LIMIT_URL,
+     payLoad,
       { headers: headers },
     );
 

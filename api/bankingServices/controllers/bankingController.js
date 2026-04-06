@@ -96,7 +96,7 @@ exports.handleBSAViaNetBanking = async (req, res) => {
       );
     }
 
-    bankServiceLogger.debug(
+    bankServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
@@ -772,7 +772,7 @@ exports.CibilVerification = async (req, res) => {
 //       );
 //     }
 
-//     bankServiceLogger.debug(
+//     bankServiceLogger.info(
 //       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
 //     );
 //     if (existingPanNumber) {

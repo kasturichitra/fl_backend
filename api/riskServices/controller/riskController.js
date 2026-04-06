@@ -98,7 +98,7 @@ exports.handleDomainVerification = async (req, res) => {
       );
     }
 
-    riskServiceLogger.debug(
+    riskServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
@@ -340,7 +340,7 @@ exports.handleAdvanceProfile = async (req, res) => {
       );
     }
 
-    riskServiceLogger.debug(
+    riskServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {
@@ -582,7 +582,7 @@ exports.handleDomainVerification = async (req, res) => {
       );
     }
 
-    riskServiceLogger.debug(
+    riskServiceLogger.info(
       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
     );
     if (existingPanNumber) {

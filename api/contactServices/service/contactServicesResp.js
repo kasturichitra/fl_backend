@@ -54,10 +54,10 @@ const mobileToPanApiCall = async (data, service, CID) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "64",
-        docNumber: data,
+        docType: "589",
+        mobile_number: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTNSCREEN_MOBILE_TO_PAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -84,44 +84,46 @@ const mobileToPanApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: contactServiceLogger,
       });
-      console.log(
-        "[pan to gst api call] TruthScreen API response:",
-        JSON.stringify(ApiResponse),
-      );
     }
   } catch (error) {
-    console.log(
-      `[pan to gst api call] API Error in ${service}:`,
+    contactServiceLogger.info(
+      `[mobile to pan api call] API Error in ${service}:`,
       error.message,
     );
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse;
-  console.log(
-    `[pan to gst api call] ${service} API Response Object:`,
-    JSON.stringify(obj),
+  const obj = ApiResponse?.result;
+  contactServiceLogger.info(
+    `[mobile to pan api call] ${service} API Response Object: ${JSON.stringify(obj)}`,
   );
 
   let returnedObj = {};
 
-  if (obj.status != "1") {
+  if (obj?.status == 9 && obj?.msg?.toLowerCase().includes("went wrong")) {
+    contactServiceLogger.info(
+      `active service: ${service} failed for this client: ${CID}`,
+    );
     return {
       success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
-      },
+      data: null,
     };
+  }
+
+  if (obj.status != 1) {
+    contactServiceLogger.info(
+      `[${service}] Invalid status received → fallback for this client: ${CID}`,
+    );
+    return { success: false, data: null };
   }
 
   switch (service) {
     case "TRUTHSCREEN":
       returnedObj = {
-        ...(obj?.msg || ""),
+        ...(obj?.data || ""),
       };
       break;
   }
@@ -130,7 +132,7 @@ const mobileToPanApiCall = async (data, service, CID) => {
     data: {
       result: returnedObj,
       message: "Valid",
-      responseOfService: obj?.msg,
+      responseOfService: obj?.data,
       service: service,
     },
   };
@@ -143,7 +145,10 @@ const mobileToUanActiveServiceResponse = async (
   client,
 ) => {
   console.log("mobileToUanActiveServiceResponse called");
-  if (index >= services?.length) {
+  if (index > services?.length) {
+    contactServiceLogger.info(
+      `index: ${index} is more than service length ${services?.length} for client: ${client}`,
+    );
     return { success: false, message: "All services failed" };
   }
 
@@ -185,11 +190,11 @@ const mobileToUanApiCall = async (data, service, CID) => {
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
-        transID: tskId,
-        docType: "64",
-        docNumber: data,
+        trans_id: tskId,
+        doc_type: 526,
+        mobile_number: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -216,38 +221,45 @@ const mobileToUanApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: contactServiceLogger,
       });
-      console.log(
-        "[pan to gst api call] TruthScreen API response:",
-        JSON.stringify(ApiResponse),
-      );
     }
   } catch (error) {
     console.log(
-      `[pan to gst api call] API Error in ${service}:`,
+      `[pan to uan api call] API Error in ${service}:`,
+      error.message,
+    );
+    contactServiceLogger.info(
+      `[pan to uan api call] API Error in ${service}:`,
       error.message,
     );
     return { success: false, data: null }; // fallback trigger
   }
 
   const obj = ApiResponse;
-  console.log(
-    `[pan to gst api call] ${service} API Response Object:`,
+  contactServiceLogger.info(
+    `[pan to uan api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 
   let returnedObj = {};
 
-  if (obj.status != "1") {
+  if (obj?.status == 9 && obj?.msg?.toLowerCase().includes("went wrong")) {
+    contactServiceLogger.info(
+      `active service: ${service} failed for this client: ${CID}`,
+    );
     return {
       success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
-      },
+      data: null,
     };
+  }
+
+  if (obj.status != "1") {
+    contactServiceLogger.info(
+      `[${service}] Invalid status received → fallback for this client: ${CID}`,
+    );
+    return { success: false, data: null };
   }
 
   switch (service) {

@@ -26,7 +26,7 @@ const PANDobActiveServiceResponse = async (data, services = [], index = 0, clien
   try {
     const res = await panDobApiCall(data, serviceName, 0);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 

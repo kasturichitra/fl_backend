@@ -120,7 +120,7 @@ exports.handleVoterIdVerify = async (req, res) => {
       );
     }
 
-    governmentServiceLogger.debug(
+    governmentServiceLogger.info(
       `Checked for existing voter id verfication record in DB: ${existingVoterId ? "Found" : "Not Found"}`,
     );
     if (existingVoterId) {
@@ -374,7 +374,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
       );
     }
 
-    governmentServiceLogger.debug(
+    governmentServiceLogger.info(
       `Checked for existing passport verification record in DB: ${existingPassport ? "Found" : "Not Found"}`,
     );
     if (existingPassport) {
@@ -640,7 +640,7 @@ exports.handleElectricityBill = async (req, res) =>{
       );
     }
 
-    governmentServiceLogger.debug(
+    governmentServiceLogger.info(
       `Checked for existing passport verification record in DB: ${existingPassport ? "Found" : "Not Found"}`,
     );
     if (existingPassport) {
@@ -914,7 +914,7 @@ exports.handlePassportVerify = async (req, res) => {
       );
     }
 
-    governmentServiceLogger.debug(
+    governmentServiceLogger.info(
       `Checked for existing passport verification record in DB: ${existingPassport ? "Found" : "Not Found"}`,
     );
     if (existingPassport) {
@@ -1187,7 +1187,7 @@ exports.handlePassportOcrVerify = async (req, res) => {
       );
     }
 
-    governmentServiceLogger.debug(
+    governmentServiceLogger.info(
       `Checked for existing passport verification record in DB: ${existingPassport ? "Found" : "Not Found"}`,
     );
     if (existingPassport) {

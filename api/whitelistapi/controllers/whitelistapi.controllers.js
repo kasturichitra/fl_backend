@@ -11,7 +11,7 @@ const addWhitelistApi = async (req, res, next) => {
     commonLogger.info(`Add white List API ===> ${JSON.stringify(req.body)}`);
     try {
         const { MerchatID, ip_address, comments } = req.body;
-        commonLogger.debug(`merchantid and whitelist: ${MerchatID}, ${ip_address}, ${comments}`);
+        commonLogger.info(`merchantid and whitelist: ${MerchatID}, ${ip_address}, ${comments}`);
         if (!ip_address) {
             return res.status(400).json({ message: "Whitelist IP is required", success: false });
         }
@@ -54,7 +54,7 @@ const addWhitelistApi = async (req, res, next) => {
 };
 
 const GetWhitelistApi = async (req, res, next) => {
-    commonLogger.debug(`get white list ip are ==> ${JSON.stringify(req.params)}`);
+    commonLogger.info(`get white list ip are ==> ${JSON.stringify(req.params)}`);
     try {
         const { MerchatId } = req.params;
         if (!MerchatId) {

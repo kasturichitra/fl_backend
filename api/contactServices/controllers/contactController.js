@@ -17,6 +17,8 @@ const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const mobileToPanModel = require("../models/mobileToPanModel");
 const mobileToUanModel = require("../models/mobileToUanModel");
+const { contactServiceLogger } = require("../../Logger/logger");
+const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
 
 async function handleMobileVerification({
   req,
@@ -27,12 +29,17 @@ async function handleMobileVerification({
 }) {
   const { mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const txnId = genrateUniqueServiceId();
 
-  if (!handleValidation("mobile", mobileNumber, res, clientId)) return;
+  if (
+    !handleValidation("mobile", mobileNumber, res, txnId, contactServiceLogger)
+  )
+    return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     serviceKey,
-    clientId,
+    txnId,
+    contactServiceLogger,
   );
 
   const now = new Date();
@@ -40,13 +47,16 @@ async function handleMobileVerification({
   const createdDate = now.toLocaleDateString();
 
   try {
-    const identifierHash = hashIdentifiers({ mobileNumber });
+    const identifierHash = hashIdentifiers({ mobileNumber }, contactServiceLogger);
 
     const rateLimit = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId: idOfService,
       categoryId: idOfCategory,
       clientId,
+      req,
+      TxnID: txnId,
+      logger: contactServiceLogger,
     });
 
     if (!rateLimit.allowed) {
@@ -55,14 +65,13 @@ async function handleMobileVerification({
         .json({ success: false, message: rateLimit.message });
     }
 
-    const txnId = genrateUniqueServiceId();
-
     const credits = await deductCredits(
       clientId,
       idOfService,
       idOfCategory,
       txnId,
       req,
+      contactServiceLogger,
     );
 
     if (!credits?.result) {
@@ -73,7 +82,29 @@ async function handleMobileVerification({
 
     const existing = await model.findOne({ mobileNumber: mobileNumber });
 
+    contactServiceLogger.info(
+      `Checked for existing record for service: ${serviceKey} in DB: ${existing ? "Found" : "Not Found"} for this client: ${clientId}`,
+    );
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "success",
+      txnId,
+      contactServiceLogger,
+    );
+
+    if (!analyticsResult?.success) {
+      contactServiceLogger.info(
+        `[FAILED]: Analytics update failed for service: ${serviceKey} client ${clientId}, service ${idOfService}`,
+      );
+    }
+
     if (existing) {
+      contactServiceLogger.info(
+        `Existing Response sent for service: ${serviceKey} client ${clientId}, service ${idOfService}`,
+      );
       await responseModel.create({
         serviceId: idOfService,
         categoryId: idOfCategory,
@@ -93,18 +124,33 @@ async function handleMobileVerification({
         );
     }
 
-    const service = await selectService(idOfCategory, idOfService);
-    if (!service) return res.status(404).json(ERROR_CODES.NOT_FOUND);
+    const service = await selectService(
+      idOfCategory,
+      idOfService,
+      txnId,
+      req,
+      contactServiceLogger,
+    );
+    if (!service.length) return res.status(404).json(ERROR_CODES.NOT_FOUND);
 
-    const response = await activeServiceFn(mobileNumber, service, 0);
+    const contactResponse = await activeServiceFn(mobileNumber, service, 0);
 
-    const isValid = response?.message?.toUpperCase() === "VALID";
+    contactServiceLogger.info(
+      `Response received from active service ${contactResponse?.service} for service: ${serviceKey} with message: ${contactResponse?.message} of response: ${JSON.stringify(contactResponse)}`,
+    );
+
+    if (contactResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
+    const isValid = contactResponse?.message?.toUpperCase() === "VALID";
 
     await responseModel.create({
       serviceId: idOfService,
       categoryId: idOfCategory,
       clientId,
-      result: isValid ? response?.result : { mobileNumber },
+      TxnID: txnId,
+      result: isValid ? contactResponse?.result : { mobileNumber },
       createdTime,
       createdDate,
     });
@@ -114,9 +160,10 @@ async function handleMobileVerification({
 
     const update = {
       $set: {
-        response: response?.result,
+        response: contactResponse?.result,
         status: isValid ? 1 : 2,
-        serviceName: response?.service,
+        serviceName: contactResponse?.service,
+        serviceResponse: contactResponse?.responseOfService,
         createdDate,
         createdTime,
       },
@@ -142,7 +189,7 @@ async function handleMobileVerification({
     contactServiceLogger.info(
       `${
         isValid ? "Valid" : "Invalid"
-      } ${serviceKey} response stored and sent to client: ${storingClient}`,
+      } ${serviceKey} response stored and sent to client: ${clientId}`,
     );
 
     return res
@@ -150,11 +197,25 @@ async function handleMobileVerification({
       .json(
         createApiResponse(
           isValid ? 200 : 404,
-          response?.result || { mobileNumber },
+          contactResponse?.result || { mobileNumber },
           isValid ? "Valid" : "Invalid",
         ),
       );
   } catch (error) {
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      txnId,
+      contactServiceLogger,
+    );
+
+    if (!analyticsResult?.success) {
+      contactServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: client ${clientId}, service ${idOfService}`,
+      );
+    }
     const err = mapError(error);
     return res.status(err.httpCode).json(err);
   }
@@ -225,7 +286,9 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
     }
 
     const tnId = genrateUniqueServiceId();
-    contactServiceLogger.info(`Generated advance mobile data search txn Id: ${tnId}`);
+    contactServiceLogger.info(
+      `Generated advance mobile data search txn Id: ${tnId}`,
+    );
 
     const maintainanceResponse = await deductCredits(
       storingClient,
@@ -250,7 +313,7 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
       mobileNumber: encryptedPan,
     });
 
-    contactServiceLogger.debug(
+    contactServiceLogger.info(
       `Checked for existing PAN NameDob record in DB: ${existingMobileNumber ? "Found" : "Not Found"}`,
     );
 
@@ -366,7 +429,7 @@ exports.handleAdvanceMobileDataOtp = async (req, res) => {
 
 exports.handleAdvanceMobileDataOtpVerify = async (req, res) => {
   const data = req.body;
-  const { otp = "", transactionId= "" } = data;
+  const { otp = "", transactionId = "" } = data;
   const storingClient = req.clientId;
   const isValid = handleValidation("otp", otp, res, storingClient);
   if (!isValid) return;
@@ -375,7 +438,7 @@ exports.handleAdvanceMobileDataOtpVerify = async (req, res) => {
     "All inputs in pan are valid, continue processing...",
   );
 
-   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "ADVANCE_MOBILE_DATA",
     storingClient,
   );
