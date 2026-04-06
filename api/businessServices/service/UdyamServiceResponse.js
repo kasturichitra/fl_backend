@@ -6,7 +6,7 @@ const udyamActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client = "",
+  TxnID = ""
 ) => {
   businessServiceLogger.info("udyamActiveServiceResponse called");
   if (index >= services?.length) {
@@ -20,7 +20,7 @@ const udyamActiveServiceResponse = async (
     businessServiceLogger.info(
       `No service with priority ${index + 1}, trying next`,
     );
-    return udyamActiveServiceResponse(data, services, index + 1);
+    return udyamActiveServiceResponse(data, services, index + 1, TxnID);
   }
 
   const serviceName = newService.providerId || "";
@@ -30,9 +30,9 @@ const udyamActiveServiceResponse = async (
   );
 
   try {
-    const res = await udyamApiCall(data, serviceName, (client = ""));
+    const res = await udyamApiCall(data, serviceName, TxnID);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
@@ -42,7 +42,7 @@ const udyamActiveServiceResponse = async (
     businessServiceLogger.info(
       `[udyamActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return udyamActiveServiceResponse(data, services, index + 1);
+    return udyamActiveServiceResponse(data, services, index + 1, TxnID);
   } catch (err) {
     console.log(
       `[udyamActiveServiceResponse] Error from ${serviceName}:`,
@@ -52,12 +52,12 @@ const udyamActiveServiceResponse = async (
       `[udyamActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return udyamActiveServiceResponse(data, services, index + 1);
+    return udyamActiveServiceResponse(data, services, index + 1, TxnID);
   }
 };
 
-const udyamApiCall = async (data, service, client = "") => {
-  const transID = generateTransactionId(12);
+const udyamApiCall = async (data, service, TxnID = "") => {
+  const transID = TxnID || generateTransactionId(12);
 
   const ApiData = {
     INVINCIBLE: {
@@ -97,7 +97,7 @@ const udyamApiCall = async (data, service, client = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
-        cId: client,
+        logger: businessServiceLogger
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {

@@ -2,7 +2,7 @@ const { businessServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const LeiActiveServiceResponse = async (data, services=[], index = 0) => {
+const LeiActiveServiceResponse = async (data, services = [], index = 0, TxnID = "") => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -13,7 +13,7 @@ const LeiActiveServiceResponse = async (data, services=[], index = 0) => {
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return LeiActiveServiceResponse(data, services, index + 1);
+        return LeiActiveServiceResponse(data, services, index + 1, TxnID);
     }
 
     const serviceName = newService.providerId || "";
@@ -21,18 +21,18 @@ const LeiActiveServiceResponse = async (data, services=[], index = 0) => {
     businessServiceLogger.info(`[LeiActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
-        const res = await LeiApiCall(data, serviceName);
+        const res = await LeiApiCall(data, serviceName, TxnID);
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 
         console.log(`[LeiActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return LeiActiveServiceResponse(data, services, index + 1);
+        return LeiActiveServiceResponse(data, services, index + 1, TxnID);
 
     } catch (err) {
         console.log(`[LeiActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return LeiActiveServiceResponse(data, services, index + 1);
+        return LeiActiveServiceResponse(data, services, index + 1, TxnID);
     }
 };
 
@@ -40,8 +40,8 @@ const LeiActiveServiceResponse = async (data, services=[], index = 0) => {
 //         TIN API CALL (ALL SERVICES)
 // =======================================
 
-const LeiApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const LeiApiCall = async (data, service, TxnID = "") => {
+    const tskId = TxnID || await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
@@ -75,6 +75,7 @@ const LeiApiCall = async (data, service) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                logger: businessServiceLogger
             });
             console.log('[LeiApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 

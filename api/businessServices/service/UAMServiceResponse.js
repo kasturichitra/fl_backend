@@ -2,7 +2,7 @@ const { businessServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const UamActiveServiceResponse = async (data, services = [], ActiveSerice, index = 0) => {
+const UamActiveServiceResponse = async (data, services = [], ActiveSerice, index = 0, TxnID = "") => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
@@ -13,7 +13,7 @@ const UamActiveServiceResponse = async (data, services = [], ActiveSerice, index
 
     if (!newService) {
         console.log(`No service with priority ${index + 1}, trying next`);
-        return UamActiveServiceResponse(data, services, index + 1);
+        return UamActiveServiceResponse(data, services, ActiveSerice, index + 1, TxnID);
     }
 
     const serviceName = newService.providerId || "";
@@ -26,23 +26,23 @@ const UamActiveServiceResponse = async (data, services = [], ActiveSerice, index
         let res;
         switch (ActiveSerice) {
             case "UamApiCall":
-                res = await UamApiCall(data, serviceName);
+                res = await UamApiCall(data, serviceName, TxnID);
                 break;
             case "UamwithPhoneApiCall":
-                res = await UamwithPhoneApiCall(data, serviceName);
+                res = await UamwithPhoneApiCall(data, serviceName, TxnID);
                 break;
         }
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 
         console.log(`[UamActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return UamActiveServiceResponse(data, services, index + 1);
+        return UamActiveServiceResponse(data, services, ActiveSerice, index + 1, TxnID);
 
     } catch (err) {
         console.log(`[UamActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return UamActiveServiceResponse(data, services, index + 1);
+        return UamActiveServiceResponse(data, services, ActiveSerice, index + 1, TxnID);
     }
 };
 
@@ -50,8 +50,8 @@ const UamActiveServiceResponse = async (data, services = [], ActiveSerice, index
 //         TIN API CALL (ALL SERVICES)
 // =======================================
 
-const UamApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const UamApiCall = async (data, service, TxnID = "") => {
+    const tskId = TxnID || await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
@@ -85,6 +85,7 @@ const UamApiCall = async (data, service) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                logger: businessServiceLogger
             });
             console.log('[UamApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 
@@ -149,8 +150,8 @@ const UamApiCall = async (data, service) => {
     };
 };
 
-const UamwithPhoneApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const UamwithPhoneApiCall = async (data, service, TxnID = "") => {
+    const tskId = TxnID || await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {
@@ -185,6 +186,7 @@ const UamwithPhoneApiCall = async (data, service) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                logger: businessServiceLogger
             });
             console.log('[UamApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 

@@ -41,7 +41,7 @@ const smsOtpActiveServiceResponse = async (
   try {
     const res = await smsApiCall(data, serviceName);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 

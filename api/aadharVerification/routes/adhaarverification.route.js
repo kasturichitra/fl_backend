@@ -8,7 +8,7 @@ const adhaarverificationController = require('../controllers/adhaarverification.
 aadhaarRouter.post('/Aadhaarmaskedverify', adhaarverificationController.handleAadhaarMaskedVerify);
 aadhaarRouter.post('/digilocker/verify', adhaarverificationController.handleDigilockerAccountVerify);
 
-aadhaarRouter.post("/initiate",adhaarverificationController.initiateAadhaarDigilocker)
-aadhaarRouter.post("/status",adhaarverificationController.checkAadhaarDigilockerStatus)
+aadhaarRouter.post("/initiate",adhaarverificationController.initiateAadhaarDigilocker);
+aadhaarRouter.post("/status",adhaarverificationController.checkAadhaarDigilockerStatus);
 
 module.exports = aadhaarRouter;

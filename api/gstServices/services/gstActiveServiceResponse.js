@@ -39,14 +39,7 @@ const gstActiveServiceResponse = async (
         break;
     }
 
-    if (res?.success) {
-      if (
-        typeof res.data === "object" &&
-        res.data !== null &&
-        !Array.isArray(res.data)
-      ) {
-        return { ...res.data, success: true };
-      }
+    if (res?.data) {
       return res.data;
     }
 

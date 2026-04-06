@@ -23,10 +23,12 @@ const governmentIdRouter = require("../api/governmentIdServices/routes/governmen
 const locationRouter = require("../api/locationServices/routes/locationRoutes.js");
 const riskRouter = require("../api/riskServices/routes/riskRoutes.js");
 const faceAndAiRouter = require("../api/FaceAndAiServices/routes/faceRoutes.js");
+const professionalRoute = require("../api/ProfessionalServices/routes/professional.routes.js");
 
 //Routes
 mainRouter.use("/pan", panRouter);
 mainRouter.use("/business", businessRouters);
+mainRouter.use("/professional", professionalRoute);
 mainRouter.use("/aadhaar", aadhaarRouter);
 mainRouter.use("/mobileNumber", otpRouter);
 // mainRouter.use("/email", sendEmail);

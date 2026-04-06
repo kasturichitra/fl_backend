@@ -30,6 +30,7 @@ const { GstTaxpayerActiveServiceResponse } = require("../service/gstinTaxpayerSe
 const { GSTtoPANActiveServiceResponse, GSTActiveServiceResponse } = require("../service/GstServiceResponse.js");
 const { findingInValidResponses } = require("../../../utils/InvalidResponses.js");
 const { IecActiveServiceResponse } = require("../service/iecServiceResp.js");
+const { LeiActiveServiceResponse } = require("../service/leiServiceResponse.js");
 const { udyamActiveServiceResponse } = require("../service/UdyamServiceResponse.js");
 const udhyamVerify = require("../module/udyamModel.js");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds.js");
@@ -176,7 +177,7 @@ exports.dinVerification = async (req, res) => {
     businessServiceLogger.info(`txnId: ${TxnID}, Active service selected for DIN verification: ${service}`);
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await DinActiveServiceResponse(dinNumber, service, 0);
+    let response = await DinActiveServiceResponse(dinNumber, service, 0, TxnID);
 
     businessServiceLogger.info(`txnId: ${TxnID}, Active service selected for DINverification service ${response.service}: ${response?.message}`);
 
@@ -207,7 +208,11 @@ exports.dinVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await din_verifyModel.create(storingData);
+      await din_verifyModel.findOneAndUpdate(
+        { dinNumber: encryptedDin },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `Valid DIN response stored and sent to client: ${clientId}`,
       );
@@ -240,7 +245,11 @@ exports.dinVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await din_verifyModel.create(storingData);
+      await din_verifyModel.findOneAndUpdate(
+        { dinNumber: encryptedDin },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(`txnId: ${TxnID}, Invalid DIN response received and sent to client: ${clientId}`);
       return res.status(404).json(createApiResponse(404, { dinNumber: dinNumber }, "Failed"));
     }
@@ -253,61 +262,63 @@ exports.dinVerification = async (req, res) => {
   }
 };
 
-// GST IN VERIFY ✔️
+// GST IN VERIFY ✔️ (zoop)
 exports.gstinverify = async (req, res, next) => {
   const { gstinNumber, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!gstinNumber) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  businessServiceLogger.info(`GSTIN NUMBER Details: ${gstinNumber}`);
+  businessServiceLogger.info(` TxnID:${TxnID}, GSTIN NUMBER Details: ${gstinNumber}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTIN', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTIN', TxnID, businessServiceLogger);
 
     const capitalGstNumber = gstinNumber?.toUpperCase();
 
-    const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
+    const isValid = handleValidation("gstin", capitalGstNumber, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
-    businessServiceLogger.info(`Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+    businessServiceLogger.info(`TxnID:${TxnID}, Executing GSTIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
     //1. HASH DIN NUMBER
     const identifierHash = hashIdentifiers({
       gstNo: capitalGstNumber,
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const gstRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
-      clientId: clientId,
-      req: req
+      clientId,
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!gstRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for GSTIN verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for GSTIN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: gstRateLimitResult.message,
       });
     }
-
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated GSTIN txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated GSTIN txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.error(`[FAILED]: Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.error(`TxnID:${TxnID}, [FAILED]: Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -328,15 +339,17 @@ exports.gstinverify = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]: Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for GSTIN verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+      `txnId: ${TxnID}, Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
@@ -353,6 +366,7 @@ exports.gstinverify = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -364,11 +378,12 @@ exports.gstinverify = async (req, res, next) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached GSTIN response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached GSTIN response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -382,22 +397,22 @@ exports.gstinverify = async (req, res, next) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
     businessServiceLogger.info(
-      `Active service selected for GSTIN verification: ${service}`,
+      `txnId: ${TxnID}, Active service selected for GSTIN verification: ${service}`,
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
-    let response = await GSTActiveServiceResponse(gstinNumber, service, 0);
+    let response = await GSTActiveServiceResponse(gstinNumber, service, 0, TxnID);
     businessServiceLogger.info(
-      `Response received from active service ${response.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Response received from active service ${response.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -409,6 +424,7 @@ exports.gstinverify = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -426,9 +442,13 @@ exports.gstinverify = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_verifyModel.create(storingData);
+      await gstin_verifyModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true });
+
       businessServiceLogger.info(
-        `Valid GSTIN response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid GSTIN response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -437,6 +457,7 @@ exports.gstinverify = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           gstinNumber: gstinNumber,
@@ -458,9 +479,12 @@ exports.gstinverify = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_verifyModel.create(storingData);
+      await gstin_verifyModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true });
       businessServiceLogger.info(
-        `Invalid GSTIN response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid GSTIN response received and sent to client: ${clientId}`,
       );
       return res
         .status(404)
@@ -468,7 +492,7 @@ exports.gstinverify = async (req, res, next) => {
     }
   } catch (error) {
     businessServiceLogger.error(
-      `System error in GSTIN verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in GSTIN verification for client ${clientId}: ${error.message}`,
       error,
     );
     const errorObj = mapError(error);
@@ -483,53 +507,58 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
     mobileNumber = "",
   } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!gstinNumber) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  businessServiceLogger.info(`gstin NUMBER Details: ${gstinNumber}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, GSTIN TO PAN Details: ${gstinNumber}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTOPAN', TxnID, businessServiceLogger);
 
     const capitalGstNumber = gstinNumber?.toUpperCase();
-    const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
+    const isValid = handleValidation("gstin", capitalGstNumber, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
     businessServiceLogger.info(
-      `Executing GSTIN TO PAN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing GSTIN TO PAN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     const identifierHash = hashIdentifiers({
       gstNo: capitalGstNumber,
-    });
+    }, businessServiceLogger);
 
     const gstRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!gstRateLimitResult.allowed) {
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for GSTIN TO PAN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: gstRateLimitResult.message,
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`GSTIN txn Id ===>> ${tnId}`);
+    businessServiceLogger.info(`Generated GSTIN TO PAN txn Id: ${TxnID}`);
 
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
+      TxnID,
       req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for GSTIN TO PAN verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -545,21 +574,23 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]: Analytics update failed for GST to PAN verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for GST to PAN verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing GST to PAN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+      `txnId: ${TxnID}, Checked for existing GST to PAN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
 
     if (existingGstin) {
       if (existingGstin?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached GST to PAN response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached GST to PAN response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -569,7 +600,8 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
-          clientId: clientId,
+          TxnID,
+          clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -580,12 +612,13 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached GST to PAN response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached GST to PAN response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
-          clientId: clientId,
+          TxnID,
+          clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -597,20 +630,20 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
 
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for GST to PAN category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for GST to PAN category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
     businessServiceLogger.info(
-      `gst inverify activer service ${JSON.stringify(service)}`,
+      `txnId: ${TxnID}, Active service selected for GST to PAN verification: ${service}`,
     );
 
-    let response = await GSTtoPANActiveServiceResponse(gstinNumber, service, 0);
+    let response = await GSTtoPANActiveServiceResponse(gstinNumber, service, 0, TxnID);
 
     if (response?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = {
@@ -620,7 +653,8 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: clientId,
+        TxnID,
+        clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -635,7 +669,14 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_panModel.create(storingData);
+      await gstin_panModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      )
+      businessServiceLogger.info(
+        `txnId: ${TxnID}, Valid GST to PAN response stored and sent to client: ${clientId}`,
+      );
       return res
         .status(200)
         .json(createApiResponse(200, response?.result, "Success"));
@@ -643,7 +684,8 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: clientId,
+        TxnID,
+        clientId,
         result: {
           gstinNumber: gstinNumber
         },
@@ -662,13 +704,20 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_panModel.create(storingData);
+      await gstin_panModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      )
+      businessServiceLogger.info(
+        `txnId: ${TxnID}, Invalid GST to PAN response received and sent to client: ${clientId}`,
+      );
       return res
         .status(404)
         .json(createApiResponse(404, { gstinNumber }, "Failed"));
     }
   } catch (error) {
-    businessServiceLogger.error(`Error performing GSTIN verification:${error}`);
+    businessServiceLogger.error(`txnId: ${TxnID}, Error performing GSTIN TO PAN verification: ${error.message}`, error);
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
   }
 };
@@ -678,24 +727,27 @@ exports.gstInTaxPayerVerification = async (req, res) => {
   const { gstinNumber, mobileNumber = "", } = req.body;
   const clientId = req.clientId;
   const isClient = req.role;
+  const TxnID = await generateTransactionId(12);
+
   if (!gstinNumber) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
+  businessServiceLogger.info(`TxnID:${TxnID}, GSTIN TAXPAYER Details: ${gstinNumber}`);
 
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINTAXPAYER', TxnID, businessServiceLogger);
     const capitalGstNumber = gstinNumber?.toUpperCase();
 
-    const isValid = handleValidation("gstin", capitalGstNumber, res, clientId);
+    const isValid = handleValidation("gstin", capitalGstNumber, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
     businessServiceLogger.info(
-      `GSTIN TAXPAYER VERIFICATION, CLIENTID:${clientId}, SERVICEID:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`,
+      `TxnID:${TxnID}, Executing GSTIN TAXPAYER verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
     // 1. HASH THE DATA
     const identifierHash = hashIdentifiers({
       gstNo: capitalGstNumber,
-    });
+    }, businessServiceLogger);
 
     // 2. CHECK THE RATE LIMIT AND CHECK IS PRODUCT IS SUBSCRIBE
     const gstRateLimitResult = await checkingRateLimit({
@@ -703,27 +755,30 @@ exports.gstInTaxPayerVerification = async (req, res) => {
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!gstRateLimitResult.allowed) {
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for GSTIN TAXPAYER verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json(createApiResponse(429, null, gstRateLimitResult?.message))
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`GSTIN TAXPAYER VERIFICATION txnID:${tnId}, CLIENTID:${clientId}`);
+    businessServiceLogger.info(`Generated GSTIN TAXPAYER txnID: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT ON THE USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
-    businessServiceLogger.info(`GSTIN TAXPAYER VERIFICATION txnID:${tnId}, CLIENTID:${clientId}, maintainanceResponse:${JSON.stringify(maintainanceResponse)}`);
 
     if (!maintainanceResponse?.result) {
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for GSTIN TAXPAYER verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json(createApiResponse(500, {}, maintainanceResponse?.message || 'Invalid'))
     };
 
@@ -737,21 +792,23 @@ exports.gstInTaxPayerVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.warn(
-        `Analytics update failed for GST Taxpayers verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Analytics update failed for GST Taxpayers verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing GST Taxpayers record in DB: ${existingGstin ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing GST Taxpayers record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
 
     if (existingGstin) {
       if (existingGstin?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached GSTIN Taxpayers response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached GSTIN Taxpayers response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -761,6 +818,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -772,11 +830,12 @@ exports.gstInTaxPayerVerification = async (req, res) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached GSTIN Taxpayers response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached GSTIN Taxpayers response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -790,25 +849,22 @@ exports.gstInTaxPayerVerification = async (req, res) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
 
-    businessServiceLogger.info(
-      `Active service selected for GSTIN verification: ${service}`,
-    );
     if (!service.length) {
       businessServiceLogger.warn(
-        `Active service not found for GSTIN Taxpayers category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Active service not found for GSTIN Taxpayers category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
     businessServiceLogger.info(
-      `GSTIN Taxpayers inverify activer service ${JSON.stringify(service)}`,
+      `txnId: ${TxnID}, Active service selected for GSTIN TAXPAYER: ${service}`,
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await GstTaxpayerActiveServiceResponse(gstinNumber, service, 0, req);
+    let response = await GstTaxpayerActiveServiceResponse(gstinNumber, service, 0, TxnID);
     businessServiceLogger.info(
-      `Response received from active service ${response.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Response received from active service ${response.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -820,6 +876,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -837,9 +894,13 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstInTaxpayer.create(storingData);
+      await gstInTaxpayer.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Valid GSTIN Taxpayer response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid GSTIN Taxpayer response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -848,6 +909,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           gstinNumber: gstinNumber
@@ -869,9 +931,13 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstInTaxpayer.create(storingData);
+      await gstInTaxpayer.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Invalid GSTIN TaxPayers response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid GSTIN TaxPayers response received and sent to client: ${clientId}`,
       );
       return res
         .status(404)
@@ -880,8 +946,8 @@ exports.gstInTaxPayerVerification = async (req, res) => {
 
 
   } catch (error) {
-    businessServiceLogger.info(
-      `GSTIN TAXPAYER VERIFICATION, GSTNO:${gstinNumber}, ERRORMESSAGE;${error.message}`,
+    businessServiceLogger.error(
+      `txnId: ${TxnID}, System error in GSTIN TAXPAYER verification for client ${clientId}: ${error.message}`, error
     );
     return res.status(500).json(createApiResponse(500, null, 'SERVER ERROR'));
   }
@@ -891,50 +957,56 @@ exports.gstInTaxPayerVerification = async (req, res) => {
 exports.gstinViewAndTrack = async (req, res) => {
   const { gstinNumber, Financialyear, mobileNumber } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
+
   if (!gstinNumber || !Financialyear) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   };
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINVIEWANDTRACK', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('GSTINVIEWANDTRACK', TxnID, businessServiceLogger);
     const capitalGstNumber = gstinNumber?.toUpperCase();
 
-    const isValid = handleValidation('gstin', capitalGstNumber, req, clientId);
+    const isValid = handleValidation('gstin', capitalGstNumber, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
-    businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION, CLIENTID:${clientId}, SERVICEiD:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`)
+    businessServiceLogger.info(`TxnID:${TxnID}, GSTIN VIEWANDTRACK VERIFICATION, CLIENTID:${clientId}, SERVICEiD:${serviceId}, CATEGORYID:${categoryId}, GSTNO:${gstinNumber}`)
 
     // 1. HASH THE DATA
     const identifierHash = hashIdentifiers({
       gstNo: capitalGstNumber,
       Financialyear
-    });
+    }, businessServiceLogger);
 
     // 2. CHECK THE RATE LIMIT AND CHECK IS PRODUCT IS SUBSCRIBE
     const gstRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
-      clientId, req
+      clientId,
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!gstRateLimitResult.allowed) {
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for GSTIN VIEWANDTRACK verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json(createApiResponse(429, null, gstRateLimitResult?.message))
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION txnID:${tnId}, CLIENTID:${clientId}`);
+    businessServiceLogger.info(`Generated GSTIN VIEWANDTRACK txnID: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT ON THE USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
-    businessServiceLogger.info(`GSTIN VIEWANDTRACK VERIFICATION txnID:${tnId}, CLIENTID:${clientId}, maintainanceResponse:${JSON.stringify(maintainanceResponse)}`);
 
     if (!maintainanceResponse?.result) {
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for GSTIN VIEWANDTRACK verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json(createApiResponse(500, {}, maintainanceResponse?.message || 'Invalid'))
     };
 
@@ -948,21 +1020,23 @@ exports.gstinViewAndTrack = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.warn(
-        `Analytics update failed for GSTIN VIEWANDTRACK verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Analytics update failed for GSTIN VIEWANDTRACK verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing GSTIN VIEWANDTRACK record in DB: ${existingGstin ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing GSTIN VIEWANDTRACK record in DB: ${existingGstin ? "Found" : "Not Found"}`,
     );
 
     if (existingGstin) {
       if (existingGstin?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached GSTIN VIEWANDTRACK Taxpayers response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached GSTIN VIEWANDTRACK Taxpayers response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -972,6 +1046,7 @@ exports.gstinViewAndTrack = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -983,11 +1058,12 @@ exports.gstinViewAndTrack = async (req, res) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached GSTIN VIEWANDTRACK response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached GSTIN VIEWANDTRACK response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingGstin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1001,25 +1077,22 @@ exports.gstinViewAndTrack = async (req, res) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
 
-    businessServiceLogger.info(
-      `Active service selected for GSTIN VIEWANDTRACK verification: ${service}`,
-    );
     if (!service.length) {
       businessServiceLogger.warn(
-        `Active service not found for GSTIN VIEWANDTRACK Taxpayers category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Active service not found for GSTIN VIEWANDTRACK Taxpayers category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
     businessServiceLogger.info(
-      `GSTIN VIEWANDTRACK inverify activer service ${JSON.stringify(service)}`,
+      `txnId: ${TxnID}, Active service selected for GSTIN VIEWANDTRACK verification: ${service}`,
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await GstInViewAndTrackActiveServiceRes({ gstinNumber, Financialyear }, service, 0);
+    let response = await GstInViewAndTrackActiveServiceRes({ gstinNumber, Financialyear }, service, 0, TxnID);
     businessServiceLogger.info(
-      `Response received from active service ${response?.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Response received from active service ${response?.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -1031,6 +1104,7 @@ exports.gstinViewAndTrack = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -1049,9 +1123,13 @@ exports.gstinViewAndTrack = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await GstinViewTrackModel.create(storingData);
+      await GstinViewTrackModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Valid GSTIN VIEWANDTRACK response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid GSTIN VIEWANDTRACK response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -1060,6 +1138,7 @@ exports.gstinViewAndTrack = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           gstinNumber: gstinNumber
@@ -1081,9 +1160,13 @@ exports.gstinViewAndTrack = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstInTaxpayer.create(storingData);
+      await GstinViewTrackModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Invalid GSTIN VIEWANDTRACK response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid GSTIN VIEWANDTRACK response received and sent to client: ${clientId}`,
       );
       return res
         .status(404)
@@ -1091,8 +1174,8 @@ exports.gstinViewAndTrack = async (req, res) => {
     };
 
   } catch (error) {
-    businessServiceLogger.info(
-      `GSTIN VIEWANDTRACK VERIFICATION, GSTNO:${gstinNumber}, ERRORMESSAGE;${error.message}`,
+    businessServiceLogger.error(
+      `txnId: ${TxnID}, System error in GSTIN VIEWANDTRACK verification for client ${clientId}: ${error.message}`, error
     );
     return res.status(500).json(createApiResponse(500, null, 'SERVER ERROR'));
   }
@@ -1102,26 +1185,27 @@ exports.gstinViewAndTrack = async (req, res) => {
 exports.handleCINVerification = async (req, res, next) => {
   const { CIN, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!CIN) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   };
 
-  businessServiceLogger.info(`CIN NUMBER Details: ${CIN}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, CIN NUMBER Details: ${CIN}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CIN', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CIN', TxnID, businessServiceLogger);
 
-    const isCinValid = handleValidation("cin", CIN, res, clientId);
+    const isCinValid = handleValidation("cin", CIN, res, TxnID, businessServiceLogger);
     if (!isCinValid) return;
 
     businessServiceLogger.info(
-      `Executing CIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing CIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH DIN NUMBER
     const identifierHash = hashIdentifiers({
       CIN
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const cinRateLimitResult = await checkingRateLimit({
@@ -1129,31 +1213,33 @@ exports.handleCINVerification = async (req, res, next) => {
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!cinRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for CIN verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for CIN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: cinRateLimitResult.message,
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated CIN txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated CIN txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.info(`[FAILED]: Credit deduction failed for DIN verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for CIN verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -1173,22 +1259,24 @@ exports.handleCINVerification = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]:  Analytics update failed for CIN verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for CIN verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing CIN record in DB: ${existingCIN ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing CIN record in DB: ${existingCIN ? "Found" : "Not Found"}`,
     );
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingCIN) {
       if (existingCIN?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached CIN response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached CIN response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -1198,6 +1286,7 @@ exports.handleCINVerification = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingCIN?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1209,11 +1298,12 @@ exports.handleCINVerification = async (req, res, next) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached Cin response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached Cin response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingCIN?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1227,23 +1317,23 @@ exports.handleCINVerification = async (req, res, next) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
 
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for CIN category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for CIN category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     };
 
     businessServiceLogger.info(
-      `Active service selected for CIN verification: ${service}`
+      `txnId: ${TxnID}, Active service selected for CIN verification: ${service}`
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await CinActiveServiceResponse(CIN, service, 'CinApiCall', 0);
+    let response = await CinActiveServiceResponse(CIN, service, 'CinApiCall', 0, TxnID);
 
-    businessServiceLogger.info(`Active service selected for CINverification service ${response?.service}: ${response?.message}`);
+    businessServiceLogger.info(`txnId: ${TxnID}, Active service selected for CINverification service ${response?.service}: ${response?.message}`);
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
     if (response?.message?.toUpperCase() == "VALID") {
@@ -1254,6 +1344,7 @@ exports.handleCINVerification = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -1271,9 +1362,13 @@ exports.handleCINVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await IncorporationCertificateModel.create(storingData);
+      await IncorporationCertificateModel.findOneAndUpdate(
+        { CIN: encryptedCIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Valid CIN response stored and sent to client: ${clientId}`
+        `txnId: ${TxnID}, Valid CIN response stored and sent to client: ${clientId}`
       );
       return res
         .status(200)
@@ -1283,7 +1378,8 @@ exports.handleCINVerification = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: clientId,
+        TxnID,
+        clientId,
         result: {
           cinNumber: CIN
         },
@@ -1305,16 +1401,19 @@ exports.handleCINVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       }
 
-      await IncorporationCertificateModel.create(storingData);
-
+      await IncorporationCertificateModel.findOneAndUpdate(
+        { CIN: encryptedCIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Invalid CIN response received and sent to client: ${clientId}`
+        `txnId: ${TxnID}, Invalid CIN response received and sent to client: ${clientId}`
       );
       return res.status(404).json(createApiResponse(404, { CinNUmber: CIN }, 'Failed'));
     }
   } catch (error) {
     businessServiceLogger.error(
-      `System error in CIN verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in CIN verification for client ${clientId}: ${error.message}`,
       error
     );
     const errorObj = mapError(error);
@@ -1326,26 +1425,27 @@ exports.handleCINVerification = async (req, res, next) => {
 exports.CompanVerification = async (req, res, next) => {
   const { CompanyName, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!CompanyName) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   };
 
-  businessServiceLogger.info(`CompanyName List Details: ${CompanyName}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, CompanyName List Details: ${CompanyName}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', TxnID, businessServiceLogger);
 
-    const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
+    const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, TxnID, businessServiceLogger);
     if (!isCompanyNameValid) return;
 
     businessServiceLogger.info(
-      `Executing CompanyName list verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing CompanyName list verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH DIN NUMBER
     const identifierHash = hashIdentifiers({
       CompanyName
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const CompanyNameRateLimitResult = await checkingRateLimit({
@@ -1353,31 +1453,33 @@ exports.CompanVerification = async (req, res, next) => {
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!CompanyNameRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for CompanyName list verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for CompanyName list verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: CompanyNameRateLimitResult.message,
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated CompanyName txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated CompanyName txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.info(`[FAILED]: Credit deduction failed for CompanyName list verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for CompanyName list verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -1397,22 +1499,24 @@ exports.CompanVerification = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]:  Analytics update failed for CompanyName list verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for CompanyName list verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing CompanyName list record in DB: ${existingCompanyName ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing CompanyName list record in DB: ${existingCompanyName ? "Found" : "Not Found"}`,
     );
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingCompanyName) {
       if (existingCompanyName?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached CompanyName list response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached CompanyName list response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -1422,6 +1526,7 @@ exports.CompanVerification = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingCompanyName?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1433,11 +1538,12 @@ exports.CompanVerification = async (req, res, next) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached CompanyName list response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached CompanyName list response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingCompanyName?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1451,24 +1557,24 @@ exports.CompanVerification = async (req, res, next) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
 
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for CompanyName list category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for CompanyName list category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     };
 
     businessServiceLogger.info(
-      `Active service selected for CompanyName verification: ${service}`
+      `txnId: ${TxnID}, Active service selected for CompanyName list verification: ${service}`
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await CinActiveServiceResponse(CompanyName, service, 'CompanyListApiCall', 0);
+    let response = await CinActiveServiceResponse(CompanyName, service, 'CompanyListApiCall', 0, TxnID);
 
     businessServiceLogger.info(
-      `Active service selected for CompanyName list verification service ${response?.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Active service selected for CompanyName list verification service ${response?.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -1480,6 +1586,7 @@ exports.CompanVerification = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -1497,9 +1604,13 @@ exports.CompanVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await companyLIstVerification.create(storingData);
+      await companyLIstVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Valid CompanyName list response stored and sent to client: ${clientId}`
+        `txnId: ${TxnID}, Valid CompanyName list response stored and sent to client: ${clientId}`
       );
       return res
         .status(200)
@@ -1509,7 +1620,8 @@ exports.CompanVerification = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: clientId,
+        TxnID,
+        clientId,
         result: {
           CompanyName: CompanyName
         },
@@ -1531,16 +1643,20 @@ exports.CompanVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       }
 
-      await companyLIstVerification.create(storingData);
+      await companyLIstVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
 
       businessServiceLogger.info(
-        `Invalid CompanyName list response received and sent to client: ${clientId}`
+        `txnId: ${TxnID}, Invalid CompanyName list response received and sent to client: ${clientId}`
       );
       return res.status(404).json(createApiResponse(404, { CompanyName: CompanyName }, 'Failed'));
     }
   } catch (error) {
     businessServiceLogger.error(
-      `System error in CompanyName list verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in CompanyName list verification for client ${clientId}: ${error.message}`,
       error
     );
     const errorObj = mapError(error);
@@ -1552,26 +1668,27 @@ exports.CompanVerification = async (req, res, next) => {
 exports.CompanSearchVerification = async (req, res, next) => {
   const { CompanyName, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!CompanyName) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   };
 
-  businessServiceLogger.info(`CompanyName Details: ${CompanyName}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, CompanyName Details: ${CompanyName}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CompanyName', TxnID, businessServiceLogger);
 
-    const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, clientId);
+    const isCompanyNameValid = handleValidation("CompanyName", CompanyName, res, TxnID, businessServiceLogger);
     if (!isCompanyNameValid) return;
 
     businessServiceLogger.info(
-      `Executing CompanyName verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing CompanyName verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH DIN NUMBER
     const identifierHash = hashIdentifiers({
       CompanyName
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const CompanyNameRateLimitResult = await checkingRateLimit({
@@ -1579,31 +1696,33 @@ exports.CompanSearchVerification = async (req, res, next) => {
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!CompanyNameRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for CompanyName verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for CompanyName verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: CompanyNameRateLimitResult.message,
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated CompanyName txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated CompanyName txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.info(`[FAILED]: Credit deduction failed for CompanyName verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for CompanyName verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -1623,22 +1742,24 @@ exports.CompanSearchVerification = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]:  Analytics update failed for CompanyName verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for CompanyName verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing CompanyName record in DB: ${existingCompanyName ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing CompanyName record in DB: ${existingCompanyName ? "Found" : "Not Found"}`,
     );
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingCompanyName) {
       if (existingCompanyName?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached CompanyName list response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached CompanyName response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -1648,6 +1769,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingCompanyName?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1659,11 +1781,12 @@ exports.CompanSearchVerification = async (req, res, next) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached CompanyName list response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached CompanyName response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingCompanyName?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1677,24 +1800,24 @@ exports.CompanSearchVerification = async (req, res, next) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
 
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for CompanyName list category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for CompanyName category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     };
 
     businessServiceLogger.info(
-      `Active service selected for CompanyName list verification: ${service}`
+      `txnId: ${TxnID}, Active service selected for CompanyName verification: ${service}`
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await CinActiveServiceResponse(CompanyName, service, 'CompanySearchApiCall', 0, clientId);
+    let response = await CinActiveServiceResponse(CompanyName, service, 'CompanySearchApiCall', 0, TxnID);
 
     businessServiceLogger.info(
-      `Active service selected for CompanyName list verification service ${response?.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Active service selected for CompanyName verification service ${response?.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -1706,6 +1829,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -1723,9 +1847,13 @@ exports.CompanSearchVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await cinCompanyVerification.create(storingData);
+      await cinCompanyVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Valid CompanyName list response stored and sent to client: ${clientId}`
+        `txnId: ${TxnID}, Valid CompanyName response stored and sent to client: ${clientId}`
       );
       return res
         .status(200)
@@ -1735,7 +1863,8 @@ exports.CompanSearchVerification = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: clientId,
+        TxnID,
+        clientId,
         result: {
           CompanyName: CompanyName
         },
@@ -1755,18 +1884,22 @@ exports.CompanSearchVerification = async (req, res, next) => {
         message: response?.message,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
-      }
+      };
 
-      await cinCompanyVerification.create(storingData);
+      await cinCompanyVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
 
       businessServiceLogger.info(
-        `Invalid CompanyName list response received and sent to client: ${clientId}`
+        `txnId: ${TxnID}, Invalid CompanyName response received and sent to client: ${clientId}`
       );
       return res.status(404).json(createApiResponse(404, { CompanyName: CompanyName }, 'Failed'));
     }
   } catch (error) {
     businessServiceLogger.error(
-      `System error in CompanyName list verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in CompanyName verification for client ${clientId}: ${error.message}`,
       error
     );
     const errorObj = mapError(error);
@@ -1778,56 +1911,58 @@ exports.CompanSearchVerification = async (req, res, next) => {
 exports.handleTINVerification = async (req, res) => {
   const { TIN, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!TIN) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
 
-  businessServiceLogger.info(`TIN Number Details: ${TIN}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, TIN Number Details: ${TIN}`);
   try {
-
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', TxnID, businessServiceLogger);
 
     businessServiceLogger.info(
-      `Executing TIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing TIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH TIN NUMBER
-    const indetifierHash = hashIdentifiers({
+    const identifierHash = hashIdentifiers({
       TIN
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const tinRateLimitResult = await checkingRateLimit({
-      identifiers: { indetifierHash },
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!tinRateLimitResult.allowed) {
-      businessServiceLogger.warn(`Rate limit exceeded for TIN verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.warn(`Rate limit exceeded for TIN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: tinRateLimitResult.message,
       });
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated TIN txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated TIN txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.error(`Credit deduction failed for TIN verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.error(`TxnID:${TxnID}, Credit deduction failed for TIN verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -1845,31 +1980,34 @@ exports.handleTINVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.warn(
-        `Analytics update failed for TIN verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Analytics update failed for TIN verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing TIN record in DB: ${existingTin ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing TIN record in DB: ${existingTin ? "Found" : "Not Found"}`,
     );
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingTin) {
       if (existingTin?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached TIN response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached TIN response for client: ${clientId}`,
         );
 
         const decrypted = {
           ...existingTin?.response,
-          tinNumber: tinNumber,
+          tinNumber: TIN,
         };
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingTin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1881,11 +2019,12 @@ exports.handleTINVerification = async (req, res) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached din response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached TIN response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingTin?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -1899,18 +2038,22 @@ exports.handleTINVerification = async (req, res) => {
     };
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
     if (!service.length) {
       businessServiceLogger.warn(
-        `Active service not found for TIN category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Active service not found for TIN category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await TinActiveServiceResponse(TIN, service, 0);
     businessServiceLogger.info(
-      `Response receivedb TIN from active service ${response?.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Active service selected for TIN verification: ${service}`
+    );
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    let response = await TinActiveServiceResponse(TIN, service, 0, TxnID);
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Response received TIN from active service ${response?.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -1922,6 +2065,7 @@ exports.handleTINVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -1939,9 +2083,13 @@ exports.handleTINVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await tin_verifyModel.create(storingData);
+      await tin_verifyModel.findOneAndUpdate(
+        { TIN: encryptedtTIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Valid DIN response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid TIN response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -1950,6 +2098,7 @@ exports.handleTINVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           tinNumber: TIN
@@ -1971,9 +2120,13 @@ exports.handleTINVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await tin_verifyModel.create(storingData);
+      await tin_verifyModel.findOneAndUpdate(
+        { TIN: encryptedtTIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
-        `Invalid TIN response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid TIN response received and sent to client: ${clientId}`,
       );
       return res
         .status(404)
@@ -1982,7 +2135,7 @@ exports.handleTINVerification = async (req, res) => {
 
   } catch (error) {
     businessServiceLogger.error(
-      `System error in TIN verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in TIN verification for client ${clientId}: ${error.message}`,
       error,
     );
     const errorObj = mapError(error);
@@ -1990,54 +2143,56 @@ exports.handleTINVerification = async (req, res) => {
   }
 };
 
-//IEC VERIFICATION
 exports.handleIECVerification = async (req, res) => {
   const { IEC, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!IEC) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
 
-  businessServiceLogger.info(`IEC Number Details: ${IEC}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, IEC Number Details: ${IEC}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('IEC', clientId);
-    businessServiceLogger.info(`Executing IEC verfication for client:${clientId}, service: ${serviceId}, category: ${categoryId}`)
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('IEC', TxnID, businessServiceLogger);
+    businessServiceLogger.info(`TxnID:${TxnID}, Executing IEC verification for client:${clientId}, service: ${serviceId}, category: ${categoryId}`)
 
     //1. HASH IEC NUMBER
-    const indetifierHash = hashIdentifiers({ iecNumber: IEC });
+    const identifierHash = hashIdentifiers({ iecNumber: IEC }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const iecRateLimitResult = await checkingRateLimit({
-      identifiers: { indetifierHash },
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!iecRateLimitResult.allowed) {
-      businessServiceLogger.warn(`Rate limit exceeded for IEC verfication: client ${clientId}, service ${serviceId}`)
+      businessServiceLogger.warn(`TxnID:${TxnID}, Rate limit exceeded for IEC verification: client ${clientId}, service ${serviceId}`)
       return res.status(429).json({
         success: false,
         message: iecRateLimitResult?.message
       })
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated IEC txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated IEC txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.error(`Credit deducation failed for IEC verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.error(`TxnID:${TxnID}, Credit deduction failed for IEC verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || 'Invalid',
@@ -2057,23 +2212,25 @@ exports.handleIECVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
 
     if (!analyticsResult?.success) {
       businessServiceLogger.warn(
-        `Analytics update failed for IEC verification: clientId ${clientId}, service ${serviceId}`
+        `TxnID:${TxnID}, Analytics update failed for IEC verification: clientId ${clientId}, service ${serviceId}`
       )
     };
 
     businessServiceLogger.info(
-      `checked for existing IEC record in DB:${existingIEC ? "Found" : "Not Found"} `
+      `txnId: ${TxnID}, Checked for existing IEC record in DB:${existingIEC ? "Found" : "Not Found"} `
     )
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingIEC) {
       if (existingIEC?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached IEC response for client:${clientId}`
+          `txnId: ${TxnID}, Returning cached IEC response for client:${clientId}`
         );
         const decrypted = {
           ...existingIEC?.response,
@@ -2082,6 +2239,7 @@ exports.handleIECVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingIEC?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -2091,11 +2249,12 @@ exports.handleIECVerification = async (req, res) => {
         return res.status(200).json(createApiResponse(200, dataToShow, 'valid'));
       } else {
         businessServiceLogger.info(
-          `Returning cached IEC response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached IEC response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingIEC?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -2109,18 +2268,22 @@ exports.handleIECVerification = async (req, res) => {
     };
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
     if (!service.length) {
       businessServiceLogger.warn(
-        `Active service not found for IEC category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Active service not found for IEC category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await IecActiveServiceResponse(IEC, service, 0);
     businessServiceLogger.info(
-      `Response received IECVerification from active service ${response?.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Active service selected for IEC verification: ${service}`
+    );
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    let response = await IecActiveServiceResponse(IEC, service, 0, TxnID);
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Response received IEC verification from active service ${response?.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -2132,6 +2295,7 @@ exports.handleIECVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -2149,9 +2313,14 @@ exports.handleIECVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await iec_Verification.create(storingData);
+      await iec_Verification.findOneAndUpdate(
+        { IEC: encryptedIEC },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+
       businessServiceLogger.info(
-        `Valid IEC response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid IEC response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -2160,6 +2329,7 @@ exports.handleIECVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           iecNumber: IEC
@@ -2181,62 +2351,69 @@ exports.handleIECVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await iec_Verification.create(storingData);
+      await iec_Verification.findOneAndUpdate(
+        { IEC: encryptedIEC },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+
       businessServiceLogger.info(
-        `Invalid IEC response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid IEC response received and sent to client: ${clientId}`,
       );
       return res
         .status(404)
         .json(createApiResponse(404, { existingIEC: existingIEC }, "Failed"));
     }
 
-
   } catch (error) {
     businessServiceLogger.error(
-      `System error in IEC verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in IEC verification for client ${clientId}: ${error.message}`,
       error,
     );
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};
 
 // UDYAMNUMBER VERIFICATION
 exports.udyamNumberVerfication = async (req, res, next) => {
   const { udyamNumber, mobileNumber = "" } = req.body;
-
   const clientId = req.clientId;
-  businessServiceLogger.info(`udyamNumber from request ===> ${udyamNumber} for this client: ${clientId}`);
+  const TxnID = await generateTransactionId(12);
+
+  businessServiceLogger.info(`TxnID:${TxnID}, udyamNumber from request ===> ${udyamNumber} for this client: ${clientId}`);
 
   const capitalUdyamNumber = udyamNumber?.toUpperCase();
-  const isValid = handleValidation("udyam", capitalUdyamNumber, res, clientId);
+  const isValid = handleValidation("udyam", capitalUdyamNumber, res, TxnID, businessServiceLogger);
   if (!isValid) return;
 
   businessServiceLogger.info(
-    `All inputs in udyam are valid, continue processing... for this client: ${clientId}`,
+    `TxnID:${TxnID}, All inputs in udyam are valid, continue processing... for this client: ${clientId}`,
   );
 
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UDYAMNUMBER', TxnID, businessServiceLogger);
     businessServiceLogger.info(
-      `Executing Udyam verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing Udyam verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     const identifierHash = hashIdentifiers({
       udyamNo: capitalUdyamNumber,
-    });
+    }, businessServiceLogger);
 
     const udyamRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
-      clientId: clientId,
-      req: req
+      clientId,
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!udyamRateLimitResult.allowed) {
       businessServiceLogger.warn(
-        `Rate limit exceeded for Udyam verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Rate limit exceeded for Udyam verification: client ${clientId}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
@@ -2244,20 +2421,20 @@ exports.udyamNumberVerfication = async (req, res, next) => {
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated Udyam txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated Udyam txn Id: ${TxnID}`);
 
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
+      TxnID,
       req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
       businessServiceLogger.error(
-        `Credit deduction failed for Udyam verification: client ${clientId}, txnId ${tnId}`,
+        `TxnID:${TxnID}, Credit deduction failed for Udyam verification: client ${clientId}, txnId ${TxnID}`,
       );
       return res.status(500).json({
         success: false,
@@ -2267,7 +2444,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
     }
 
     const encryptedUdhyam = encryptData(capitalUdyamNumber);
-    businessServiceLogger.debug(`Encrypted Udyam number for DB lookup`);
+    businessServiceLogger.debug(`TxnID:${TxnID}, Encrypted Udyam number for DB lookup`);
 
     const existingUdhyamNumber = await udhyamVerify.findOne({
       udyamNumber: encryptedUdhyam,
@@ -2277,15 +2454,17 @@ exports.udyamNumberVerfication = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.warn(
-        `Analytics update failed for Udyam verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Analytics update failed for Udyam verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.debug(
-      `Checked for existing Udyam record in DB: ${existingUdhyamNumber ? "Found" : "Not Found"}`,
+      `txnId: ${TxnID}, Checked for existing Udyam record in DB: ${existingUdhyamNumber ? "Found" : "Not Found"}`,
     );
 
     if (existingUdhyamNumber) {
@@ -2293,13 +2472,14 @@ exports.udyamNumberVerfication = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
-          clientId: clientId,
+          TxnID,
+          clientId,
           result: existingUdhyamNumber?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
         businessServiceLogger.info(
-          `Returning cached valid Udyam response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached valid Udyam response for client: ${clientId}`,
         );
         return res
           .status(200)
@@ -2310,7 +2490,8 @@ exports.udyamNumberVerfication = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
-          clientId: clientId,
+          TxnID,
+          clientId,
           result: {
             udyam: udyamNumber,
           },
@@ -2318,7 +2499,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
           createdDate: new Date().toLocaleDateString(),
         });
         businessServiceLogger.info(
-          `Returning cached invalid Udyam response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached invalid Udyam response for client: ${clientId}`,
         );
         return res.status(404).json(
           createApiResponse(
@@ -2332,26 +2513,26 @@ exports.udyamNumberVerfication = async (req, res, next) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
     if (!service.length) {
       businessServiceLogger.warn(
-        `Active service not found for Udyam category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, Active service not found for Udyam category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
     businessServiceLogger.info(
-      `Active service selected for Udyam verification: ${service}`,
+      `txnId: ${TxnID}, Active service selected for Udyam verification: ${service}`,
     );
     let udyamResponse = await udyamActiveServiceResponse(
       udyamNumber,
       service,
       0,
-      clientId,
+      TxnID,
     );
 
     businessServiceLogger.info(
-      `Response received from udyam verification active service ${udyamResponse?.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Response received from udyam verification active service ${udyamResponse?.service}: ${udyamResponse?.message}`,
     );
 
     if (udyamResponse?.message?.toUpperCase() == "VALID") {
@@ -2375,8 +2556,19 @@ exports.udyamNumberVerfication = async (req, res, next) => {
         { $setOnInsert: storingData },
         { upsert: true, new: true },
       );
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: existingOrNew.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
       businessServiceLogger.info(
-        `Valid Udyam response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid Udyam response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -2400,8 +2592,20 @@ exports.udyamNumberVerfication = async (req, res, next) => {
         { upsert: true, new: true },
       );
 
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: {
+          udyam: udyamNumber
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
       businessServiceLogger.info(
-        `Invalid Udyam response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid Udyam response received and sent to client: ${clientId}`,
       );
       return res.status(404).json(
         createApiResponse(
@@ -2415,7 +2619,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
     }
   } catch (error) {
     businessServiceLogger.error(
-      `System error in Udyam verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in Udyam verification for client ${clientId}: ${error.message}`,
       error,
     );
     const errorObj = mapError(error);
@@ -2427,57 +2631,60 @@ exports.udyamNumberVerfication = async (req, res, next) => {
 exports.DGFTVerification = async (req, res) => {
   const { DGFT, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!DGFT) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  businessServiceLogger.info(`DGFT NUMBER Details: ${DGFT}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, DGFT NUMBER Details: ${DGFT}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('DGFT', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('DGFT', TxnID, businessServiceLogger);
 
-    const isValid = handleValidation("DGFT", DGFT, res, clientId);
+    const isValid = handleValidation("DGFT", DGFT, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
     businessServiceLogger.info(
-      `Executing DGFT verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing DGFT verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH DGFT NUMBER
-    const indetifierHash = hashIdentifiers({
+    const identifierHash = hashIdentifiers({
       DGFT: DGFT
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const DGFTRateLimitResult = await checkingRateLimit({
-      identifiers: { indetifierHash },
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!DGFTRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for DGFT verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for DGFT verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: DGFTRateLimitResult.message,
       });
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated DGFT txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated DGFT txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.info(`[FAILED]: Credit deduction failed for DGFT verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for DGFT verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -2495,22 +2702,24 @@ exports.DGFTVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]: Analytics update failed for DGFT verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for DGFT verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing DGFT record in DB: ${existingDGFT ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing DGFT record in DB: ${existingDGFT ? "Found" : "Not Found"}`,
     );
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingDGFT) {
       if (existingDGFT?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached DGFT response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached DGFT response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -2520,6 +2729,7 @@ exports.DGFTVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingDGFT?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -2531,11 +2741,12 @@ exports.DGFTVerification = async (req, res) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached DGFT response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached DGFT response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingDGFT?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -2549,22 +2760,22 @@ exports.DGFTVerification = async (req, res) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for DGFT category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for DGFT category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
     businessServiceLogger.info(
-      `Active service selected for DGFT verification: ${service}`,
+      `txnId: ${TxnID}, Active service selected for DGFT verification: ${service}`,
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await DGFTActiveServiceResponse(DGFT, service, 0);
+    let response = await DGFTActiveServiceResponse(DGFT, service, 0, TxnID);
 
     businessServiceLogger.info(
-      `Active service selected for DGFT service ${response}: ${response?.message}`,
+      `txnId: ${TxnID}, Active service selected for DGFT service ${response?.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -2576,6 +2787,7 @@ exports.DGFTVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -2593,9 +2805,14 @@ exports.DGFTVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await dgft_verification.create(storingData);
+      await dgft_verification.findOneAndUpdate(
+        { DGFT: encryptedDGFT },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
-        `Valid DGFT response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid DGFT response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -2604,6 +2821,7 @@ exports.DGFTVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           DGFT: DGFT
@@ -2625,9 +2843,13 @@ exports.DGFTVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await dgft_verification.create(storingData);
+      await dgft_verification.findOneAndUpdate(
+        { DGFT: encryptedDGFT },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
-        `Invalid DGFT response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid DGFT response received and sent to client: ${clientId}`,
       );
       return res
         .status(404)
@@ -2636,7 +2858,7 @@ exports.DGFTVerification = async (req, res) => {
 
   } catch (error) {
     businessServiceLogger.error(
-      `System error in DGFT verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in DGFT verification for client ${clientId}: ${error.message}`,
       error
     );
     const errorObj = mapError(error);
@@ -2648,52 +2870,56 @@ exports.DGFTVerification = async (req, res) => {
 exports.LEIVerification = async (req, res) => {
   const { CompanyName, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
+
   if (!CompanyName) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  businessServiceLogger.info(`LEI NUMBER Details: ${CompanyName}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, LEI NUMBER Details: ${CompanyName}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('LEI', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('LEI', TxnID, businessServiceLogger);
 
-    const isValid = handleValidation("LEI", CompanyName, res, clientId);
+    const isValid = handleValidation("LEI", CompanyName, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
     businessServiceLogger.info(
-      `Executing LEI verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing LEI verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH LEI NUMBER
-    const indetifierHash = hashIdentifiers({
+    const identifierHash = hashIdentifiers({
       CompanyName: CompanyName
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const LEIRateLimitResult = await checkingRateLimit({
-      identifiers: { indetifierHash },
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!LEIRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for LEI verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for LEI verification: client ${clientId}, service ${serviceId}, TxnID:${TxnID}`);
       return res.status(429).json({
         success: false,
         message: LEIRateLimitResult.message,
       });
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated LEI txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated LEI txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
@@ -2715,6 +2941,8 @@ exports.LEIVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
@@ -2740,6 +2968,7 @@ exports.LEIVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingLEI?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -2756,6 +2985,7 @@ exports.LEIVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingLEI?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -2781,7 +3011,7 @@ exports.LEIVerification = async (req, res) => {
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await LeiActiveServiceResponse(CompanyName, service, 0);
+    let response = await LeiActiveServiceResponse(CompanyName, service, 0, TxnID);
 
     businessServiceLogger.info(
       `Active service selected for LEIverification service ${response}: ${response?.message}`,
@@ -2796,6 +3026,7 @@ exports.LEIVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -2813,7 +3044,12 @@ exports.LEIVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await lei_Verification.create(storingData);
+      await lei_Verification.findOneAndUpdate(
+        { CompanyName: encryptedLEI },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
         `Valid LEI response stored and sent to client: ${clientId}`,
       );
@@ -2824,6 +3060,7 @@ exports.LEIVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           CompanyName: CompanyName
@@ -2845,7 +3082,12 @@ exports.LEIVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await lei_Verification.create(storingData);
+      await lei_Verification.findOneAndUpdate(
+        { CompanyName: encryptedLEI },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
         `Invalid LEI response received and sent to client: ${clientId}`,
       );
@@ -2868,57 +3110,60 @@ exports.LEIVerification = async (req, res) => {
 exports.udyogAadhaarVerification = async (req, res) => {
   const { UAMNumber, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!UAMNumber) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  businessServiceLogger.info(`UAM NUMBER Details: ${UAMNumber}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, UAM NUMBER Details: ${UAMNumber}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UAM', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UAM', TxnID, businessServiceLogger);
 
-    const isValid = handleValidation("UAM", UAMNumber, res, clientId);
+    const isValid = handleValidation("UAM", UAMNumber, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
     businessServiceLogger.info(
-      `Executing UAM verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing UAM verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH UAM NUMBER
-    const indetifierHash = hashIdentifiers({
+    const identifierHash = hashIdentifiers({
       UAMNumber: UAMNumber
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const UAMRateLimitResult = await checkingRateLimit({
-      identifiers: { indetifierHash },
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req, req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!UAMRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for UAM verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for UAM verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: UAMRateLimitResult.message,
       });
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated UAM txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated UAM txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.info(`[FAILED]: Credit deduction failed for UAM verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for UAM verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -2936,6 +3181,8 @@ exports.udyogAadhaarVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
@@ -2961,6 +3208,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingUAM?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -2977,6 +3225,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingUAM?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -3002,7 +3251,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await UamActiveServiceResponse(UAMNumber, service, 'UamApiCall', 0);
+    let response = await UamActiveServiceResponse(UAMNumber, service, 'UamApiCall', 0, TxnID);
 
     businessServiceLogger.info(
       `Active service selected for UAMverification service ${response?.service}: ${response?.message}`,
@@ -3017,6 +3266,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -3034,7 +3284,12 @@ exports.udyogAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await UAM_verifyModel.create(storingData);
+      await UAM_verifyModel.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
         `Valid UAM response stored and sent to client: ${clientId}`,
       );
@@ -3045,6 +3300,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           UAMNumber: UAMNumber
@@ -3066,7 +3322,11 @@ exports.udyogAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await UAM_verifyModel.create(storingData);
+      await UAM_verifyModel.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
         `Invalid UAM response received and sent to client: ${clientId}`,
       );
@@ -3089,57 +3349,60 @@ exports.udyogAadhaarVerification = async (req, res) => {
 exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
   const { UAMNumber, customerNumber, mobileNumber = "" } = req.body; // customer number: which is link to Uam, and mobile Number is clientNumber
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
   if (!UAMNumber || !customerNumber) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  businessServiceLogger.info(`UAM Aadhaar using phone NUMBER Details: ${UAMNumber}, number:${customerNumber}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, UAM Aadhaar using phone NUMBER Details: ${UAMNumber}, number:${customerNumber}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UAMPhone', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('UAMPhone', TxnID, businessServiceLogger);
 
-    const isValid = handleValidation("UAMPhone", UAMNumber, res, clientId);
+    const isValid = handleValidation("UAMPhone", UAMNumber, res, TxnID, businessServiceLogger);
     if (!isValid) return;
 
     businessServiceLogger.info(
-      `Executing UAM With phone verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing UAM With phone verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH UAM NUMBER
-    const indetifierHash = hashIdentifiers({
+    const identifierHash = hashIdentifiers({
       UAMNumber: UAMNumber
-    });
+    }, businessServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const UAMRateLimitResult = await checkingRateLimit({
-      identifiers: { indetifierHash },
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!UAMRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for UAM with Phone verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for UAM with Phone verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: UAMRateLimitResult.message,
       });
     };
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated UAM with Phone txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated UAM with Phone txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.info(`[FAILED]: Credit deduction failed for UAM with phone verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.info(`[FAILED]: Credit deduction failed for UAM with phone verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -3157,22 +3420,24 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]: Analytics update failed for UAM with Phone verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for UAM with Phone verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing UAM with phone record in DB: ${existingUAM ? "Found" : "Not Found"}, `,
+      `txnId: ${TxnID}, Checked for existing UAM with phone record in DB: ${existingUAM ? "Found" : "Not Found"}`,
     );
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingUAM) {
       if (existingUAM?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached UAM with phone response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached UAM with phone response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -3183,6 +3448,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingUAM?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -3194,11 +3460,12 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
           .json(createApiResponse(200, dataToShow, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached UAM with phone response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached UAM with phone response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingUAM?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -3212,22 +3479,22 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for UAM category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for UAM category ${categoryId}, service ${serviceId}`,
       );
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+      return res.status(424).json(ERROR_CODES?.NOT_FOUND);
     }
     businessServiceLogger.info(
-      `Active service selected for UAM verification: ${service}`,
+      `txnId: ${TxnID}, Active service selected for UAM verification: ${service}`,
     );
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await UamActiveServiceResponse({ UAMNumber, customerNumber }, service, 'UamwithPhoneApiCall', 0);
+    let response = await UamActiveServiceResponse({ UAMNumber, customerNumber }, service, 'UamwithPhoneApiCall', 0, TxnID);
 
     businessServiceLogger.info(
-      `Active service selected for UAMverification service ${response?.service}: ${response?.message}`,
+      `txnId: ${TxnID}, Active service selected for UAM verification service ${response?.service}: ${response?.message}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -3239,6 +3506,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -3257,9 +3525,13 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await uamPhone_Verification.create(storingData);
+      await uamPhone_Verification.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
-        `Valid UAM response stored and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Valid UAM response stored and sent to client: ${clientId}`,
       );
       return res
         .status(200)
@@ -3268,6 +3540,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: {
           UAMNumber: UAMNumber,
@@ -3292,9 +3565,13 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await uamPhone_Verification.create(storingData);
+      await uamPhone_Verification.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
-        `Invalid UAM response received and sent to client: ${clientId}`,
+        `txnId: ${TxnID}, Invalid UAM response received and sent to client: ${clientId}`,
       );
       return res
         .status(404)
@@ -3303,7 +3580,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
 
   } catch (error) {
     businessServiceLogger.error(
-      `System error in UAM verification for client ${clientId}: ${error.message}`,
+      `txnId: ${TxnID}, System error in UAM verification for client ${clientId}: ${error.message}`,
       error
     );
     const errorObj = mapError(error);
@@ -3315,55 +3592,58 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
 exports.handleCreateShopEstablishment = async (req, res, next) => {
   const { registrationNumber, state, mobileNumber = "" } = req.body;
   const { clientId, environment } = req;
+  const TxnID = await generateTransactionId(12);
 
   if (!registrationNumber || !state) {
-    businessServiceLogger.warn("Missing registrationNumber or state");
+    businessServiceLogger.warn(`TxnID:${TxnID}, Missing registrationNumber or state`);
     return res.status(ERROR_CODES?.BAD_REQUEST.httpCode).json(createApiResponse(ERROR_CODES?.BAD_REQUEST.code, [], 'Invalid request parameters'));
   }
 
-  businessServiceLogger.info(`Shop Establishment Details ===>> registrationNumber: ${registrationNumber} --- state: ${state}`);
+  businessServiceLogger.info(`TxnID:${TxnID}, Shop Establishment Details ===>> registrationNumber: ${registrationNumber} --- state: ${state}`);
 
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('SHOP', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('SHOP', TxnID, businessServiceLogger);
 
     businessServiceLogger.info(
-      `Executing Shop Establishment verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+      `TxnID:${TxnID}, Executing Shop Establishment verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     const identifierHash = hashIdentifiers({
       registrationNumber,
       state
-    });
+    }, businessServiceLogger);
 
     const shopRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req: req
+      req,
+      TxnID,
+      logger: businessServiceLogger
     });
 
     if (!shopRateLimitResult.allowed) {
-      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for Shop Establishment verification: client ${clientId}, service ${serviceId}`);
+      businessServiceLogger.info(`[FAILED]: Rate limit exceeded for Shop Establishment verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
         message: shopRateLimitResult.message,
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    businessServiceLogger.info(`Generated Shop Establishment txn Id: ${tnId}`);
+    businessServiceLogger.info(`Generated Shop Establishment txn Id: ${TxnID}`);
 
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req
+      TxnID,
+      req,
+      businessServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.error(`[FAILED]: Credit deduction failed for Shop Establishment verification: client ${clientId}, txnId ${tnId}`);
+      businessServiceLogger.error(`TxnID:${TxnID}, [FAILED]: Credit deduction failed for Shop Establishment verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -3381,21 +3661,23 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
       clientId,
       serviceId,
       categoryId,
+      'success',
+      businessServiceLogger
     );
     if (!analyticsResult.success) {
       businessServiceLogger.info(
-        `[FAILED]: Analytics update failed for Shop Establishment verification: client ${clientId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Analytics update failed for Shop Establishment verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
     businessServiceLogger.info(
-      `Checked for existing Shop Establishment record in DB: ${existingDetails ? "Found" : "Not Found"}`,
+      `txnId: ${TxnID}, Checked for existing Shop Establishment record in DB: ${existingDetails ? "Found" : "Not Found"}`,
     );
 
     if (existingDetails) {
       if (existingDetails?.status == 1) {
         businessServiceLogger.info(
-          `Returning cached valid Shop Establishment response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached valid Shop Establishment response for client: ${clientId}`,
         );
 
         const decrypted = {
@@ -3405,7 +3687,8 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         await responseModel.create({
           serviceId,
           categoryId,
-          clientId: clientId,
+          TxnID,
+          clientId,
           result: existingDetails?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -3415,12 +3698,13 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
           .json(createApiResponse(200, decrypted, "Valid"));
       } else {
         businessServiceLogger.info(
-          `Returning cached invalid Shop Establishment response for client: ${clientId}`,
+          `txnId: ${TxnID}, Returning cached invalid Shop Establishment response for client: ${clientId}`,
         );
         await responseModel.create({
           serviceId,
           categoryId,
-          clientId: clientId,
+          TxnID,
+          clientId,
           result: existingDetails?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -3431,20 +3715,20 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
 
     if (!service.length) {
       businessServiceLogger.info(
-        `[FAILED]: Active service not found for Shop Establishment category ${categoryId}, service ${serviceId}`,
+        `TxnID:${TxnID}, [FAILED]: Active service not found for Shop Establishment category ${categoryId}, service ${serviceId}`,
       );
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+      return res.status(424).json(ERROR_CODES?.NOT_FOUND);
     }
 
     businessServiceLogger.info(
-      `active service for Shop Verify is ----, ${service}`,
+      `txnId: ${TxnID}, active service for Shop Verify is ----, ${service}`,
     );
 
-    let response = await shopActiveServiceResponse({ registrationNumber, state }, service, 0);
+    let response = await shopActiveServiceResponse({ registrationNumber, state }, service, 0, TxnID);
 
     if (response?.message?.toUpperCase() == "VALID" || response?.message?.toUpperCase() == "SUCCESS" || response?.result) {
       const encryptedResponse = {
@@ -3454,7 +3738,8 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: clientId,
+        TxnID,
+        clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -3471,7 +3756,14 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await shopestablishmentModel.create(storingData);
+      await shopestablishmentModel.findOneAndUpdate(
+        { registrationNumber: encryptedRegistration },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+      businessServiceLogger.info(
+        `txnId: ${TxnID}, Valid Shop Establishment response stored and sent to client: ${clientId}`,
+      );
       return res
         .status(200)
         .json(createApiResponse(200, response?.result, "Success"));
@@ -3479,7 +3771,8 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: clientId,
+        TxnID,
+        clientId,
         result: {
           registrationNumber: registrationNumber
         },
@@ -3500,13 +3793,20 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await shopestablishmentModel.create(storingData);
+      await shopestablishmentModel.findOneAndUpdate(
+        { registrationNumber: encryptedRegistration },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+      businessServiceLogger.info(
+        `txnId: ${TxnID}, Invalid Shop Establishment response received and sent to client: ${clientId}`,
+      );
       return res
         .status(404)
         .json(createApiResponse(404, { registrationNumber }, "Failed"));
     }
   } catch (error) {
-    businessServiceLogger.error(`Error performing Shop verification: ${error.message}`);
+    businessServiceLogger.error(`txnId: ${TxnID}, Error performing Shop verification for client ${clientId}: ${error.message}`);
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode || 500).json(createApiResponse(errorObj.code || 500, {}, errorObj.message || 'Server Error'));
   }

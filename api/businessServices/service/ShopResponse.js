@@ -1,11 +1,12 @@
-const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
+const { businessServiceLogger } = require("../../Logger/logger");
+const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
 const shopActiveServiceResponse = async (
   data,
   services,
   index = 0,
-  client = "",
+  TxnID = ""
 ) => {
   console.log("shopActiveServiceResponse called");
   if (index >= services?.length) {
@@ -16,7 +17,7 @@ const shopActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return shopActiveServiceResponse(data, services, index + 1);
+    return shopActiveServiceResponse(data, services, index + 1, TxnID);
   }
 
   const serviceName = newService.providerId || "";
@@ -26,22 +27,22 @@ const shopActiveServiceResponse = async (
   );
 
   try {
-    const res = await shopApiCall(data, serviceName, (client = ""));
+    const res = await shopApiCall(data, serviceName, TxnID);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
     console.log(
       `[shopActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return shopActiveServiceResponse(data, services, index + 1);
+    return shopActiveServiceResponse(data, services, index + 1, TxnID);
   } catch (err) {
     console.log(
       `[shopActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return shopActiveServiceResponse(data, services, index + 1);
+    return shopActiveServiceResponse(data, services, index + 1, TxnID);
   }
 };
 
@@ -61,8 +62,8 @@ const getState = (state) => {
   return foundState;
 };
 
-const shopApiCall = async (data, service, CID = "") => {
-  const tskId = await generateTransactionId(12);
+const shopApiCall = async (data, service, TxnID = "") => {
+  const tskId = TxnID || await generateTransactionId(12);
 
   console.log("data in active service for shop establishment ===>>", data)
 
@@ -111,7 +112,7 @@ const shopApiCall = async (data, service, CID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        cId: CID
+        logger: businessServiceLogger
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
