@@ -2,6 +2,7 @@
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const crypto = require("crypto");
 const axios = require("axios");
+const { bankServiceLogger } = require("../../Logger/logger");
 const EASEBUZZ_KEY = process.env.EASEBUZZ_KEY;
 const EASEBUZZ_SALT = process.env.EASEBUZZ_SALT;
 const ZOOPClientId = process.env.ZOOP_APP_ID;
@@ -138,7 +139,9 @@ const accountPennyDropApiCall = async (data, service, CID="") => {
                 url: config.url,
                 payload: config.BodyData,
                 username: config.header.username,
-                password: config.header.password
+                password: config.header.password,
+                cId: CID,
+                logger: bankServiceLogger
             });
         } else {
             ApiResponse = await axios.post(

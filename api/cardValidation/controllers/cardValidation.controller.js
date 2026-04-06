@@ -117,6 +117,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     serviceId,
     categoryId,
     "success",
+    tnId,
     bankServiceLogger
   );
   if (!analyticsRes?.success) {
@@ -238,6 +239,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       serviceId,
       categoryId,
       "failed",
+      tnId,
       bankServiceLogger
     );
 
