@@ -23,7 +23,7 @@ const NameMatchActiveServiceResponse = async (data, services = [], index = 0) =>
     try {
         const res = await NameMatchApiCall(data, serviceName);
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 

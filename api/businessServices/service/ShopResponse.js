@@ -29,7 +29,7 @@ const shopActiveServiceResponse = async (
   try {
     const res = await shopApiCall(data, serviceName, TxnID);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 

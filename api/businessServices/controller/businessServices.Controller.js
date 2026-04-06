@@ -210,7 +210,7 @@ exports.dinVerification = async (req, res) => {
 
       await din_verifyModel.findOneAndUpdate(
         { dinNumber: encryptedDin },
-        storingData,
+        { $setOnInsert: storingData },
         { upsert: true, new: true }
       );
       businessServiceLogger.info(
@@ -247,7 +247,7 @@ exports.dinVerification = async (req, res) => {
 
       await din_verifyModel.findOneAndUpdate(
         { dinNumber: encryptedDin },
-        storingData,
+        { $setOnInsert: storingData },
         { upsert: true, new: true }
       );
       businessServiceLogger.info(`txnId: ${TxnID}, Invalid DIN response received and sent to client: ${clientId}`);
@@ -442,7 +442,11 @@ exports.gstinverify = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_verifyModel.create(storingData);
+      await gstin_verifyModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true });
+
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid GSTIN response stored and sent to client: ${clientId}`,
       );
@@ -475,7 +479,10 @@ exports.gstinverify = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_verifyModel.create(storingData);
+      await gstin_verifyModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true });
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid GSTIN response received and sent to client: ${clientId}`,
       );
@@ -662,7 +669,11 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_panModel.create(storingData);
+      await gstin_panModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      )
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid GST to PAN response stored and sent to client: ${clientId}`,
       );
@@ -693,7 +704,11 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstin_panModel.create(storingData);
+      await gstin_panModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      )
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid GST to PAN response received and sent to client: ${clientId}`,
       );
@@ -879,7 +894,11 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstInTaxpayer.create(storingData);
+      await gstInTaxpayer.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid GSTIN Taxpayer response stored and sent to client: ${clientId}`,
       );
@@ -912,7 +931,11 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await gstInTaxpayer.create(storingData);
+      await gstInTaxpayer.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid GSTIN TaxPayers response received and sent to client: ${clientId}`,
       );
@@ -1100,7 +1123,11 @@ exports.gstinViewAndTrack = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await GstinViewTrackModel.create(storingData);
+      await GstinViewTrackModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid GSTIN VIEWANDTRACK response stored and sent to client: ${clientId}`,
       );
@@ -1133,7 +1160,11 @@ exports.gstinViewAndTrack = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await GstinViewTrackModel.create(storingData);
+      await GstinViewTrackModel.findOneAndUpdate(
+        { gstinNumber: encryptedGst },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid GSTIN VIEWANDTRACK response received and sent to client: ${clientId}`,
       );
@@ -1331,7 +1362,11 @@ exports.handleCINVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await IncorporationCertificateModel.create(storingData);
+      await IncorporationCertificateModel.findOneAndUpdate(
+        { CIN: encryptedCIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid CIN response stored and sent to client: ${clientId}`
       );
@@ -1366,8 +1401,11 @@ exports.handleCINVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       }
 
-      await IncorporationCertificateModel.create(storingData);
-
+      await IncorporationCertificateModel.findOneAndUpdate(
+        { CIN: encryptedCIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid CIN response received and sent to client: ${clientId}`
       );
@@ -1566,7 +1604,11 @@ exports.CompanVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await companyLIstVerification.create(storingData);
+      await companyLIstVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid CompanyName list response stored and sent to client: ${clientId}`
       );
@@ -1601,7 +1643,11 @@ exports.CompanVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       }
 
-      await companyLIstVerification.create(storingData);
+      await companyLIstVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
 
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid CompanyName list response received and sent to client: ${clientId}`
@@ -1801,7 +1847,11 @@ exports.CompanSearchVerification = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await cinCompanyVerification.create(storingData);
+      await cinCompanyVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid CompanyName response stored and sent to client: ${clientId}`
       );
@@ -1834,9 +1884,13 @@ exports.CompanSearchVerification = async (req, res, next) => {
         message: response?.message,
         createdDate: new Date().toLocaleDateString(),
         createdTime: new Date().toLocaleTimeString(),
-      }
+      };
 
-      await cinCompanyVerification.create(storingData);
+      await cinCompanyVerification.findOneAndUpdate(
+        { CompanyName: encryptedCompanyName },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
 
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid CompanyName response received and sent to client: ${clientId}`
@@ -2029,7 +2083,11 @@ exports.handleTINVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await tin_verifyModel.create(storingData);
+      await tin_verifyModel.findOneAndUpdate(
+        { TIN: encryptedtTIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid TIN response stored and sent to client: ${clientId}`,
       );
@@ -2062,7 +2120,11 @@ exports.handleTINVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await tin_verifyModel.create(storingData);
+      await tin_verifyModel.findOneAndUpdate(
+        { TIN: encryptedtTIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid TIN response received and sent to client: ${clientId}`,
       );
@@ -2079,7 +2141,9 @@ exports.handleTINVerification = async (req, res) => {
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}; exports.handleIECVerification = async (req, res) => {
+};
+
+exports.handleIECVerification = async (req, res) => {
   const { IEC, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
   const TxnID = await generateTransactionId(12);
@@ -2249,7 +2313,12 @@ exports.handleTINVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await iec_Verification.create(storingData);
+      await iec_Verification.findOneAndUpdate(
+        { IEC: encryptedIEC },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid IEC response stored and sent to client: ${clientId}`,
       );
@@ -2282,7 +2351,12 @@ exports.handleTINVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await iec_Verification.create(storingData);
+      await iec_Verification.findOneAndUpdate(
+        { IEC: encryptedIEC },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid IEC response received and sent to client: ${clientId}`,
       );
@@ -2290,7 +2364,6 @@ exports.handleTINVerification = async (req, res) => {
         .status(404)
         .json(createApiResponse(404, { existingIEC: existingIEC }, "Failed"));
     }
-
 
   } catch (error) {
     businessServiceLogger.error(
@@ -2732,7 +2805,12 @@ exports.DGFTVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await dgft_verification.create(storingData);
+      await dgft_verification.findOneAndUpdate(
+        { DGFT: encryptedDGFT },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid DGFT response stored and sent to client: ${clientId}`,
       );
@@ -2765,7 +2843,11 @@ exports.DGFTVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await dgft_verification.create(storingData);
+      await dgft_verification.findOneAndUpdate(
+        { DGFT: encryptedDGFT },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid DGFT response received and sent to client: ${clientId}`,
       );
@@ -2962,7 +3044,12 @@ exports.LEIVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await lei_Verification.create(storingData);
+      await lei_Verification.findOneAndUpdate(
+        { CompanyName: encryptedLEI },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
         `Valid LEI response stored and sent to client: ${clientId}`,
       );
@@ -2995,7 +3082,12 @@ exports.LEIVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await lei_Verification.create(storingData);
+      await lei_Verification.findOneAndUpdate(
+        { CompanyName: encryptedLEI },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
         `Invalid LEI response received and sent to client: ${clientId}`,
       );
@@ -3192,7 +3284,12 @@ exports.udyogAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await UAM_verifyModel.create(storingData);
+      await UAM_verifyModel.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+
       businessServiceLogger.info(
         `Valid UAM response stored and sent to client: ${clientId}`,
       );
@@ -3225,7 +3322,11 @@ exports.udyogAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await UAM_verifyModel.create(storingData);
+      await UAM_verifyModel.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
         `Invalid UAM response received and sent to client: ${clientId}`,
       );
@@ -3424,7 +3525,11 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await uamPhone_Verification.create(storingData);
+      await uamPhone_Verification.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid UAM response stored and sent to client: ${clientId}`,
       );
@@ -3460,7 +3565,11 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await uamPhone_Verification.create(storingData);
+      await uamPhone_Verification.findOneAndUpdate(
+        { UAMNumber: encryptedUAM },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid UAM response received and sent to client: ${clientId}`,
       );
@@ -3647,7 +3756,11 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await shopestablishmentModel.create(storingData);
+      await shopestablishmentModel.findOneAndUpdate(
+        { registrationNumber: encryptedRegistration },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Valid Shop Establishment response stored and sent to client: ${clientId}`,
       );
@@ -3680,7 +3793,11 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await shopestablishmentModel.create(storingData);
+      await shopestablishmentModel.findOneAndUpdate(
+        { registrationNumber: encryptedRegistration },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
       businessServiceLogger.info(
         `txnId: ${TxnID}, Invalid Shop Establishment response received and sent to client: ${clientId}`,
       );

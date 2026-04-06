@@ -33,7 +33,7 @@ const GSTActiveServiceResponse = async (
   try {
     const res = await GSTApiCall(data, serviceName, TxnID);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
@@ -49,6 +49,7 @@ const GSTActiveServiceResponse = async (
     return GSTActiveServiceResponse(data, services, index + 1, TxnID);
   }
 };
+
 const GSTApiCall = async (data, service, TxnID = "") => {
   const tskId = TxnID;
 
@@ -298,7 +299,7 @@ const GSTtoPANActiveServiceResponse = async (
   try {
     const res = await GSTToPANApiCall(data, serviceName, TxnID);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
@@ -309,6 +310,7 @@ const GSTtoPANActiveServiceResponse = async (
     return GSTtoPANActiveServiceResponse(data, services, index + 1, TxnID);
   }
 };
+
 const GSTToPANApiCall = async (data, service, TxnID = "") => {
   const tskId = TxnID;
 

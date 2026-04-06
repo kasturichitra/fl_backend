@@ -32,7 +32,7 @@ const udyamActiveServiceResponse = async (
   try {
     const res = await udyamApiCall(data, serviceName, TxnID);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 

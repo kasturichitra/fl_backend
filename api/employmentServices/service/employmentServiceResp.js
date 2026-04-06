@@ -31,7 +31,7 @@ const basicUanActiveServiceResponse = async (
     const res = await basicUanApiCall(data, serviceName, 0, client);
 
     // ✅ SUCCESS → STOP
-    if (res?.success) {
+    if (res?.data) {
       console.log(`Success from ${serviceName}`);
       return res.data;
     }

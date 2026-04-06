@@ -4,7 +4,7 @@ const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const { encryptData } = require("../../../utils/EncryptAndDecrypt");
-const { ERROR_CODES } = require("../../../utils/errorCodes");
+const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const handleValidation = require("../../../utils/lengthCheck");
@@ -16,56 +16,61 @@ const DentistModel = require("../model/Dentist.model");
 const DocterModel = require("../model/Docter.model");
 const InsuranceModel = require("../model/Insurance.model");
 const { professionalActiveServiceResponse } = require("../services/Professionalservices");
+const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
 
 
 exports.InsuranceVerification = async (req, res) => {
     const { PanNumber, MobileNumber } = req.body;
     const clientId = req.clientId;
+    const TxnID = await generateTransactionId(12);
 
     if (!PanNumber) {
         return res.status(400).json(createApiResponse(400, null, ERROR_CODES?.BAD_REQUEST))
     };
-    professionalLogger.info(`PAN NUMBER Details: ${PanNumber}`);
+    professionalLogger.info(`TxnID:${TxnID}, PAN NUMBER Details: ${PanNumber}`);
     try {
-        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('INSURANCE', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('INSURANCE', TxnID, professionalLogger);
 
-        const isValid = handleValidation('pan', PanNumber, res, clientId);
+        const isValid = handleValidation('pan', PanNumber, res, TxnID, professionalLogger);
         if (!isValid) return;
 
-        professionalLogger.info(`Executing Insurance Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+        professionalLogger.info(`TxnID:${TxnID}, Executing Insurance Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
         //1. Hash Pan Number
         const indetifierHash = hashIdentifiers({
             PanNumber
-        });
+        }, professionalLogger);
 
         //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
         const InsuranceRateLimit = await checkingRateLimit({
-            indetifierHash: { indetifierHash },
+            identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req,
+            TxnID,
+            logger: professionalLogger
         });
 
         if (!InsuranceRateLimit.allowed) {
-            professionalLogger.info(`[FAILED]: Rate limit exceeded for Insurance verification: clientId:${clientId}, service:${serviceId}`);
+            professionalLogger.info(`[FAILED]: Rate limit exceeded for Insurance verification: TxnID:${TxnID}, clientId:${clientId}, service:${serviceId}`);
             return res.status(429).json({ success: false, message: InsuranceRateLimit?.message });
         };
 
-        const tnId = genrateUniqueServiceId();
-        professionalLogger.info(`Generated Insurance txn Id: ${tnId}`);
+        professionalLogger.info(`Generated Insurance txn Id: ${TxnID}`);
 
         //3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
         const maintainanceResponse = await deductCredits(
             clientId,
             serviceId,
             categoryId,
-            tnId,
-            req
+            TxnID,
+            req,
+            professionalLogger
         );
 
         if (!maintainanceResponse?.result) {
-            professionalLogger.info(`[FAILED]: Credit deducation failed for Insurance verification: clientId${clientId}, txnId:${tnId}`);
+            professionalLogger.info(`[FAILED]: Credit deducation failed for Insurance verification: clientId${clientId}, txnId:${TxnID}`);
             return res.status(500).json({
                 success: false,
                 message: maintainanceResponse?.message || "InValid",
@@ -82,20 +87,20 @@ exports.InsuranceVerification = async (req, res) => {
         const analyticsResult = await AnalyticsDataUpdate(
             clientId,
             serviceId,
-            categoryId
+            categoryId,
+            'success',
+            professionalLogger
         );
 
         if (!analyticsResult.success) {
-            professionalLogger.info(`[FAILED]: Analytics update for Insurance verification: client:${clientId}, serviceId: ${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update for Insurance verification: client:${clientId}, serviceId: ${serviceId}`);
         };
-        professionalLogger.info(`Checked for existing Pan Records in DB: ${existingPan}`);
+        professionalLogger.info(`TxnID:${TxnID}, Checked for existing Pan Records in DB: ${existingPan ? "Found" : "Not Found"}`);
 
         // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
         if (existingPan) {
             if (existingPan?.status === 1) {
-                professionalLogger.info(`
-                    Returning cached Insurance response for clientId: ${clientId}
-                `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached Insurance response for clientId: ${clientId}`);
                 const decrypted = {
                     ...existingPan?.response,
                     PanNumber
@@ -103,6 +108,7 @@ exports.InsuranceVerification = async (req, res) => {
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingPan?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -111,12 +117,11 @@ exports.InsuranceVerification = async (req, res) => {
                 const dataToShow = decrypted;
                 return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
             } else {
-                professionalLogger.info(`
-                    Returning cached Insurance Response for client: ${clientId}
-                    `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached Insurance Response for client: ${clientId}`);
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingPan?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -128,17 +133,17 @@ exports.InsuranceVerification = async (req, res) => {
         }
 
         // 7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req, professionalLogger);
         if (!service.length) {
-            professionalLogger.info(`[FAILED]: Active Service not found for Insurance, Category:${categoryId}, serviceID:${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Active Service not found for Insurance, Category:${categoryId}, serviceID:${serviceId}`);
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         };
-        professionalLogger.info(`Active Service Selected for Insurance verfication: ${service}`);
+        professionalLogger.info(`TxnID:${TxnID}, Active Service Selected for Insurance verfication: ${service}`);
 
         //8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
-        let response = await professionalActiveServiceResponse(PanNumber, service, "InsuranceApiCall", 0);
+        let response = await professionalActiveServiceResponse(PanNumber, service, "InsuranceApiCall", 0, TxnID);
 
-        professionalLogger.info(`Active service for Insurance verification service ${service?.service}: ${response?.message}`)
+        professionalLogger.info(`TxnID:${TxnID}, Active service for Insurance verification service ${response?.service}: ${response?.message}`)
 
         //9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message.toUpperCase() == 'VALID') {
@@ -149,6 +154,7 @@ exports.InsuranceVerification = async (req, res) => {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: response?.result,
                 createdTime: new Date().toLocaleTimeString(),
@@ -165,14 +171,19 @@ exports.InsuranceVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString()
             };
 
-            await InsuranceModel.create(storingData);
-            professionalLogger.info(`Valid Insurance response stored and send to client: ${clientId}`)
+            await InsuranceModel.findOneAndUpdate(
+                { PanNumber: encryptedPan },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Valid Insurance response stored and send to client: ${clientId}`)
 
             return res.status(200).json(createApiResponse(200, response?.result, 'Success'));
         } else {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: {
                     PanNumber
@@ -193,16 +204,18 @@ exports.InsuranceVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString(),
                 createdTime: new Date().toLocaleTimeString()
             };
-            await InsuranceModel.create(storingData);
-            professionalLogger.info(`
-                    Invalid Insurance response recevied and sent to client: ${clientId}
-                `);
+            await InsuranceModel.findOneAndUpdate(
+                { PanNumber: encryptedPan },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Invalid Insurance response recevied and sent to client: ${clientId}`);
             return res.status(404).json(createApiResponse(404, { PanNumber: PanNumber }, "Failed"))
         }
 
     } catch (error) {
         professionalLogger.error(
-            `System error in DIN verification for client ${clientId}: ${error.message}`,
+            `TxnID:${TxnID}, System error in Insurance verification for client ${clientId}: ${error.message}`,
             error
         );
         const errorObj = mapError(error);
@@ -213,49 +226,53 @@ exports.InsuranceVerification = async (req, res) => {
 exports.CharteredAccountantVerification = async (req, res) => {
     const { MembershipNumber, MobileNumber } = req.body;
     const clientId = req.clientId;
+    const TxnID = await generateTransactionId(12);
 
     if (!MembershipNumber) {
         return res.status(400).json(createApiResponse(400, null, ERROR_CODES?.BAD_REQUEST))
     };
-    professionalLogger.info(`CA NUMBER Details: ${MembershipNumber}`);
+    professionalLogger.info(`TxnID:${TxnID}, CA NUMBER Details: ${MembershipNumber}`);
     try {
-        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CA', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('CA', TxnID, professionalLogger);
 
-        const isValid = handleValidation('CA', MembershipNumber, res, clientId);
+        const isValid = handleValidation('CA', MembershipNumber, res, TxnID, professionalLogger);
         if (!isValid) return;
 
-        professionalLogger.info(`Executing CA Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+        professionalLogger.info(`TxnID:${TxnID}, Executing CA Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
-        //1. Hash Pan Number
-        const indetifierHash = hashIdentifiers({ MembershipNumber });
+        //1. Hash MembershipNumber
+        const indetifierHash = hashIdentifiers({ MembershipNumber }, professionalLogger);
 
         //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
         const CARateLimit = await checkingRateLimit({
-            indetifierHash: { indetifierHash },
+            identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req,
+            TxnID,
+            logger: professionalLogger
         });
 
         if (!CARateLimit.allowed) {
-            professionalLogger.info(`[FAILED]: Rate limit exceeded for CA verification: clientId:${clientId}, service:${serviceId}`);
+            professionalLogger.info(`[FAILED]: Rate limit exceeded for CA verification: TxnID:${TxnID}, clientId:${clientId}, service:${serviceId}`);
             return res.status(429).json({ success: false, message: CARateLimit?.message });
         };
 
-        const tnId = genrateUniqueServiceId();
-        professionalLogger.info(`Generated Insurance txn Id: ${tnId}`);
+        professionalLogger.info(`Generated CA txn Id: ${TxnID}`);
 
         //3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
         const maintainanceResponse = await deductCredits(
             clientId,
             serviceId,
             categoryId,
-            tnId,
-            req
+            TxnID,
+            req,
+            professionalLogger
         );
 
         if (!maintainanceResponse?.result) {
-            professionalLogger.info(`[FAILED]: Credit deducation failed for CA verification: clientId${clientId}, txnId:${tnId}`);
+            professionalLogger.info(`[FAILED]: Credit deducation failed for CA verification: clientId${clientId}, txnId:${TxnID}`);
             return res.status(500).json({
                 success: false,
                 message: maintainanceResponse?.message || "InValid",
@@ -272,20 +289,20 @@ exports.CharteredAccountantVerification = async (req, res) => {
         const analyticsResult = await AnalyticsDataUpdate(
             clientId,
             serviceId,
-            categoryId
+            categoryId,
+            'success',
+            professionalLogger
         );
 
         if (!analyticsResult.success) {
-            professionalLogger.info(`[FAILED]: Analytics update for CA verification: client:${clientId}, serviceId: ${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update for CA verification: client:${clientId}, serviceId: ${serviceId}`);
         };
-        professionalLogger.info(`Checked for existing Mermbership number Records in DB: ${existingMerberNumber}`);
+        professionalLogger.info(`TxnID:${TxnID}, Checked for existing Mermbership number Records in DB: ${existingMerberNumber ? "Found" : "Not Found"}`);
 
         // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
         if (existingMerberNumber) {
             if (existingMerberNumber?.status === 1) {
-                professionalLogger.info(`
-                    Returning cached CA response for clientId: ${clientId}
-                `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached CA response for clientId: ${clientId}`);
                 const decrypted = {
                     ...existingMerberNumber?.response,
                     MembershipNumber
@@ -293,6 +310,7 @@ exports.CharteredAccountantVerification = async (req, res) => {
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingMerberNumber?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -301,12 +319,11 @@ exports.CharteredAccountantVerification = async (req, res) => {
                 const dataToShow = decrypted;
                 return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
             } else {
-                professionalLogger.info(`
-                    Returning cached CA Response for client: ${clientId}
-                    `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached CA Response for client: ${clientId}`);
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingMerberNumber?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -318,17 +335,17 @@ exports.CharteredAccountantVerification = async (req, res) => {
         }
 
         // 7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req, professionalLogger);
         if (!service.length) {
-            professionalLogger.info(`[FAILED]: Active Service not found for CA, Category:${categoryId}, serviceID:${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Active Service not found for CA, Category:${categoryId}, serviceID:${serviceId}`);
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         };
-        professionalLogger.info(`Active Service Selected for CA verfication: ${service}`);
+        professionalLogger.info(`TxnID:${TxnID}, Active Service Selected for CA verfication: ${service}`);
 
         //8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
-        let response = await professionalActiveServiceResponse(MembershipNumber, service, "CAApiCall", 0);
+        let response = await professionalActiveServiceResponse(MembershipNumber, service, "CAApiCall", 0, TxnID);
 
-        professionalLogger.info(`Active service for CA verification service ${service?.service}: ${response?.message}`)
+        professionalLogger.info(`TxnID:${TxnID}, Active service for CA verification service ${service?.service}: ${response?.message}`)
 
         //9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message.toUpperCase() == 'VALID') {
@@ -339,6 +356,7 @@ exports.CharteredAccountantVerification = async (req, res) => {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: response?.result,
                 createdTime: new Date().toLocaleTimeString(),
@@ -355,14 +373,19 @@ exports.CharteredAccountantVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString()
             };
 
-            await charterdAccountModel.create(storingData);
-            professionalLogger.info(`Valid CA response stored and send to client: ${clientId}`)
+            await charterdAccountModel.findOneAndUpdate(
+                { MembershipNumber: encryptedMembershipNumber },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Valid CA response stored and send to client: ${clientId}`)
 
             return res.status(200).json(createApiResponse(200, response?.result, 'Success'));
         } else {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: {
                     MembershipNumber
@@ -383,16 +406,18 @@ exports.CharteredAccountantVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString(),
                 createdTime: new Date().toLocaleTimeString()
             };
-            await charterdAccountModel.create(storingData);
-            professionalLogger.info(`
-                    Invalid CA response recevied and sent to client: ${clientId}
-                `);
+            await charterdAccountModel.findOneAndUpdate(
+                { MembershipNumber: encryptedMembershipNumber },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Invalid CA response recevied and sent to client: ${clientId}`);
             return res.status(404).json(createApiResponse(404, { MembershipNumber: MembershipNumber }, "Failed"))
         }
 
     } catch (error) {
         professionalLogger.error(
-            `System error in DIN verification for client ${clientId}: ${error.message}`,
+            `TxnID:${TxnID}, System error in CA verification for client ${clientId}: ${error.message}`,
             error
         );
         const errorObj = mapError(error);
@@ -403,51 +428,55 @@ exports.CharteredAccountantVerification = async (req, res) => {
 exports.DocterVerification = async (req, res) => {
     const { RegistrationNumber, state, MobileNumber } = req.body;
     const clientId = req.clientId;
+    const TxnID = await generateTransactionId(12);
 
     if (!RegistrationNumber || !state) {
         return res.status(400).json(createApiResponse(400, null, ERROR_CODES?.BAD_REQUEST))
     };
-    professionalLogger.info(`Registration Number Details: ${RegistrationNumber}`);
+    professionalLogger.info(`TxnID:${TxnID}, Registration Number Details: ${RegistrationNumber}`);
     try {
-        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('Docter', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('Docter', TxnID, professionalLogger);
 
-        const isValid = handleValidation('DocterRg', RegistrationNumber, res, clientId);
+        const isValid = handleValidation('DocterRg', RegistrationNumber, res, TxnID, professionalLogger);
         if (!isValid) return;
 
-        professionalLogger.info(`Executing Docter Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+        professionalLogger.info(`TxnID:${TxnID}, Executing Docter Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
-        //1. Hash Pan Number
+        //1. Hash RegistrationNumber
         const indetifierHash = hashIdentifiers({
             RegistrationNumber
-        });
+        }, professionalLogger);
 
         //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
         const DocterRateLimit = await checkingRateLimit({
-            indetifierHash: { indetifierHash },
+            identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req,
+            TxnID,
+            logger: professionalLogger
         });
 
         if (!DocterRateLimit.allowed) {
-            professionalLogger.info(`[FAILED]: Rate limit exceeded for Docter verification: clientId:${clientId}, service:${serviceId}`);
+            professionalLogger.info(`[FAILED]: Rate limit exceeded for Docter verification: TxnID:${TxnID}, clientId:${clientId}, service:${serviceId}`);
             return res.status(429).json({ success: false, message: DocterRateLimit?.message });
         };
 
-        const tnId = genrateUniqueServiceId();
-        professionalLogger.info(`Generated Docter txn Id: ${tnId}`);
+        professionalLogger.info(`Generated Docter txn Id: ${TxnID}`);
 
         //3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
         const maintainanceResponse = await deductCredits(
             clientId,
             serviceId,
             categoryId,
-            tnId,
-            req
+            TxnID,
+            req,
+            professionalLogger
         );
 
         if (!maintainanceResponse?.result) {
-            professionalLogger.info(`[FAILED]: Credit deducation failed for Docter verification: clientId${clientId}, txnId:${tnId}`);
+            professionalLogger.info(`[FAILED]: Credit deducation failed for Docter verification: clientId${clientId}, txnId:${TxnID}`);
             return res.status(500).json(createApiResponse(500, {}, maintainanceResponse?.message || "InValid"));
         };
 
@@ -460,20 +489,20 @@ exports.DocterVerification = async (req, res) => {
         const analyticsResult = await AnalyticsDataUpdate(
             clientId,
             serviceId,
-            categoryId
+            categoryId,
+            'success',
+            professionalLogger
         );
 
         if (!analyticsResult.success) {
-            professionalLogger.info(`[FAILED]: Analytics update for Docter verification: client:${clientId}, serviceId: ${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update for Docter verification: client:${clientId}, serviceId: ${serviceId}`);
         };
-        professionalLogger.info(`Checked for existing RegistrationNumber Records in DB: ${existingRgNo}`);
+        professionalLogger.info(`TxnID:${TxnID}, Checked for existing RegistrationNumber Records in DB: ${existingRgNo ? "Found" : "Not Found"}`);
 
         // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
         if (existingRgNo) {
             if (existingRgNo?.status === 1) {
-                professionalLogger.info(`
-                    Returning cached Docter response for clientId: ${clientId}
-                `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached Docter response for clientId: ${clientId}`);
                 const decrypted = {
                     ...existingRgNo?.response,
                     RegistrationNumber
@@ -481,6 +510,7 @@ exports.DocterVerification = async (req, res) => {
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingRgNo?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -489,12 +519,11 @@ exports.DocterVerification = async (req, res) => {
                 const dataToShow = decrypted;
                 return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
             } else {
-                professionalLogger.info(`
-                    Returning cached Docter Response for client: ${clientId}
-                    `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached Docter Response for client: ${clientId}`);
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingRgNo?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -506,17 +535,17 @@ exports.DocterVerification = async (req, res) => {
         }
 
         // 7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req, professionalLogger);
         if (!service.length) {
-            professionalLogger.info(`[FAILED]: Active Service not found for Docter, Category:${categoryId}, serviceID:${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Active Service not found for Docter, Category:${categoryId}, serviceID:${serviceId}`);
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         };
-        professionalLogger.info(`Active Service Selected for Docter verfication: ${service}`);
+        professionalLogger.info(`TxnID:${TxnID}, Active Service Selected for Docter verfication: ${service}`);
 
         //8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
-        let response = await professionalActiveServiceResponse({ Registration: RegistrationNumber, state: state }, service, "DocterApicall", 0);
+        let response = await professionalActiveServiceResponse({ Registration: RegistrationNumber, state: state }, service, "DocterApicall", 0, TxnID);
 
-        professionalLogger.info(`Active service for Docter verification service ${service?.service}: ${response?.message}`)
+        professionalLogger.info(`TxnID:${TxnID}, Active service for Docter verification service ${service?.service}: ${response?.message}`)
 
         //9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message.toUpperCase() == 'VALID') {
@@ -527,6 +556,7 @@ exports.DocterVerification = async (req, res) => {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: response?.result,
                 createdTime: new Date().toLocaleTimeString(),
@@ -543,14 +573,19 @@ exports.DocterVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString()
             };
 
-            await DocterModel.create(storingData);
-            professionalLogger.info(`Valid Docter response stored and send to client: ${clientId}`)
+            await DocterModel.findOneAndUpdate(
+                { RegistrationNumber: encryptedRgNo },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Valid Docter response stored and send to client: ${clientId}`)
 
             return res.status(200).json(createApiResponse(200, response?.result, 'Success'));
         } else {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: {
                     RegistrationNumber
@@ -571,16 +606,18 @@ exports.DocterVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString(),
                 createdTime: new Date().toLocaleTimeString()
             };
-            await DocterModel.create(storingData);
-            professionalLogger.info(`
-                    Invalid Docter response recevied and sent to client: ${clientId}
-                `);
+            await DocterModel.findOneAndUpdate(
+                { RegistrationNumber: encryptedRgNo },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Invalid Docter response recevied and sent to client: ${clientId}`);
             return res.status(404).json(createApiResponse(404, { RegistrationNumber: RegistrationNumber }, "Failed"))
         }
 
     } catch (error) {
         professionalLogger.error(
-            `System error in Docter verification for client ${clientId}: ${error.message}`,
+            `TxnID:${TxnID}, System error in Docter verification for client ${clientId}: ${error.message}`,
             error
         );
         const errorObj = mapError(error);
@@ -591,51 +628,55 @@ exports.DocterVerification = async (req, res) => {
 exports.DentistVerification = async (req, res) => {
     const { RegistrationNumber, state, MobileNumber } = req.body;
     const clientId = req.clientId;
+    const TxnID = await generateTransactionId(12);
 
     if (!RegistrationNumber || !state) {
         return res.status(400).json(createApiResponse(400, null, ERROR_CODES?.BAD_REQUEST))
     };
-    professionalLogger.info(`Registration Number Details: ${RegistrationNumber}`);
+    professionalLogger.info(`TxnID:${TxnID}, Registration Number Details: ${RegistrationNumber}`);
     try {
-        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('Dentist', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('Dentist', TxnID, professionalLogger);
 
-        const isValid = handleValidation('DocterRg', RegistrationNumber, res, clientId);
+        const isValid = handleValidation('DocterRg', RegistrationNumber, res, TxnID, professionalLogger);
         if (!isValid) return;
 
-        professionalLogger.info(`Executing Dentist Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+        professionalLogger.info(`TxnID:${TxnID}, Executing Dentist Verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
-        //1. Hash Pan Number
+        //1. Hash RegistrationNumber
         const indetifierHash = hashIdentifiers({
             RegistrationNumber
-        });
+        }, professionalLogger);
 
         //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
         const dentistRateLimit = await checkingRateLimit({
-            indetifierHash: { indetifierHash },
+            identifiers: { indetifierHash },
             serviceId,
             categoryId,
-            clientId
+            clientId,
+            req,
+            TxnID,
+            logger: professionalLogger
         });
 
         if (!dentistRateLimit.allowed) {
-            professionalLogger.info(`[FAILED]: Rate limit exceeded for Dentist verification: clientId:${clientId}, service:${serviceId}`);
+            professionalLogger.info(`[FAILED]: Rate limit exceeded for Dentist verification: TxnID:${TxnID}, clientId:${clientId}, service:${serviceId}`);
             return res.status(429).json({ success: false, message: dentistRateLimit?.message });
         };
 
-        const tnId = genrateUniqueServiceId();
-        professionalLogger.info(`Generated Dentist txn Id: ${tnId}`);
+        professionalLogger.info(`Generated Dentist txn Id: ${TxnID}`);
 
         //3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
         const maintainanceResponse = await deductCredits(
             clientId,
             serviceId,
             categoryId,
-            tnId,
-            req
+            TxnID,
+            req,
+            professionalLogger
         );
 
         if (!maintainanceResponse?.result) {
-            professionalLogger.info(`[FAILED]: Credit deducation failed for Dentist verification: clientId${clientId}, txnId:${tnId}`);
+            professionalLogger.info(`[FAILED]: Credit deducation failed for Dentist verification: clientId${clientId}, txnId:${TxnID}`);
             return res.status(500).json(createApiResponse(500, {}, maintainanceResponse?.message || "InValid"));
         };
 
@@ -648,20 +689,20 @@ exports.DentistVerification = async (req, res) => {
         const analyticsResult = await AnalyticsDataUpdate(
             clientId,
             serviceId,
-            categoryId
+            categoryId,
+            'success',
+            professionalLogger
         );
 
         if (!analyticsResult.success) {
-            professionalLogger.info(`[FAILED]: Analytics update for Dentist verification: client:${clientId}, serviceId: ${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update for Dentist verification: client:${clientId}, serviceId: ${serviceId}`);
         };
-        professionalLogger.info(`Checked for existing RegistrationNumber Records in DB: ${existingRgNo}`);
+        professionalLogger.info(`TxnID:${TxnID}, Checked for existing RegistrationNumber Records in DB: ${existingRgNo ? "Found" : "Not Found"}`);
 
         // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
         if (existingRgNo) {
             if (existingRgNo?.status === 1) {
-                professionalLogger.info(`
-                    Returning cached Dentist response for clientId: ${clientId}
-                `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached Dentist response for clientId: ${clientId}`);
                 const decrypted = {
                     ...existingRgNo?.response,
                     RegistrationNumber
@@ -669,6 +710,7 @@ exports.DentistVerification = async (req, res) => {
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingRgNo?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -677,12 +719,11 @@ exports.DentistVerification = async (req, res) => {
                 const dataToShow = decrypted;
                 return res.status(200).json(createApiResponse(200, dataToShow, 'Valid'));
             } else {
-                professionalLogger.info(`
-                    Returning cached Dentist Response for client: ${clientId}
-                    `);
+                professionalLogger.info(`TxnID:${TxnID}, Returning cached Dentist Response for client: ${clientId}`);
                 await responseModel.create({
                     serviceId,
                     categoryId,
+                    TxnID,
                     clientId,
                     result: existingRgNo?.response,
                     createdTime: new Date().toLocaleTimeString(),
@@ -694,17 +735,17 @@ exports.DentistVerification = async (req, res) => {
         }
 
         // 7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, clientId, req, professionalLogger);
         if (!service.length) {
-            professionalLogger.info(`[FAILED]: Active Service not found for Dentist, Category:${categoryId}, serviceID:${serviceId}`);
+            professionalLogger.info(`TxnID:${TxnID}, [FAILED]: Active Service not found for Dentist, Category:${categoryId}, serviceID:${serviceId}`);
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         };
-        professionalLogger.info(`Active Service Selected for Dentist verfication: ${service}`);
+        professionalLogger.info(`TxnID:${TxnID}, Active Service Selected for Dentist verfication: ${service}`);
 
         //8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
-        let response = await professionalActiveServiceResponse({ Registration: RegistrationNumber, state: state }, service, "DentistApicall", 0);
+        let response = await professionalActiveServiceResponse({ Registration: RegistrationNumber, state: state }, service, "DentistApicall", 0, TxnID);
 
-        professionalLogger.info(`Active service for Dentist verification service ${service?.service}: ${response?.message}`)
+        professionalLogger.info(`TxnID:${TxnID}, Active service for Dentist verification service ${service?.service}: ${response?.message}`)
 
         //9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message.toUpperCase() == 'VALID') {
@@ -715,6 +756,7 @@ exports.DentistVerification = async (req, res) => {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: response?.result,
                 createdTime: new Date().toLocaleTimeString(),
@@ -731,14 +773,19 @@ exports.DentistVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString()
             };
 
-            await DentistModel.create(storingData);
-            professionalLogger.info(`Valid Dentist response stored and send to client: ${clientId}`)
+            await DentistModel.findOneAndUpdate(
+                { RegistrationNumber: encryptedRgNo },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Valid Dentist response stored and send to client: ${clientId}`)
 
             return res.status(200).json(createApiResponse(200, response?.result, 'Success'));
         } else {
             await responseModel.create({
                 serviceId,
                 categoryId,
+                TxnID,
                 clientId,
                 result: {
                     RegistrationNumber
@@ -759,16 +806,18 @@ exports.DentistVerification = async (req, res) => {
                 createdDate: new Date().toLocaleDateString(),
                 createdTime: new Date().toLocaleTimeString()
             };
-            await DentistModel.create(storingData);
-            professionalLogger.info(`
-                    Invalid Dentist response recevied and sent to client: ${clientId}
-                `);
+            await DentistModel.findOneAndUpdate(
+                { RegistrationNumber: encryptedRgNo },
+                { $setOnInsert: storingData },
+                { upsert: true, new: true }
+            );
+            professionalLogger.info(`TxnID:${TxnID}, Invalid Dentist response recevied and sent to client: ${clientId}`);
             return res.status(404).json(createApiResponse(404, { RegistrationNumber: RegistrationNumber }, "Failed"))
         }
 
     } catch (error) {
         professionalLogger.error(
-            `System error in Dentist verification for client ${clientId}: ${error.message}`,
+            `TxnID:${TxnID}, System error in Dentist verification for client ${clientId}: ${error.message}`,
             error
         );
         const errorObj = mapError(error);
@@ -776,6 +825,7 @@ exports.DentistVerification = async (req, res) => {
     }
 };
 
+// Not Integrated
 exports.eSignAadhaarBased = async (req,res)=>{
     const {} = req.body;
     try{

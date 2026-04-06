@@ -33,7 +33,7 @@ const IfscActiveServiceResponse = async (
   try {
     const res = await ifscApiCall(data, serviceName, client);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 

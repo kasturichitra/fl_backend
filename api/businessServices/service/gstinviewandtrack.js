@@ -23,7 +23,7 @@ const GstInViewAndTrackActiveServiceRes = async (data, services = [], index = 0,
     try {
         const res = await GstInViewAndTrackApiCall(data, serviceName, TxnID);
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 

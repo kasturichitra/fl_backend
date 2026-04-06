@@ -59,14 +59,7 @@ const CinActiveServiceResponse = async (
       `[CinActiveServiceResponse] ${ActiveSerice} response: ${JSON.stringify(res)} with data: ${data?.slice(-4)}`,
     );
 
-    if (res?.success) {
-      if (
-        typeof res.data === "object" &&
-        res.data !== null &&
-        !Array.isArray(res.data)
-      ) {
-        return { ...res.data, success: true };
-      }
+    if (res?.data) {
       return res.data;
     }
 

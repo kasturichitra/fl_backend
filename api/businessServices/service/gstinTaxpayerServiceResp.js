@@ -23,7 +23,7 @@ const GstTaxpayerActiveServiceResponse = async (data, services = [], index = 0, 
     try {
         const res = await GstInTaxPayerApiCall(data, serviceName, TxnID);
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 

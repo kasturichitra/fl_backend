@@ -23,7 +23,7 @@ const TinActiveServiceResponse = async (data, services = [], index = 0, TxnID = 
     try {
         const res = await TinApiCall(data, serviceName, TxnID);
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 

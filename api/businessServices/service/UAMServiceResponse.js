@@ -33,7 +33,7 @@ const UamActiveServiceResponse = async (data, services = [], ActiveSerice, index
                 break;
         }
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 
