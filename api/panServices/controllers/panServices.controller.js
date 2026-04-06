@@ -765,7 +765,7 @@ exports.handlePanTanVerification = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, panServiceLogger);
 
     if (!service.length) {
       panServiceLogger.warn(
@@ -1001,7 +1001,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, panServiceLogger);
 
     if (!service) {
       panServiceLogger.warn(
@@ -1132,7 +1132,7 @@ exports.panItdStatusOtpVerification = async (req, res) => {
       );
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, panServiceLogger);
 
     if (!service) {
       panServiceLogger.warn(

@@ -41,7 +41,7 @@ const getCurrentTime = () => {
   };
 };
 
-async function logResponse({ serviceId, categoryId, clientId, result }) {
+async function logResponse({ serviceId, categoryId, clientId, result, txnId }) {
   const { createdTime, createdDate } = getCurrentTime();
 
   return responseModel.create({
@@ -49,6 +49,7 @@ async function logResponse({ serviceId, categoryId, clientId, result }) {
     categoryId,
     clientId,
     result,
+    TxnID: txnId,
     createdTime,
     createdDate,
   });
@@ -65,6 +66,7 @@ async function handleBillingAndRateLimit({
   categoryId,
   clientId,
   req,
+  txnId
 }) {
   const identifierHash = hashIdentifiers({ panNo: pan }, panServiceLogger);
 
@@ -74,6 +76,8 @@ async function handleBillingAndRateLimit({
     categoryId,
     clientId,
     req,
+    txnId,
+    logger: panServiceLogger
   });
 
   if (!rateLimit.allowed) {
@@ -88,7 +92,6 @@ async function handleBillingAndRateLimit({
     };
   }
 
-  const txnId = genrateUniqueServiceId();
 
   const billing = await deductCredits(
     clientId,
@@ -96,6 +99,7 @@ async function handleBillingAndRateLimit({
     categoryId,
     txnId,
     req,
+    panServiceLogger
   );
 
   if (!billing?.result) {
@@ -155,16 +159,10 @@ async function handleCacheHit({
     .json(createApiResponse(404, existingRecord.response, "Invalid"));
 }
 
-const reusablePanNumberFieldVerification = (panNo, client, res) => {
+const reusablePanNumberFieldVerification = (panNo, txnId, res) => {
   const capitalPanNumber = panNo?.toUpperCase();
 
-  const isValid = handleValidation(
-    "pan",
-    capitalPanNumber,
-    res,
-    client,
-    panServiceLogger,
-  );
+  const isValid = handleValidation("pan", capitalPanNumber, res, txnId, panServiceLogger);
   if (!isValid) return false;
 
   panServiceLogger.info("All inputs in pan are valid, continue processing...");
@@ -182,17 +180,19 @@ async function handlePanVerification({
 }) {
   const { panNumber, mobileNumber = "" } = req.body;
   const clientId = req.clientId || "CID-6140971541";
+  const txnId = genrateUniqueServiceId();
 
   const capitalPan = reusablePanNumberFieldVerification(
     panNumber,
-    clientId,
-    res,
+    txnId,
+    res
   );
   if (!capitalPan) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     serviceType,
-    clientId,
+    txnId,
+    panServiceLogger
   );
 
   const categoryId = idOfCategory;
@@ -206,6 +206,7 @@ async function handlePanVerification({
       categoryId,
       clientId,
       req,
+      txnId
     });
 
     if (billingResult?.error) {
@@ -219,7 +220,7 @@ async function handlePanVerification({
     // ✅ Parallel execution
     const [existingRecord, analytics] = await Promise.all([
       model.findOne({ panNumber: encryptedPan }),
-      AnalyticsDataUpdate(clientId, serviceId, categoryId, "success"),
+      AnalyticsDataUpdate(clientId, serviceId, categoryId, "success", txnId, panServiceLogger),
     ]);
 
     if (!analytics.success) {
@@ -238,7 +239,7 @@ async function handlePanVerification({
     }
 
     // ✅ Service selection
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, txnId, req, panServiceLogger);
     if (!service) {
       return res.status(500).json(ERROR_CODES?.SERVICE_UNAVAILABLE);
     }
@@ -261,6 +262,7 @@ async function handlePanVerification({
         categoryId,
         clientId,
         result: apiResponse.result,
+        txnId
       });
 
       await model.findOneAndUpdate(
