@@ -5,6 +5,9 @@ const Adhaardetails = new mongoose.Schema(
     aadhaarNumber: {
       type: String,
     },
+    mobileNumber:{
+      type: String,
+    },
     response: {
       type: Object,
     },

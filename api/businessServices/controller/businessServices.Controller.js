@@ -340,6 +340,7 @@ exports.gstinverify = async (req, res, next) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {

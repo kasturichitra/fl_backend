@@ -79,9 +79,9 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       aadhaarServiceLogger.warn(
         `Rate limit exceeded for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
       );
-      return res.status(429).json({
+      return res.status(400).json({
         success: false,
-        message: rateLimitResult.message,
+        message: rateLimitResult?.message,
       });
     }
 
@@ -143,7 +143,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       await responseModel.create({
         serviceId,
         categoryId,
-        clientId: storingClient,
+        clientId: client_Id,
         TxnID: tnId,
         result: statusOne ? isExistAadhaar?.response : { aadharNumber },
         createdTime,
@@ -186,6 +186,10 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       `Response received from active service: ${aadhaarResponse?.service} with message: ${aadhaarResponse?.message} of response: ${JSON.stringify(aadhaarResponse)}`,
     );
 
+    if (aadhaarResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
     const isValid = aadhaarResponse?.message?.toUpperCase() === "VALID";
     const noRecord =
       aadhaarResponse?.message?.toUpperCase() === "NO RECORD FOUND";
@@ -209,7 +213,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       createdDate,
     };
 
-    await digilockerverify.findOneAndUpdate(
+    await adhaarverificattionwithoutoptModel.findOneAndUpdate(
       { mobileNumber }, // 🔥 use mobileNumber as filter
       {
         ...basePayload,
@@ -374,8 +378,8 @@ exports.handleDigilockerAccountVerify = async (req, res) => {
         result: statusOne
           ? isExistAadhaar?.response
           : {
-              mobileNumber: mobileNumber,
-            },
+            mobileNumber: mobileNumber,
+          },
         createdTime,
         createdDate,
       });
@@ -480,7 +484,7 @@ exports.handleDigilockerAccountVerify = async (req, res) => {
 
     if (!analyticsResult?.success) {
       employmentServiceLogger.info(
-        `[FAILED]: Analytics update failed for CompareName Verification: client ${storingClient}, service ${serviceId}`,
+        `[FAILED]: Analytics update failed for CompareName Verification: client ${client_Id}, service ${serviceId}`,
       );
     }
     const errorObj = mapError(err);
@@ -494,11 +498,11 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
   const startTime = new Date();
   aadhaarServiceLogger.info("Aadhaar DigiLocker initiation triggered");
 
-  const storingClient = req.clientId || "CID-6140971541";
+  const client_Id = req.clientId || "CID-6140971541";
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "AADHAAR_DIGILOCKER",
-    storingClient,
+    client_Id,
     aadhaarServiceLogger,
   );
 
@@ -507,7 +511,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
 
   const tnId = genrateUniqueServiceId();
   const maintainanceResponse = await deductCredits(
-    storingClient,
+    client_Id,
     serviceId,
     categoryId,
     tnId,
@@ -517,7 +521,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
 
   if (!maintainanceResponse?.result) {
     aadhaarServiceLogger.error(
-      `Credit deduction failed for Aadhaar verification: client ${storingClient}, txnId ${tnId}`,
+      `Credit deduction failed for Aadhaar verification: client ${client_Id}, txnId ${tnId}`,
     );
     return res.status(500).json({
       success: false,
