@@ -1,305 +1,84 @@
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const { encryptData } = require("../../../utils/EncryptAndDecrypt");
-const { ERROR_CODES } = require("../../../utils/errorCodes");
-const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
+const { ERROR_CODES, mapError } = require("../../../utils/errorCodes");
 const handleValidation = require("../../../utils/lengthCheck");
 const { bankServiceLogger, cibilLogger } = require("../../Logger/logger");
 const AdvanceBankModel = require("../models/AdvanceBank.model");
 const CibilServicesModel = require("../models/CibilServices.model");
 const { BankActiveServiceResponse } = require("../services/bankingServiceResponse");
-const { chequeClassifyActiveServiceResponse } = require("../service/bankingServiceResp");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
+const { hashIdentifiers } = require("../../../utils/hashIdentifier");
+const { deductCredits } = require("../../../services/CreditService");
+const { selectService } = require("../../service/serviceSelector");
+const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
+const { createApiResponse } = require("../../../utils/ApiResponseHandler");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const BsaViaNbModel = require("../models/BsaViaNbModel");
 
 exports.handleBSAViaNetBanking = async (req, res) => {
   const {
     panNumber,
     mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
+    serviceId: bodyServiceId = "",
+    categoryId: bodyCategoryId = "",
+    clientId: bodyClientId = "",
   } = req.body;
-  const capitalPanNumber = panNumber?.toUpperCase();
+  const clientId = req.clientId || bodyClientId;
+  const TxnID = await generateTransactionId(12);
 
-  const isValid = handleValidation("pan", capitalPanNumber, res);
-  if (!isValid) return;
-
-  bankServiceLogger.info("All inputs in pan are valid, continue processing...");
-
-  const storingClient = req.clientId || clientId;
-
-  try {
-    bankServiceLogger.info(
-      `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    bankServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
-    );
-
-    // Common: hash identifier
-    // const identifierHash = hashIdentifiers({
-    //   panNo: capitalPanNumber,
-    // });
-
-    // const panRateLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId,
-    //   categoryId,
-    //   clientId: storingClient,
-    // });
-
-    // if (!panRateLimitResult.allowed) {
-    //   bankServiceLogger.warn(
-    //     `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
-    //   );
-    //   return res.status(429).json({
-    //     success: false,
-    //     message: panRateLimitResult.message,
-    //   });
-    // }
-
-    // const maintainanceResponse = await deductCredits(
-    //       storingClient,
-    //       serviceId,
-    //       categoryId,
-    //       tnId,
-    //       req.environment,
-    //     );
-
-    // if (!maintainanceResponse?.result) {
-    //   bankServiceLogger.error(
-    //     `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
-    //   );
-    //   return res.status(500).json({
-    //     success: false,
-    //     message: maintainanceResponse?.message || "Invalid",
-    //     response: {},
-    //   });
-    // }
-
-    const encryptedPan = encryptData(capitalPanNumber);
-
-    const existingPanNumber = await panverificationModel.findOne({
-      panNumber: encryptedPan,
-    });
-
-    const analyticsResult = await AnalyticsDataUpdate(
-      storingClient,
-      serviceId,
-      categoryId,
-    );
-    if (!analyticsResult.success) {
-      bankServiceLogger.warn(
-        `Analytics update failed for PAN verification: client ${storingClient}, service ${serviceId}`,
-      );
-    }
-
-    bankServiceLogger.info(
-      `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
-    );
-    if (existingPanNumber) {
-      const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-      const resOfPan = existingPanNumber?.response;
-
-      if (existingPanNumber?.status == 1) {
-        const decryptedResponse = {
-          ...existingPanNumber?.response,
-          PAN: decryptedPanNumber,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: decryptedResponse,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        bankServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Valid",
-          data: decryptedResponse,
-          success: true,
-        });
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: resOfPan,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        bankServiceLogger.info(
-          `Returning cached invalid PAN response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Invalid",
-          data: resOfPan,
-          success: false,
-        });
-      }
-    }
-
-    const service = await selectService(categoryId, serviceId);
-
-    if (!service) {
-      bankServiceLogger.warn(
-        `Active service not found for category ${categoryId}, service ${serviceId}`,
-      );
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-    }
-
-    bankServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
-    let panNumberResponse = await PanActiveServiceResponse(
-      panNumber,
-      service,
-      0,
-    );
-
-    bankServiceLogger.info(
-      `Response received from active service ${service}: ${panNumberResponse?.message}`,
-    );
-
-    if (panNumberResponse?.message?.toUpperCase() == "VALID") {
-      const encryptedPan = encryptData(panNumberResponse?.result?.PAN);
-      const encryptedResponse = {
-        ...panNumberResponse?.result,
-        PAN: encryptedPan,
-      };
-
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: panNumberResponse?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: panNumberResponse?.result?.Name,
-        response: encryptedResponse,
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 1,
-        mobileNumber,
-        serviceId: `${panNumberResponse?.service}_panBasic`,
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await panverificationModel.create(storingData);
-      bankServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
-      );
-
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: { pan: panNumber, ...findingInValidResponses("panBasic") },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: "",
-        response: findingInValidResponses("panBasic"),
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 2,
-        mobileNumber,
-        serviceId: `${panNumberResponse?.service}_panBasic`,
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await panverificationModel.create(storingData);
-      bankServiceLogger.info(
-        `Invalid PAN response received and sent to client: ${storingClient}`,
-      );
-      return res
-        .status(404)
-        .json(
-          createApiResponse(
-            404,
-            { pan: panNumber, ...findingInValidResponses("panBasic") },
-            "Failed",
-          ),
-        );
-    }
-  } catch (error) {
-    bankServiceLogger.error(
-      `System error in bsa via nb for client ${storingClient}: ${error.message}`,
-      error,
-    );
-    const errorObj = mapError(error);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
-};
-
-exports.AdvanceBankAccountVerification = async (req, res) => {
-  const { accountNumber, ifscCode, mobileNumber = '' } = req.body;
-  const clientId = req.clientId;
-
-  if (!accountNumber || !ifscCode) {
+  if (!panNumber) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  bankServiceLogger.info(`Advance bankAccount verification, AccountNO:${accountNumber}, ifscCode: ${ifscCode}`);
+
+  const capitalPanNumber = panNumber?.toUpperCase();
+
+  bankServiceLogger.info(`TxnID:${TxnID}, BSA via Net Banking: Pan:${capitalPanNumber}`);
+
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('AddvanceBank', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId("BSA_NETBLOCKING", TxnID, bankServiceLogger);
 
-    const isaccount = handleValidation("accountNumber", accountNumber, res, clientId);
-    const isifsc = handleValidation("ifsc", ifscCode, res, clientId);
-    if (!isaccount || !isifsc) return;
+    const isValid = handleValidation("pan", capitalPanNumber, res, TxnID, bankServiceLogger);
+    if (!isValid) return;
 
+    bankServiceLogger.info(`TxnID:${TxnID}, Executing BSA via Net Banking for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
-    bankServiceLogger.info(`Executing Advance bankAccount verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+    // 1. HASH IDENTIFIER
+    const identifierHash = hashIdentifiers({ panNo: capitalPanNumber }, bankServiceLogger);
 
-    //1. HASH DIN NUMBER
-    const indetifierHash = hashIdentifiers({ accountNumber, ifscCode });
-
-    //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
-    const bankAccRateLimitResult = await checkingRateLimit({
-      identifiers: { indetifierHash },
+    // 2. CHECK THE RATE LIMIT
+    const rateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId,
-      req
+      req,
+      TxnID,
+      logger: bankServiceLogger
     });
 
-    if (!bankAccRateLimitResult.allowed) {
-      bankServiceLogger.info(`[FAILED]: Rate limit exceeded for Advance bankAccount verification: client ${clientId}, service ${serviceId}`);
+    if (!rateLimitResult.allowed) {
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Rate limit exceeded for BSA via Net Banking: client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
-        message: bankAccRateLimitResult.message,
+        message: rateLimitResult.message,
       });
-    };
+    }
 
-    const tnId = genrateUniqueServiceId();
-    bankServiceLogger.info(`Generated Advance bankAccount txn Id: ${tnId}`);
+    bankServiceLogger.info(`TxnID:${TxnID}, Generated BSA via Net Banking txn Id: ${TxnID}`);
 
-    // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
+    // 3. DEBIT THE WALLET AMOUNT
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req.environment
+      TxnID,
+      req,
+      bankServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      bankServiceLogger.info(`[FAILED]: Credit deduction failed for Advance bankAccount verification: client ${clientId}, txnId ${tnId}`);
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Credit deduction failed for BSA via Net Banking: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -307,105 +86,74 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
       });
     }
 
-    // 4. CHECK IN THE DB IS DATA PRESENT 
-    const encryptedAccount = encryptData(accountNumber);
-    const encryptedIFFSC = encryptData(ifscCode);
+    // 4. CHECK IN THE DB
+    const encryptedPan = encryptData(capitalPanNumber);
 
-    const existingAdvanceBank = await AdvanceBankModel.findOne({ accountNumber: encryptedAccount, ifscCode: encryptedIFFSC })
+    const existingRecord = await BsaViaNbModel.findOne({ panNumber: encryptedPan });
 
     // 5. UPDATE TO THE ANALYTICS COLLECTION
     const analyticsResult = await AnalyticsDataUpdate(
       clientId,
       serviceId,
       categoryId,
+      "success",
+      TxnID,
+      bankServiceLogger
     );
     if (!analyticsResult.success) {
-      bankServiceLogger.info(`[FAILED]: Analytics update failed for Advance bankAccount verification: client ${clientId}, service ${serviceId}`);
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update failed for BSA via Net Banking: client ${clientId}, service ${serviceId}`);
     }
 
-    bankServiceLogger.info(
-      `Checked for existing Advance bankAccount record in DB: ${existingAdvanceBank ? "Found" : "Not Found"}, `,
-    );
+    bankServiceLogger.info(`TxnID:${TxnID}, Checked for existing BSA via Net Banking record in DB: ${existingRecord ? "Found" : "Not Found"}`);
 
-    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
-    if (existingAdvanceBank) {
-      if (existingAdvanceBank?.status == 1) {
-        bankServiceLogger.info(
-          `Returning cached Advance bankAccount response for client: ${clientId}`,
-        );
-
-        const decrypted = {
-          ...existingAdvanceBank?.response,
-          accountNumber, ifscCode,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId,
-          result: existingAdvanceBank?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = decrypted;
-        return res
-          .status(200)
-          .json(createApiResponse(200, dataToShow, "Valid"));
-      } else {
-        bankServiceLogger.info(
-          `Returning cached Advance bankAccount response for client: ${clientId}`,
-        );
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId,
-          result: existingAdvanceBank?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = existingAdvanceBank?.response;
-        return res
-          .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
-      }
-    }
-
-    //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId);
-    if (!service.length) {
-      bankServiceLogger.info(
-        `[FAILED]: Active service not found for Advance bankAccount category ${categoryId}, service ${serviceId}`,
-      );
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-    }
-    bankServiceLogger.info(
-      `Active service selected for Advance bankAccount verification: ${service.serviceFor}`);
-
-    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await BankActiveServiceResponse(dinNumber, service, "AdvanceBankApiCall", 0);
-
-    bankServiceLogger.info(
-      `Active service selected for Advance bankAccount service ${service.service}: ${response?.message}`,
-    );
-
-    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
-    if (response?.message?.toUpperCase() == "VALID") {
-      const encryptedResponse = {
-        ...response?.result,
-        accountNumber: encryptedAccount,
-        ifscCode: encryptedIFFSC
-      };
+    if (existingRecord) {
+      bankServiceLogger.info(`TxnID:${TxnID}, Returning cached BSA via Net Banking response for client: ${clientId}`);
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
+        clientId,
+        result: existingRecord?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
+      if (existingRecord?.status == 1) {
+        return res.status(200).json(createApiResponse(200, existingRecord?.response, "Valid"));
+      } else {
+        return res.status(404).json(createApiResponse(404, existingRecord?.response, "inValid"));
+      }
+    }
+
+    // 7. CALL TO SERVICE PROVIDERS
+    const service = await selectService(categoryId, serviceId, clientId, req, bankServiceLogger);
+    if (!service || !service.length) {
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Active service not found for BSA via Net Banking category ${categoryId}, service ${serviceId}`);
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    bankServiceLogger.info(`TxnID:${TxnID}, Active service selected for BSA via Net Banking: ${JSON.stringify(service)}`);
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
+    let response = await BankActiveServiceResponse({ panNumber: capitalPanNumber }, service, "BSAViaNetBankingApiCall", 0, TxnID);
+
+    bankServiceLogger.info(`TxnID:${TxnID}, Active service response received: ${response?.message}`);
+
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = response?.result;
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
+
       const storingData = {
         status: 1,
-        accountNumber: encryptedAccount,
-        ifscCode: encryptedIFFSC,
+        panNumber: encryptedPan,
         response: encryptedResponse,
         serviceResponse: response?.responseOfService,
         serviceName: response?.service,
@@ -415,33 +163,28 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await AdvanceBankModel.create(storingData);
-      bankServiceLogger.info(
-        `Valid Advance bankAccount response stored and sent to client: ${clientId}`,
+      await BsaViaNbModel.findOneAndUpdate(
+        { panNumber: encryptedPan },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
       );
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Success"));
+
+      return res.status(200).json(createApiResponse(200, response?.result, "Success"));
     } else {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
-        result: {
-          accountNumber,
-          ifscCode
-        },
+        result: { panNumber: capitalPanNumber },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
+
       const storingData = {
         status: 2,
-        accountNumber: encryptedAccount,
-        ifscCode: encryptedIFFSC,
-        response: {
-          accountNumber,
-          ifscCode
-        },
+        panNumber: encryptedPan,
+        response: { panNumber: capitalPanNumber },
         serviceResponse: {},
         serviceName: response?.service,
         mobileNumber,
@@ -450,84 +193,79 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await AdvanceBankModel.create(storingData);
-      bankServiceLogger.info(
-        `Invalid Advance bankAccount response received and sent to client: ${clientId}`,
+      await BsaViaNbModel.findOneAndUpdate(
+        { panNumber: encryptedPan },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
       );
-      return res
-        .status(404)
-        .json(createApiResponse(404, {
-          accountNumber,
-          ifscCode
-        }, "Failed"));
-    }
 
+      return res.status(404).json(createApiResponse(404, { panNumber: capitalPanNumber }, "Failed"));
+    }
   } catch (error) {
-    bankServiceLogger.error(
-      `System error in Advance bankAccount verification for client ${clientId}: ${error.message}`,
-      error
-    );
+    bankServiceLogger.error(`TxnID:${TxnID}, System error in BSA via Net Banking for client ${clientId}: ${error.message}`, error);
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
 
-exports.CibilVerification = async (req, res) => {
-  const { panNumber, customerName, customerMobile, mobileNumber = '' } = req.body;
+exports.AdvanceBankAccountVerification = async (req, res) => {
+  const { accountNumber, ifscCode, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
 
-  if (!panNumber || !customerName || !customerMobile) {
+  if (!accountNumber || !ifscCode) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
-  cibilLogger.info(`Cibil verification, Pan:${panNumber}, customerNumber: ${customerMobile}, customerName: ${customerName}`);
+
+  bankServiceLogger.info(`TxnID:${TxnID}, Advance bankAccount verification: AccountNO:${accountNumber}, ifscCode:${ifscCode}`);
+
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('AddvanceBank', clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId("AddvanceBank", TxnID, bankServiceLogger);
 
-    const ispanNumber = handleValidation("pan", panNumber, res, clientId);
-    const iscustomerMobile = handleValidation("mobile", customerMobile, res, clientId);
-    if (!ispanNumber || !iscustomerMobile) return;
+    const isAccountValid = handleValidation("accountNumber", accountNumber, res, TxnID, bankServiceLogger);
+    if (!isAccountValid) return;
 
+    const isIfscValid = handleValidation("ifsc", ifscCode, res, TxnID, bankServiceLogger);
+    if (!isIfscValid) return;
 
-    cibilLogger.info(
-      `Executing Cibil verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
-    );
+    bankServiceLogger.info(`TxnID:${TxnID}, Executing Advance bankAccount verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
-    //1. HASH PAN,NAME,MOBILE NUMBER
-    const indetifierHash = hashIdentifiers({
-      panNumber, customerName, customerMobile
-    });
+    // 1. HASH IDENTIFIERS
+    const indetifierHash = hashIdentifiers({ accountNumber, ifscCode }, bankServiceLogger);
 
-    //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
-    const cibilRateLimitResult = await checkingRateLimit({
+    // 2. CHECK THE RATE LIMIT
+    const bankAccRateLimitResult = await checkingRateLimit({
       identifiers: { indetifierHash },
       serviceId,
       categoryId,
       clientId,
-      req
+      req,
+      TxnID,
+      logger: bankServiceLogger
     });
 
-    if (!cibilRateLimitResult.allowed) {
-      cibilLogger.info(`[FAILED]: Rate limit exceeded for Cibil verification: client ${clientId}, service ${serviceId}`);
+    if (!bankAccRateLimitResult.allowed) {
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Rate limit exceeded for Advance bankAccount verification: client ${clientId}, service ${serviceId}`);
       return res.status(429).json({
         success: false,
-        message: cibilRateLimitResult.message,
+        message: bankAccRateLimitResult.message,
       });
-    };
+    }
 
-    const tnId = genrateUniqueServiceId();
-    cibilLogger.info(`Generated Cibil txn Id: ${tnId}`);
+    bankServiceLogger.info(`TxnID:${TxnID}, Generated Advance bankAccount txn Id: ${TxnID}`);
 
-    // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
+    // 3. DEBIT THE WALLET AMOUNT
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req.environment
+      TxnID,
+      req,
+      bankServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      cibilLogger.info(`[FAILED]: Credit deduction failed for Cibil verification: client ${clientId}, txnId ${tnId}`);
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Credit deduction failed for Advance bankAccount verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -535,97 +273,87 @@ exports.CibilVerification = async (req, res) => {
       });
     }
 
-    // 4. CHECK IN THE DB IS DATA PRESENT 
-    const encryptedPanNumber = encryptData(panNumber);
-    const encryptedMobile = encryptData(customerMobile);
-    const encryptedName = encryptData(customerName);
+    // 4. CHECK IN THE DB
+    const encryptedAccount = encryptData(accountNumber);
+    const encryptedIFSC = encryptData(ifscCode);
 
-    const existingCibl = await CibilServicesModel.findOne({ panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile })
+    const existingAdvanceBank = await AdvanceBankModel.findOne({ accountNumber: encryptedAccount, ifscCode: encryptedIFSC });
 
     // 5. UPDATE TO THE ANALYTICS COLLECTION
     const analyticsResult = await AnalyticsDataUpdate(
       clientId,
       serviceId,
       categoryId,
+      "success",
+      TxnID,
+      bankServiceLogger
     );
     if (!analyticsResult.success) {
-      cibilLogger.info(`[FAILED]: Analytics update failed for Cibil verification: client ${clientId}, service ${serviceId}`);
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update failed for Advance bankAccount verification: client ${clientId}, service ${serviceId}`);
     }
 
-    cibilLogger.info(
-      `Checked for existing Cibil record in DB: ${existingCibl ? "Found" : "Not Found"}, `,
-    );
+    bankServiceLogger.info(`TxnID:${TxnID}, Checked for existing Advance bankAccount record in DB: ${existingAdvanceBank ? "Found" : "Not Found"}`);
 
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
-    if (existingCibl) {
-      if (existingCibl?.status == 1) {
-        cibilLogger.info(
-          `Returning cached Cibil response for client: ${clientId}`,
-        );
+    if (existingAdvanceBank) {
+      bankServiceLogger.info(`TxnID:${TxnID}, Returning cached Advance bankAccount response for client: ${clientId}`);
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: existingAdvanceBank?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
 
-        const decrypted = { ...existingCibl?.response, panNumber, customerName, customerMobile };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId,
-          result: existingCibl?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = decrypted;
-        return res
-          .status(200)
-          .json(createApiResponse(200, dataToShow, "Valid"));
+      if (existingAdvanceBank?.status == 1) {
+        const decrypted = {
+          ...existingAdvanceBank?.response,
+          accountNumber,
+          ifscCode,
+        };
+        return res.status(200).json(createApiResponse(200, decrypted, "Valid"));
       } else {
-        cibilLogger.info(`Returning cached Cibil response for client: ${clientId}`);
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId,
-          result: existingCibl?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = existingCibl?.response;
-        return res
-          .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+        return res.status(404).json(createApiResponse(404, existingAdvanceBank?.response, "inValid"));
       }
     }
 
-    //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId);
-    if (!service.length) {
-      cibilLogger.info(`[FAILED]: Active service not found for Cibil category ${categoryId}, service ${serviceId}`);
+    // 7. CALL TO SERVICE PROVIDERS
+    const service = await selectService(categoryId, serviceId, clientId, req, bankServiceLogger);
+    if (!service || !service.length) {
+      bankServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Active service not found for Advance bankAccount category ${categoryId}, service ${serviceId}`);
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
-    cibilLogger.info(`Active service selected for Cibil verification: ${service.serviceFor}`);
 
-    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
-    let response = await BankActiveServiceResponse(dinNumber, service, "AdvanceBankApiCall", 0);
+    bankServiceLogger.info(`TxnID:${TxnID}, Active service selected for Advance bankAccount verification: ${JSON.stringify(service)}`);
 
-    cibilLogger.info(
-      `Active service selected for Cibil service ${service.service}: ${response?.message}`,
-    );
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
+    let response = await BankActiveServiceResponse({ accountNumber, ifscCode }, service, "AdvanceBankApiCall", 0, TxnID);
+
+    bankServiceLogger.info(`TxnID:${TxnID}, Active service response received: ${response?.message}`);
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
     if (response?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = {
         ...response?.result,
         accountNumber: encryptedAccount,
-        ifscCode: encryptedIFFSC
+        ifscCode: encryptedIFSC
       };
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
+
       const storingData = {
         status: 1,
-        panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile,
+        accountNumber: encryptedAccount,
+        ifscCode: encryptedIFSC,
         response: encryptedResponse,
         serviceResponse: response?.responseOfService,
         serviceName: response?.service,
@@ -635,27 +363,241 @@ exports.CibilVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await CibilServicesModel.create(storingData);
-      cibilLogger.info(
-        `Valid Cibil response stored and sent to client: ${clientId}`,
+      await AdvanceBankModel.findOneAndUpdate(
+        { accountNumber: encryptedAccount, ifscCode: encryptedIFSC },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
       );
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Success"));
+
+      bankServiceLogger.info(`TxnID:${TxnID}, Valid Advance bankAccount response stored and sent to client: ${clientId}`);
+      return res.status(200).json(createApiResponse(200, response?.result, "Success"));
     } else {
       await responseModel.create({
         serviceId,
         categoryId,
+        TxnID,
         clientId,
-        result: {
-          panNumber, customerName, customerMobile
-        },
+        result: { accountNumber, ifscCode },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
+
       const storingData = {
         status: 2,
-        panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile,
+        accountNumber: encryptedAccount,
+        ifscCode: encryptedIFSC,
+        response: { accountNumber, ifscCode },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await AdvanceBankModel.findOneAndUpdate(
+        { accountNumber: encryptedAccount, ifscCode: encryptedIFSC },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+
+      bankServiceLogger.info(`TxnID:${TxnID}, Invalid Advance bankAccount response received and sent to client: ${clientId}`);
+      return res.status(404).json(createApiResponse(404, { accountNumber, ifscCode }, "Failed"));
+    }
+
+  } catch (error) {
+    bankServiceLogger.error(`TxnID:${TxnID}, System error in Advance bankAccount verification for client ${clientId}: ${error.message}`, error);
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.CibilVerification = async (req, res) => {
+  const { panNumber, customerName, customerMobile, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
+
+  if (!panNumber || !customerName || !customerMobile) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+
+  cibilLogger.info(`TxnID:${TxnID}, Cibil verification: Pan:${panNumber}, customerMobile:${customerMobile}, customerName:${customerName}`);
+
+  try {
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId("CIBIL", TxnID, cibilLogger);
+
+    const isPanValid = handleValidation("pan", panNumber, res, TxnID, cibilLogger);
+    if (!isPanValid) return;
+
+    const isMobileValid = handleValidation("mobile", customerMobile, res, TxnID, cibilLogger);
+    if (!isMobileValid) return;
+
+    cibilLogger.info(`TxnID:${TxnID}, Executing Cibil verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
+
+    // 1. HASH IDENTIFIERS
+    const indetifierHash = hashIdentifiers({ panNumber, customerName, customerMobile }, cibilLogger);
+
+    // 2. CHECK THE RATE LIMIT
+    const cibilRateLimitResult = await checkingRateLimit({
+      identifiers: { indetifierHash },
+      serviceId,
+      categoryId,
+      clientId,
+      req,
+      TxnID,
+      logger: cibilLogger
+    });
+
+    if (!cibilRateLimitResult.allowed) {
+      cibilLogger.info(`TxnID:${TxnID}, [FAILED]: Rate limit exceeded for Cibil verification: client ${clientId}, service ${serviceId}`);
+      return res.status(429).json({
+        success: false,
+        message: cibilRateLimitResult.message,
+      });
+    }
+
+    cibilLogger.info(`TxnID:${TxnID}, Generated Cibil txn Id: ${TxnID}`);
+
+    // 3. DEBIT THE WALLET AMOUNT
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      TxnID,
+      req,
+      cibilLogger
+    );
+
+    if (!maintainanceResponse?.result) {
+      cibilLogger.info(`TxnID:${TxnID}, [FAILED]: Credit deduction failed for Cibil verification: client ${clientId}, txnId ${TxnID}`);
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    // 4. CHECK IN THE DB
+    const encryptedPanNumber = encryptData(panNumber);
+    const encryptedMobile = encryptData(customerMobile);
+    const encryptedName = encryptData(customerName);
+
+    const existingCibil = await CibilServicesModel.findOne({ 
+      panNumber: encryptedPanNumber, 
+      customerName: encryptedName, 
+      customerMobile: encryptedMobile 
+    });
+
+    // 5. UPDATE TO THE ANALYTICS COLLECTION
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "success",
+      TxnID,
+      cibilLogger
+    );
+    if (!analyticsResult.success) {
+      cibilLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update failed for Cibil verification: client ${clientId}, service ${serviceId}`);
+    }
+
+    cibilLogger.info(`TxnID:${TxnID}, Checked for existing Cibil record in DB: ${existingCibil ? "Found" : "Not Found"}`);
+
+    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
+    if (existingCibil) {
+      cibilLogger.info(`TxnID:${TxnID}, Returning cached Cibil response for client: ${clientId}`);
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: existingCibil?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
+      if (existingCibil?.status == 1) {
+        const decrypted = { 
+          ...existingCibil?.response, 
+          panNumber, 
+          customerName, 
+          customerMobile 
+        };
+        return res.status(200).json(createApiResponse(200, decrypted, "Valid"));
+      } else {
+        return res.status(404).json(createApiResponse(404, existingCibil?.response, "inValid"));
+      }
+    }
+
+    // 7. CALL TO SERVICE PROVIDERS
+    const service = await selectService(categoryId, serviceId, clientId, req, cibilLogger);
+    if (!service || !service.length) {
+      cibilLogger.info(`TxnID:${TxnID}, [FAILED]: Active service not found for Cibil category ${categoryId}, service ${serviceId}`);
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+    cibilLogger.info(`TxnID:${TxnID}, Active service selected for Cibil verification: ${JSON.stringify(service)}`);
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
+    let response = await BankActiveServiceResponse({ panNumber, customerName, customerMobile }, service, "CibilApiCall", 0, TxnID);
+
+    cibilLogger.info(`TxnID:${TxnID}, Active service response received: ${response?.message}`);
+
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        panNumber: encryptedPanNumber,
+        customerName: encryptedName,
+        customerMobile: encryptedMobile
+      };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
+      const storingData = {
+        status: 1,
+        panNumber: encryptedPanNumber,
+        customerName: encryptedName,
+        customerMobile: encryptedMobile,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await CibilServicesModel.findOneAndUpdate(
+        { panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+
+      cibilLogger.info(`TxnID:${TxnID}, Valid Cibil response stored and sent to client: ${clientId}`);
+      return res.status(200).json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: { panNumber, customerName, customerMobile },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
+      const storingData = {
+        status: 2,
+        panNumber: encryptedPanNumber,
+        customerName: encryptedName,
+        customerMobile: encryptedMobile,
         response: { panNumber, customerName, customerMobile },
         serviceResponse: {},
         serviceName: response?.service,
@@ -665,241 +607,19 @@ exports.CibilVerification = async (req, res) => {
         createdTime: new Date().toLocaleTimeString(),
       };
 
-      await CibilServicesModel.create(storingData);
-      cibilLogger.info(
-        `Invalid Cibil response received and sent to client: ${clientId}`,
+      await CibilServicesModel.findOneAndUpdate(
+        { panNumber: encryptedPanNumber, customerName: encryptedName, customerMobile: encryptedMobile },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
       );
-      return res
-        .status(404)
-        .json(createApiResponse(404, {
-          accountNumber,
-          ifscCode
-        }, "Failed"));
+
+      cibilLogger.info(`TxnID:${TxnID}, Invalid Cibil response received and sent to client: ${clientId}`);
+      return res.status(404).json(createApiResponse(404, { panNumber, customerName, customerMobile }, "Failed"));
     }
 
   } catch (error) {
-    cibilLogger.error(
-      `System error in Cibil verification for client ${clientId}: ${error.message}`,
-      error
-    );
+    cibilLogger.error(`TxnID:${TxnID}, System error in Cibil verification for client ${clientId}: ${error.message}`, error);
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
-
-// exports.handleChequeClassification = async (req, res) => {
-//     const data = req.body;
-//   const {
-//     panNumber,
-//     mobileNumber = "",
-//     serviceId = "",
-//     categoryId = "",
-//     clientId = "",
-//   } = data;
-//   const capitalPanNumber = panNumber?.toUpperCase();
-
-//   const isValid = handleValidation("pan", capitalPanNumber, res);
-//   if (!isValid) return;
-
-//   bankServiceLogger.info("All inputs in pan are valid, continue processing...");
-
-//   const storingClient = req.clientId || clientId;
-
-//   try {
-//     bankServiceLogger.info(
-//       `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-//     );
-
-//     // Always generate txnId
-//     const tnId = genrateUniqueServiceId();
-//     bankServiceLogger.info(
-//       `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
-//     );
-
-//     // Common: hash identifier
-//     // const identifierHash = hashIdentifiers({
-//     //   panNo: capitalPanNumber,
-//     // });
-
-//     // const panRateLimitResult = await checkingRateLimit({
-//     //   identifiers: { identifierHash },
-//     //   serviceId,
-//     //   categoryId,
-//     //   clientId: storingClient,
-//     // });
-
-//     // if (!panRateLimitResult.allowed) {
-//     //   bankServiceLogger.warn(
-//     //     `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
-//     //   );
-//     //   return res.status(429).json({
-//     //     success: false,
-//     //     message: panRateLimitResult.message,
-//     //   });
-//     // }
-
-//     // const maintainanceResponse = await deductCredits(
-//     //       storingClient,
-//     //       serviceId,
-//     //       categoryId,
-//     //       tnId,
-//     //       req.environment,
-//     //     );
-
-//     // if (!maintainanceResponse?.result) {
-//     //   bankServiceLogger.error(
-//     //     `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
-//     //   );
-//     //   return res.status(500).json({
-//     //     success: false,
-//     //     message: maintainanceResponse?.message || "Invalid",
-//     //     response: {},
-//     //   });
-//     // }
-
-//     const encryptedPan = encryptData(capitalPanNumber);
-
-//     const existingPanNumber = await panverificationModel.findOne({
-//       panNumber: encryptedPan,
-//     });
-
-//     const analyticsResult = await AnalyticsDataUpdate(
-//       storingClient,
-
-
-//         bankServiceLogger.warn(
-//         `Analytics update failed for PAN verification: client ${storingClient}, service ${serviceId}`,
-//       );
-//     }
-
-//     bankServiceLogger.info(
-//       `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
-//     );
-//     if (existingPanNumber) {
-//       const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-//       const resOfPan = existingPanNumber?.response;
-
-//       if (existingPanNumber?.status == 1) {
-//         const decryptedResponse = {
-//           ...existingPanNumber?.response,
-//           PAN: decryptedPanNumber,
-//                clientId: storingClient,
-//           result: decryptedResponse,
-//           createdTime: new Date().toLocaleTimeString(),
-//           createdDate: new Date().toLocaleDateString(),
-//         });
-//         bankServiceLogger.info(
-//           `Returning cached valid PAN response for client: ${storingClient}`,
-//         );
-//         return res.json({
-//           message: "Valid",
-//           data: decryptedResponse,
-//           success: true,
-//         });
-//       } else {
-//         await responseModel.create({
-//           serviceId,
-//           categoryId,
-//           clientId: storingClient,
-//           result: resOfPan,
-//           createdTime: new Date().toLocaleTimeString(),
-//           createdDate: new Date().toLocaleDateString(),
-//         });
-//         bankServiceLogger.info(
-//           `Returning cached invalid PAN response for client: ${storingClient}`,
-//         );
-//         return res.json({
-//           message: "Invalid",
-//           data: resOfPan,
-//           success: false,
-//         });
-//       }
-//     }
-
-//     const service = await selectService(categoryId, serviceId, storingClient, req);
-
-//     if (!service?.length) {
-//       bankServiceLogger.warn(
-//         `Active service not found for category ${categoryId}, service ${serviceId}`,
-//       );
-//       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-//     }
-
-//     bankServiceLogger.info(
-//       `Active service selected for PAN verification: ${service.serviceFor}`,
-//     );
-//     let panNumberResponse = await chequeClassifyActiveServiceResponse(
-//       panNumber,
-//       service,
-//       0,
-//     );
-
-//     bankServiceLogger.info(
-//       `Response received from active service ${service.serviceFor}: ${panNumberResponse?.message}`,
-//     );
-
-//     if (panNumberResponse?.message?.toUpperCase() == "VALID") {
-//       const encryptedPan = encryptData(panNumberResponse?.result?.PAN);
-//       const encryptedResponse = {
-//         ...panNumberResponse?.result,
-//         PAN: encryptedPan,
-//       };
-
-//       await responseModel.create({
-//         serviceId,
-//         categoryId,
-//         clientId: storingClient,
-//         result: panNumberResponse?.result,
-//         createdTime: new Date().toLocaleTimeString(),
-//         createdDate: new Date().toLocaleDateString(),
-//       });
-
-//       const storingData = {
-//         panNumber: encryptedPan,
-//         userName: panNumberResponse?.result?.Name,
-//         response: encryptedResponse,
-//         serviceResponse: panNumberResponse?.responseOfService,
-//         status: 1,
-//         mobileNumber,
-//         serviceName: panNumberResponse?.service,
-
-
-//         await panverificationModel.create(storingData);
-//       bankServiceLogger.info(
-//         `Valid PAN response stored and sent to client: ${storingClient}`,
-//       );
-
-//       return res
-//         .status(200)
-//         .json(createApiResponse(200, response?.result, "Valid"));
-
-//            panNumber: encryptedPan,
-//         userName: "",
-//         response: { pan: panNumber },
-//         serviceResponse: panNumberResponse?.responseOfService,
-//         status: 2,
-//         mobileNumber,
-//         serviceName: panNumberResponse?.service,
-//         createdDate: new Date().toLocaleDateString(),
-//         createdTime: new Date().toLocaleTimeString(),
-//       };
-//       await panverificationModel.create(storingData);
-//       bankServiceLogger.info(
-//         `Invalid PAN response received and sent to client: ${storingClient}`,
-//       );
-//       return res
-//         .status(404)
-//         .json(
-//           createApiResponse(
-//             404,
-//             { pan: panNumber },
-//             "Failed",
-//           ),
-//         );
-//     }
-//   } catch (error) {
-//     bankServiceLogger.error(
-//       `System error in bsa via nb for client ${storingClient}: ${error.message}`,
-//       error,
-
-

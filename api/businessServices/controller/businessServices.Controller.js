@@ -1189,7 +1189,7 @@ exports.handleCINVerification = async (req, res, next) => {
   const TxnID = await generateTransactionId(12);
 
   if (!CIN) {
-    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+    return res.status(480).json(ERROR_CODES?.BAD_REQUEST);
   };
 
   businessServiceLogger.info(`TxnID:${TxnID}, CIN NUMBER Details: ${CIN}`);
@@ -1261,6 +1261,7 @@ exports.handleCINVerification = async (req, res, next) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -1276,10 +1277,7 @@ exports.handleCINVerification = async (req, res, next) => {
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingCIN) {
       if (existingCIN?.status == 1) {
-        businessServiceLogger.info(
-          `txnId: ${TxnID}, Returning cached CIN response for client: ${clientId}`,
-        );
-
+        businessServiceLogger.info(`txnId: ${TxnID}, Returning cached CIN response for client: ${clientId}`);
         const decrypted = {
           ...existingCIN?.response,
           cinNumber: CIN,
@@ -1327,9 +1325,7 @@ exports.handleCINVerification = async (req, res, next) => {
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     };
 
-    businessServiceLogger.info(
-      `txnId: ${TxnID}, Active service selected for CIN verification: ${service}`
-    );
+    businessServiceLogger.info(`txnId: ${TxnID}, Active service selected for CIN verification: ${JSON.stringify(service)}`);
 
     // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
     let response = await CinActiveServiceResponse(CIN, service, 'CinApiCall', 0, TxnID);
@@ -1364,7 +1360,7 @@ exports.handleCINVerification = async (req, res, next) => {
       };
 
       await IncorporationCertificateModel.findOneAndUpdate(
-        { CIN: encryptedCIN },
+        { cinNumber: encryptedCIN },
         { $setOnInsert: storingData },
         { upsert: true, new: true }
       );
@@ -1403,7 +1399,7 @@ exports.handleCINVerification = async (req, res, next) => {
       }
 
       await IncorporationCertificateModel.findOneAndUpdate(
-        { CIN: encryptedCIN },
+        { cinNumber: encryptedCIN },
         { $setOnInsert: storingData },
         { upsert: true, new: true }
       );

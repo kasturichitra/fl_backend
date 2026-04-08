@@ -36,4 +36,4 @@ const panDetails = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("panDetails", panDetails);
+module.exports = mongoose.model("bsapanDetails", panDetails);

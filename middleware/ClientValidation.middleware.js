@@ -7,6 +7,7 @@ require('dotenv').config();
 const SUPERADMIN_URL = process.env.SUPERADMIN_URL;
 
 const jwt = require("jsonwebtoken");
+const { createApiResponse } = require('../utils/ApiResponseHandler');
 
 const clientValidation = async (req, res, next) => {
     const accessToken = req.headers["secret_token"];
@@ -106,12 +107,15 @@ const clientValidation = async (req, res, next) => {
             }
 
         } catch (apiError) {
-            commonLogger.error(`Super Admin API Error: ${apiError.message}`);
+            if(apiError?.message?.includes('404')){
+                return res.status(404).json(createApiResponse(404,{},'Client Not found'))
+            }
+            commonLogger.error(`Super Admin API Error: ${JSON.stringify(apiError)}`);
             return res.status(403).json({ message: "Access denied. IP validation service unavailable." });
         }
 
     } catch (error) {
-        commonLogger.error(`Error in clientValidation middleware: ${error.message}`);
+        commonLogger.error(`Error in clientValidation middleware: ${error?.message}`);
         return res.status(500).json({ message: "Internal server error during Client validation." });
     }
 };
