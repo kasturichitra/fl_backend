@@ -993,7 +993,7 @@ const PanItdStatusOtpGenerateApiCall = async (data, service) => {
         docType: "349",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_ID_SEARCH_URL,
+      url: process.env.TRUTHSCREEN_ID_SEARCH_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

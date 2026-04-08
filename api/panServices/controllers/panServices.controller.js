@@ -38,7 +38,12 @@ const panFatherNameModel = require("../models/panFatherNameModel");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const panTanModel = require("../models/panTanModel");
 const panTogst_inModel = require("../models/panTogst_inModel");
-const { SERVICE_TYPES, handlePanVerification, reusablePanNumberFieldVerification, buildInvalidResponse } = require("../reuse/panReusable");
+const {
+  SERVICE_TYPES,
+  handlePanVerification,
+  reusablePanNumberFieldVerification,
+  buildInvalidResponse,
+} = require("../reuse/panReusable");
 
 exports.verifyPanBasic = (req, res) =>
   handlePanVerification({
@@ -82,7 +87,7 @@ exports.verifyPanToGst = (req, res) =>
       PAN: encryptedPan,
     }),
     transformInvalidResponse: (pan) => ({
-      pan
+      pan,
     }),
   });
 
@@ -417,7 +422,7 @@ exports.verifyPanNameDob = async (req, res) => {
       serviceId,
       categoryId,
       clientId: storingClient,
-      req
+      req,
     });
 
     if (!panRateLimitResult.allowed) {
@@ -440,7 +445,8 @@ exports.verifyPanNameDob = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
+      panServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
@@ -626,18 +632,23 @@ exports.handlePanTanVerification = async (req, res) => {
   const data = req.body;
   const { panNumber, tanNumber, mobileNumber = "" } = data;
   const storingClient = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  panServiceLogger.info(
+    `Generated PAN Tan verify txn Id: ${tnId} for this client: ${storingClient}`,
+  );
 
   const isTanValid = await handleValidation(
     "tan",
     tanNumber,
     res,
-    storingClient,
+    tnId,
+    panServiceLogger
   );
   if (!isTanValid) return;
 
   const capitalPanNumber = reusablePanNumberFieldVerification(
     panNumber,
-    storingClient,
+    tnId,
     res,
   );
 
@@ -646,7 +657,8 @@ exports.handlePanTanVerification = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "PAN_TAN_VERIFY",
-    storingClient,
+    tnId,
+    panServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -660,14 +672,16 @@ exports.handlePanTanVerification = async (req, res) => {
     const identifierHash = hashIdentifiers({
       panNo: capitalPanNumber,
       tanNo: capitalTanNumber,
-    });
+    }, panServiceLogger);
 
     const panTanRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
-      req
+      req,
+      TxnID: tnId,
+      logger: panServiceLogger
     });
 
     if (!panTanRateLimitResult.allowed) {
@@ -680,17 +694,13 @@ exports.handlePanTanVerification = async (req, res) => {
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    panServiceLogger.info(
-      `Generated PAN Tan verify txn Id: ${tnId} for this client: ${storingClient}`,
-    );
-
     const maintainanceResponse = await deductCredits(
       storingClient,
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
+      panServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
@@ -765,7 +775,13 @@ exports.handlePanTanVerification = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId, tnId, req, panServiceLogger);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      panServiceLogger,
+    );
 
     if (!service.length) {
       panServiceLogger.warn(
@@ -907,7 +923,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
       serviceId,
       categoryId,
       clientId: storingClient,
-      req
+      req,
     });
 
     if (!panRateLimitResult.allowed) {
@@ -931,6 +947,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
       categoryId,
       tnId,
       req,
+      panServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
@@ -1001,7 +1018,13 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId, tnId, req, panServiceLogger);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      panServiceLogger,
+    );
 
     if (!service) {
       panServiceLogger.warn(
@@ -1088,7 +1111,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
         createApiResponse(
           404,
           {
-            panNumber: panNumber
+            panNumber: panNumber,
           },
           "Invalid",
         ),
@@ -1132,7 +1155,13 @@ exports.panItdStatusOtpVerification = async (req, res) => {
       );
     }
 
-    const service = await selectService(categoryId, serviceId, tnId, req, panServiceLogger);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      panServiceLogger,
+    );
 
     if (!service) {
       panServiceLogger.warn(
@@ -1196,7 +1225,7 @@ exports.panItdStatusOtpVerification = async (req, res) => {
         categoryId,
         clientId: storingClient,
         result: {
-          panNumber: panNumber
+          panNumber: panNumber,
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -1219,7 +1248,7 @@ exports.panItdStatusOtpVerification = async (req, res) => {
         createApiResponse(
           404,
           {
-            panNumber: panNumber
+            panNumber: panNumber,
           },
           "Invalid",
         ),

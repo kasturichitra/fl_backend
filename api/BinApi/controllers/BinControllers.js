@@ -84,7 +84,8 @@ exports.getCardDetailsByNumber = async (req, res) => {
       serviceId,
       categoryId,
       tnId,
-      req.environment,
+      req,
+      bankServiceLogger
     );
 
     if (!maintainanceResponse?.result) {

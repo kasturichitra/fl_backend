@@ -33,7 +33,7 @@ const vehicleRcVerificationServiceResponse = async (
   try {
     const res = await rcVerificationApiCall(data, serviceName, 0);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
@@ -163,7 +163,7 @@ const stolenVehicleVerificationServiceResponse = async (
   try {
     const res = await stolenVehicleVerificationApiCall(data, serviceName, 0);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
@@ -469,7 +469,7 @@ const drivingLicenseApiCall = async (data, service) => {
         docNumber: data?.capitalLicenseNumber,
         dob: data?.DateOfBirth,
       },
-      url: process.env.TRUTNSCREEN_ID_SEARCH_URL,
+      url: process.env.TRUTHSCREEN_ID_SEARCH_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

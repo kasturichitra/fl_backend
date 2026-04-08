@@ -82,6 +82,7 @@ exports.handleBasicUanVerify = async (req, res) => {
       categoryId,
       tnId,
       req,
+      employmentServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
@@ -355,6 +356,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       categoryId,
       tnId,
       req,
+      employmentServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
@@ -613,6 +615,7 @@ exports.handleForm16Verification = async (req, res) => {
       categoryId,
       tnId,
       req,
+      employmentServiceLogger
     );
 
     if (!maintainanceResponse?.result) {

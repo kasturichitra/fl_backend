@@ -69,7 +69,7 @@ const ComprehensiveGstApiCall = async (data, service, CID) => {
         docNumber: data?.gstNo,
         year: data?.year,
       },
-      url: process.env.TRUTNSCREEN_ID_SEARCH_URL,
+      url: process.env.TRUTHSCREEN_ID_SEARCH_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         password: process.env.TRUTHSCREEN_TOKEN,

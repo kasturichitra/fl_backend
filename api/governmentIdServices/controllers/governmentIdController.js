@@ -30,12 +30,18 @@ exports.handleVoterIdVerify = async (req, res) => {
   const { voterId, mobileNumber = "" } = data;
   const capitalVoterId = voterId?.toUpperCase();
   const storingClient = req.clientId || "CID-6140971541";
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  governmentServiceLogger.info(
+    `Generated voter id txn Id: ${tnId} for the client: ${storingClient}`,
+  );
 
   const isValid = handleValidation(
     "voterId",
     capitalVoterId,
     res,
-    storingClient,
+    tnId,
+    governmentServiceLogger
   );
   if (!isValid) return;
 
@@ -43,9 +49,10 @@ exports.handleVoterIdVerify = async (req, res) => {
     "All inputs in voter id verification are valid, continue processing...",
   );
 
-    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "VOTER_ID",
-    storingClient,
+    tnId,
+    governmentServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -57,51 +64,46 @@ exports.handleVoterIdVerify = async (req, res) => {
       `Executing driving license verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    governmentServiceLogger.info(
-      `Generated voter id txn Id: ${tnId} for the client: ${storingClient}`,
+    const identifierHash = hashIdentifiers({
+      voter: capitalVoterId,
+    });
+
+    const voterIdLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+    });
+
+    if (!voterIdLimitResult.allowed) {
+      governmentServiceLogger.warn(
+        `Rate limit exceeded for driving license verification: client ${storingClient}, service: ${serviceId} category: ${categoryId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: voterIdLimitResult.message,
+      });
+    }
+
+    const maintainanceResponse = await deductCredits(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+      req || "test",
+      governmentServiceLogger,
     );
 
-    // const identifierHash = hashIdentifiers({
-    //   voter: capitalVoterId,
-    // });
-
-    // const voterIdLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId,
-    //   categoryId,
-    //   clientId: storingClient,
-    // });
-
-    // if (!voterIdLimitResult.allowed) {
-    //   governmentServiceLogger.warn(
-    //     `Rate limit exceeded for driving license verification: client ${storingClient}, service: ${serviceId} category: ${categoryId}`,
-    //   );
-    //   return res.status(429).json({
-    //     success: false,
-    //     message: voterIdLimitResult.message,
-    //   });
-    // }
-
-    // const maintainanceResponse = await deductCredits(
-    //   storingClient,
-    //   serviceId,
-    //   categoryId,
-    //   tnId,
-    //   req || "test",
-    // );
-
-    // if (!maintainanceResponse?.result) {
-    //   governmentServiceLogger.error(
-    //     `Credit deduction failed for driving license verification: client ${storingClient}, txnId ${tnId}`,
-    //   );
-    //   return res.status(500).json({
-    //     success: false,
-    //     message: maintainanceResponse?.message || "Invalid",
-    //     response: {},
-    //   });
-    // }
+    if (!maintainanceResponse?.result) {
+      governmentServiceLogger.error(
+        `Credit deduction failed for driving license verification: client ${storingClient}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
 
     const encryptedVoterId = encryptData(capitalVoterId);
 
@@ -268,19 +270,21 @@ exports.handleVoterIdVerify = async (req, res) => {
 
 exports.handlePassportFileNoVerify = async (req, res) => {
   const data = req.body;
-  const {
-    passportFileNo,
-    DateOfBirth,
-    mobileNumber = ""
-  } = data;
+  const { passportFileNo, DateOfBirth, mobileNumber = "" } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
   const storingClient = req.clientId || "CID-6140971541";
+      // Always generate txnId
+    const tnId = genrateUniqueServiceId();
+    governmentServiceLogger.info(
+      `Generated driving license txn Id: ${tnId} for the client: ${storingClient}`,
+    );
 
   const isFileNoValid = handleValidation(
     "passportFileNo",
     capitalFileNo,
     res,
-    storingClient,
+    tnId,
+    governmentServiceLogger
   );
   if (!isFileNoValid) return;
 
@@ -288,7 +292,8 @@ exports.handlePassportFileNoVerify = async (req, res) => {
     "DateOfBirth",
     DateOfBirth,
     res,
-    storingClient,
+    tnId,
+    governmentServiceLogger
   );
   if (!isDobValid) return;
 
@@ -296,9 +301,10 @@ exports.handlePassportFileNoVerify = async (req, res) => {
     "All inputs in pan are valid, continue processing...",
   );
 
-    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "PASSPORT_WITH_FILE_NO",
-    storingClient,
+    tnId,
+    governmentServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -310,21 +316,18 @@ exports.handlePassportFileNoVerify = async (req, res) => {
       `Executing driving license verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    governmentServiceLogger.info(
-      `Generated driving license txn Id: ${tnId} for the client: ${storingClient}`,
-    );
-
     const identifierHash = hashIdentifiers({
       fileNo: capitalFileNo,
-    });
+    }, governmentServiceLogger);
 
     const passportLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
+      req,
+      TxnID: tnId,
+      logger: governmentServiceLogger
     });
 
     if (!passportLimitResult.allowed) {
@@ -343,6 +346,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
       categoryId,
       tnId,
       req || "test",
+      governmentServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -516,8 +520,8 @@ exports.handlePassportFileNoVerify = async (req, res) => {
         createApiResponse(
           404,
           {
-          passportFileNo: passportFileNo,
-        },
+            passportFileNo: passportFileNo,
+          },
           "Invalid",
         ),
       );
@@ -532,13 +536,9 @@ exports.handlePassportFileNoVerify = async (req, res) => {
   }
 };
 
-exports.handleElectricityBill = async (req, res) =>{
-      const data = req.body;
-  const {
-    passportFileNo,
-    DateOfBirth,
-    mobileNumber = ""
-  } = data;
+exports.handleElectricityBill = async (req, res) => {
+  const data = req.body;
+  const { passportFileNo, DateOfBirth, mobileNumber = "" } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
   const storingClient = req.clientId || "CID-6140971541";
 
@@ -562,7 +562,7 @@ exports.handleElectricityBill = async (req, res) =>{
     "All inputs in pan are valid, continue processing...",
   );
 
-    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "ELECTRICITY_BILL",
     storingClient,
   );
@@ -609,6 +609,7 @@ exports.handleElectricityBill = async (req, res) =>{
       categoryId,
       tnId,
       req || "test",
+      governmentServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -782,8 +783,8 @@ exports.handleElectricityBill = async (req, res) =>{
         createApiResponse(
           404,
           {
-          passportFileNo: passportFileNo,
-        },
+            passportFileNo: passportFileNo,
+          },
           "Invalid",
         ),
       );
@@ -796,7 +797,7 @@ exports.handleElectricityBill = async (req, res) =>{
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
-}
+};
 
 exports.handlePassportVerify = async (req, res) => {
   const data = req.body;
@@ -836,14 +837,14 @@ exports.handlePassportVerify = async (req, res) => {
     "All inputs in pan are valid, continue processing...",
   );
 
-    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-      "PASSPORT_VERIFY",
-      storingClient,
-    );
-    console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
-  
-    const categoryId = idOfCategory;
-    const serviceId = idOfService;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PASSPORT_VERIFY",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     governmentServiceLogger.info(
@@ -883,6 +884,7 @@ exports.handlePassportVerify = async (req, res) => {
       categoryId,
       tnId,
       req || "test",
+      governmentServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -1056,8 +1058,8 @@ exports.handlePassportVerify = async (req, res) => {
         createApiResponse(
           404,
           {
-          passportFileNo: passportFileNo,
-        },
+            passportFileNo: passportFileNo,
+          },
           "Invalid",
         ),
       );
@@ -1109,14 +1111,14 @@ exports.handlePassportOcrVerify = async (req, res) => {
     "All inputs in pan are valid, continue processing...",
   );
 
-    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-      "PASSPORT_VERIFY",
-      storingClient,
-    );
-    console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
-  
-    const categoryId = idOfCategory;
-    const serviceId = idOfService;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PASSPORT_VERIFY",
+    storingClient,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     governmentServiceLogger.info(
@@ -1156,6 +1158,7 @@ exports.handlePassportOcrVerify = async (req, res) => {
       categoryId,
       tnId,
       req || "test",
+      governmentServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -1329,8 +1332,8 @@ exports.handlePassportOcrVerify = async (req, res) => {
         createApiResponse(
           404,
           {
-          passportFileNo: passportFileNo,
-        },
+            passportFileNo: passportFileNo,
+          },
           "Invalid",
         ),
       );

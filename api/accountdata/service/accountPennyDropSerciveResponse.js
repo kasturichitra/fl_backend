@@ -187,6 +187,13 @@ const accountPennyDropApiCall = async (data, service, CID = "") => {
     };
   }
 
+    if (obj?.response_code == 107) {
+    return {
+      success: false,
+      data: null,
+    };
+  }
+
   /** -------------------------
    *  RESULT NORMALIZATION
    * ------------------------- */

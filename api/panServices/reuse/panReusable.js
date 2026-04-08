@@ -66,7 +66,7 @@ async function handleBillingAndRateLimit({
   categoryId,
   clientId,
   req,
-  txnId
+  txnId,
 }) {
   const identifierHash = hashIdentifiers({ panNo: pan }, panServiceLogger);
 
@@ -77,7 +77,7 @@ async function handleBillingAndRateLimit({
     clientId,
     req,
     txnId,
-    logger: panServiceLogger
+    logger: panServiceLogger,
   });
 
   if (!rateLimit.allowed) {
@@ -92,14 +92,13 @@ async function handleBillingAndRateLimit({
     };
   }
 
-
   const billing = await deductCredits(
     clientId,
     serviceId,
     categoryId,
     txnId,
     req,
-    panServiceLogger
+    panServiceLogger,
   );
 
   if (!billing?.result) {
@@ -123,6 +122,7 @@ async function handleCacheHit({
   serviceId,
   categoryId,
   clientId,
+  txnId,
 }) {
   const decryptedPan = panCrypto.decrypt(existingRecord.panNumber);
   const { createdTime, createdDate } = getCurrentTime();
@@ -138,6 +138,7 @@ async function handleCacheHit({
       categoryId,
       clientId,
       result: response,
+      TxnID: txnId,
       createdTime,
       createdDate,
     });
@@ -150,6 +151,7 @@ async function handleCacheHit({
     categoryId,
     clientId,
     result: existingRecord.response,
+    TxnID: txnId,
     createdTime,
     createdDate,
   });
@@ -162,7 +164,13 @@ async function handleCacheHit({
 const reusablePanNumberFieldVerification = (panNo, txnId, res) => {
   const capitalPanNumber = panNo?.toUpperCase();
 
-  const isValid = handleValidation("pan", capitalPanNumber, res, txnId, panServiceLogger);
+  const isValid = handleValidation(
+    "pan",
+    capitalPanNumber,
+    res,
+    txnId,
+    panServiceLogger,
+  );
   if (!isValid) return false;
 
   panServiceLogger.info("All inputs in pan are valid, continue processing...");
@@ -182,17 +190,13 @@ async function handlePanVerification({
   const clientId = req.clientId || "CID-6140971541";
   const txnId = genrateUniqueServiceId();
 
-  const capitalPan = reusablePanNumberFieldVerification(
-    panNumber,
-    txnId,
-    res
-  );
+  const capitalPan = reusablePanNumberFieldVerification(panNumber, txnId, res);
   if (!capitalPan) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     serviceType,
     txnId,
-    panServiceLogger
+    panServiceLogger,
   );
 
   const categoryId = idOfCategory;
@@ -206,7 +210,7 @@ async function handlePanVerification({
       categoryId,
       clientId,
       req,
-      txnId
+      txnId,
     });
 
     if (billingResult?.error) {
@@ -220,8 +224,19 @@ async function handlePanVerification({
     // ✅ Parallel execution
     const [existingRecord, analytics] = await Promise.all([
       model.findOne({ panNumber: encryptedPan }),
-      AnalyticsDataUpdate(clientId, serviceId, categoryId, "success", txnId, panServiceLogger),
+      AnalyticsDataUpdate(
+        clientId,
+        serviceId,
+        categoryId,
+        "success",
+        txnId,
+        panServiceLogger,
+      ),
     ]);
+
+    panServiceLogger.info(
+      `promise resolved and existing record ${existingRecord ? "found" : "Not found"} and analytics updated ${JSON.stringify(analytics)}`,
+    );
 
     if (!analytics.success) {
       panServiceLogger.warn("Analytics failed", { clientId });
@@ -235,11 +250,18 @@ async function handlePanVerification({
         serviceId,
         categoryId,
         clientId,
+        txnId,
       });
     }
 
     // ✅ Service selection
-    const service = await selectService(categoryId, serviceId, txnId, req, panServiceLogger);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      txnId,
+      req,
+      panServiceLogger,
+    );
     if (!service) {
       return res.status(500).json(ERROR_CODES?.SERVICE_UNAVAILABLE);
     }
@@ -262,7 +284,7 @@ async function handlePanVerification({
         categoryId,
         clientId,
         result: apiResponse.result,
-        txnId
+        txnId,
       });
 
       await model.findOneAndUpdate(

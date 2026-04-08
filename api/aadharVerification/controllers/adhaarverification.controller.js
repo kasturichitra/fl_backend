@@ -46,7 +46,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "AADHAAR_TO_MASKED_PAN",
-    client_Id,
+    tnId,
     aadhaarServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
@@ -79,7 +79,7 @@ exports.handleAadhaarMaskedVerify = async (req, res) => {
       aadhaarServiceLogger.warn(
         `Rate limit exceeded for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
       );
-      return res.status(400).json({
+      return res.status(429).json({
         success: false,
         message: rateLimitResult?.message,
       });
@@ -279,7 +279,7 @@ exports.handleDigilockerAccountVerify = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DIGILOCKER_ACCOUNT_VERIFY",
-    client_Id,
+    tnId,
     aadhaarServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
@@ -555,6 +555,8 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
       payload,
       username,
       password,
+      cId: storingClient,
+      logger: aadhaarServiceLogger
     });
 
     const kycData = {
@@ -635,6 +637,8 @@ exports.checkAadhaarDigilockerStatus = async (req, res) => {
       payload,
       username,
       password,
+      cId: storingClient,
+      logger: aadhaarServiceLogger
     });
     aadhaarServiceLogger.info(
       `Response received from TruthScreen => ${JSON.stringify(response)}`,

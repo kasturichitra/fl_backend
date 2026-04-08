@@ -29,21 +29,11 @@ async function checkCompareNames(firstName, secondName) {
   const sortedSecondName = secondNameToCompare.split(" ").sort().join(" ");
 
   const jumbleReverseSecondName = reverseSecondName.split(" ").sort().join(" ");
-
-  console.log(
-    "sortedFirstName === sortedSecondName===>",
-    sortedFirstName,
-    sortedSecondName,
+  otherServiceLogger.info(
+    `[COMMON FUNCTION] reverseFirstName: ${reverseFirstName} ===> && reverseSecondName: ${reverseSecondName} ===>`,
   );
-  console.log(
-    "sortedFirstName === sortedSecondName===>",
-    sortedFirstName,
-    sortedSecondName,
-  );
-  console.log(
-    "sortedFirstName === reverseSortedSecondName===>",
-    sortedFirstName,
-    jumbleReverseSecondName,
+  otherServiceLogger.info(
+    `[COMMON FUNCTION] sortedFirstName: ${sortedFirstName} ===> && sortedSecondName: ${sortedSecondName} ===> && jumbleReverseSecondName: ${jumbleReverseSecondName}`,
   );
   if (sortedFirstName === sortedSecondName) {
     return { similarity: 100, reverseSimilarity: 100 };
@@ -52,13 +42,14 @@ async function checkCompareNames(firstName, secondName) {
     return { similarity: 100, reverseSimilarity: 100 };
   }
 
-  const similarity = await compareNames(sortedFirstName, sortedSecondName);
-  const reverseSimilarity = await compareNames(
+  const similarity =  compareNames(sortedFirstName, sortedSecondName);
+  const reverseSimilarity =  compareNames(
     sortedFirstName,
     jumbleReverseSecondName,
   );
-  console.log("similarity===>", similarity);
-  console.log("reverseSimilarity===>", reverseSimilarity);
+  otherServiceLogger.info(
+    `[COMMON FUNCTION] similarity: ${similarity} ===> && reverseSimilarity: ${reverseSimilarity} ===>`,
+  );
 
   return { similarity: similarity, reverseSimilarity: reverseSimilarity };
 }

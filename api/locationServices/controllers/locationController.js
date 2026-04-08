@@ -41,6 +41,7 @@ exports.handlePincodeGeofencing = async (req, res) => {
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "PINCODE_GEOFENCING",
     clientId,
+    locationServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -282,6 +283,7 @@ exports.handleLongLatGeofencing = async (req, res) => {
 
     const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
       "LONG_LAT_GEOFENCING",
+      locationServiceLogger
     );
     console.log(
       "idOfService and idOfCategory ====>>",
@@ -521,6 +523,7 @@ exports.handleLongLatToDigiPin = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "LONG_LAT_TO_DIGIPIN",
+    locationServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -744,16 +747,22 @@ exports.handleDigiPinToLongLat = async (req, res) => {
   const { digiPin, mobileNumber = "" } = req.body;
 
   const clientId = req.clientId || "CID-6140971541";
+    const tnId = genrateUniqueServiceId();
+    locationServiceLogger.info(
+      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
+    );
 
   locationServiceLogger.info(
     `digiPin Details ===>> digiPin: ${digiPin} for this client: ${clientId}`,
   );
 
-  const isValid = handleValidation("digipin", digiPin, res, clientId);
+  const isValid = handleValidation("digipin", digiPin, res, tnId);
   if (!isValid) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DIGIPIN_TO_LONG_LAT",
+    tnId,
+    locationServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -781,11 +790,6 @@ exports.handleDigiPinToLongLat = async (req, res) => {
         message: longLatGeofencingRateLimitResult.message,
       });
     }
-
-    const tnId = genrateUniqueServiceId();
-    locationServiceLogger.info(
-      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
-    );
 
     const maintainanceResponse = await deductCredits(
       clientId,

@@ -32,9 +32,13 @@ exports.handleRcVerification = async (req, res) => {
   const data = req.body;
   const { rcNumber, mobileNumber = "" } = data;
   const capitalRcNumber = rcNumber?.toUpperCase();
-  console.log("req coming in rc verification ===>>", req?.baseUrl);
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  vehicleServiceLogger.info(
+    `Generated Rc verification txn Id: ${tnId} for the client: ${storingClient}`,
+  );
 
-  const isValid = handleValidation("rc", capitalRcNumber, res);
+  const isValid = handleValidation("rc", capitalRcNumber, res, tnId, vehicleServiceLogger);
   if (!isValid) return;
 
   vehicleServiceLogger.info(
@@ -45,7 +49,8 @@ exports.handleRcVerification = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "RC_VERIFICATION",
-    storingClient,
+    tnId,
+    vehicleServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -57,12 +62,6 @@ exports.handleRcVerification = async (req, res) => {
       `Executing Rc verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    vehicleServiceLogger.info(
-      `Generated Rc verification txn Id: ${tnId} for the client: ${storingClient}`,
-    );
-
     const identifierHash = hashIdentifiers({
       rcNo: capitalRcNumber,
     });
@@ -72,6 +71,9 @@ exports.handleRcVerification = async (req, res) => {
       serviceId,
       categoryId,
       clientId: storingClient,
+      req,
+      TxnID: tnId,
+      logger: vehicleServiceLogger
     });
 
     if (!rcRateLimitResult.allowed) {
@@ -90,6 +92,7 @@ exports.handleRcVerification = async (req, res) => {
       categoryId,
       tnId,
       req,
+      vehicleServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
@@ -105,7 +108,7 @@ exports.handleRcVerification = async (req, res) => {
 
     const encryptedRc = encryptData(capitalRcNumber);
 
-    const existingVehicleNumber = await rcVerificationModel.findOne({
+    const existingRcNumber = await rcVerificationModel.findOne({
       rcNumber: encryptedRc,
     });
 
@@ -113,6 +116,9 @@ exports.handleRcVerification = async (req, res) => {
       storingClient,
       serviceId,
       categoryId,
+      "success",
+      tnId,
+      vehicleServiceLogger
     );
     if (!analyticsResult.success) {
       vehicleServiceLogger.warn(
@@ -168,7 +174,7 @@ exports.handleRcVerification = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, vehicleServiceLogger);
 
     if (!service) {
       vehicleServiceLogger.warn(
@@ -402,7 +408,7 @@ exports.handleVehicleRegisteration = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, vehicleServiceLogger);
 
     if (!service) {
       vehicleServiceLogger.warn(
@@ -635,7 +641,7 @@ exports.handleStolenVehicleVerification = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, vehicleServiceLogger);
 
     if (!service) {
       vehicleServiceLogger.warn(
@@ -857,7 +863,7 @@ exports.handleChallanViaRc = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, vehicleServiceLogger);
 
     if (!service) {
       vehicleServiceLogger.warn(
@@ -873,7 +879,7 @@ exports.handleChallanViaRc = async (req, res) => {
       rcNumber,
       service,
       0,
-      storingClient
+      storingClient,
     );
 
     vehicleServiceLogger.info(
@@ -942,13 +948,7 @@ exports.handleChallanViaRc = async (req, res) => {
       );
       return res
         .status(404)
-        .json(
-          createApiResponse(
-            404,
-            { rcNumber: rcNumber },
-            "Invalid",
-          ),
-        );
+        .json(createApiResponse(404, { rcNumber: rcNumber }, "Invalid"));
     }
   } catch (error) {
     vehicleServiceLogger.error(
@@ -962,19 +962,21 @@ exports.handleChallanViaRc = async (req, res) => {
 
 exports.handleDrivingLicenseVerification = async (req, res) => {
   const data = req.body;
-  const {
-    licenseNo,
-    DateOfBirth,
-    mobileNumber = ""
-  } = data;
+  const { licenseNo, DateOfBirth, mobileNumber = "" } = data;
   const capitalLicenseNumber = licenseNo?.toUpperCase();
   const storingClient = req.clientId || "CID-6140971541";
+   // Always generate txnId
+    const tnId = genrateUniqueServiceId();
+    vehicleServiceLogger.info(
+      `Generated driving license txn Id: ${tnId} for the client: ${storingClient}`,
+    );
 
   const isLicenseNoValid = handleValidation(
     "license",
     capitalLicenseNumber,
     res,
-    storingClient,
+    tnId,
+    vehicleServiceLogger
   );
   if (!isLicenseNoValid) return;
 
@@ -982,7 +984,8 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
     "StrictDateOfBirth",
     DateOfBirth,
     res,
-    storingClient,
+    tnId,
+    vehicleServiceLogger
   );
   if (!isDobValid) return;
 
@@ -990,9 +993,10 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
     "All inputs in pan are valid, continue processing...",
   );
 
-    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DRIVING_LICENSE",
-    storingClient,
+    tnId,
+    vehicleServiceLogger
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -1002,12 +1006,6 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
   try {
     vehicleServiceLogger.info(
       `Executing driving license verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    vehicleServiceLogger.info(
-      `Generated driving license txn Id: ${tnId} for the client: ${storingClient}`,
     );
 
     // const identifierHash = hashIdentifiers({
@@ -1118,7 +1116,7 @@ exports.handleDrivingLicenseVerification = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(categoryId, serviceId, tnId, req, vehicleServiceLogger);
 
     if (!service) {
       vehicleServiceLogger.warn(

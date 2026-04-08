@@ -52,13 +52,13 @@ const ID_RULES = {
   firstName: {
     min: 2,
     max: 50,
-    regex: /^[A-Za-z\s]+$/,
+    regex: /^[A-Za-z0-9\s]+$/,
     displayName: "First Name",
   },
   secondName: {
     min: 2,
     max: 50,
-    regex: /^[A-Za-z\s]+$/,
+    regex: /^[A-Za-z0-9\s]+$/,
     displayName: "Second Name",
   },
   ifsc: {

@@ -18,6 +18,7 @@ const {
 } = require("../../truthScreen/callTruthScreen");
 const { generateTransactionId } = require("../../../utils/helper");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
+const checkingRateLimit = require("../../../utils/checkingRateLimit");
 
 const convertImageToBase64 = async (url) => {
   try {
@@ -169,36 +170,43 @@ exports.faceMatchVerification = async (req, res) => {
   faceServiceLogger.info(
     `----active service for FACEMATCH Verify is ----, ${service}`,
   );
-
   const storingClient = req.clientId || "";
+  const tnId = genrateUniqueServiceId();
+  faceServiceLogger.info(`face match service txn Id ${tnId} ===>>`);
 
   if (!userImage || !aadhaarImage) {
     return res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
-      response: "Images are missing"
+      response: "Images are missing",
     });
   }
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "FACE_MATCH",
     storingClient,
+    faceServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
   const categoryId = idOfCategory;
   const serviceId = idOfService;
 
-  const identifierHash = hashIdentifiers({
-    user: userImage?.slice(0, 10),
-    aadhaar: aadhaarImage?.slice(0, 10),
-  });
+  const identifierHash = hashIdentifiers(
+    {
+      user: userImage?.slice(0, 10),
+      aadhaar: aadhaarImage?.slice(0, 10),
+    },
+    faceServiceLogger,
+  );
 
   const faceRateLimitResult = await checkingRateLimit({
     identifiers: { identifierHash },
     serviceId,
     categoryId,
     clientId: storingClient,
-    req
+    req,
+    TxnID: tnId,
+    logger: faceServiceLogger
   });
 
   if (!faceRateLimitResult.allowed) {
@@ -208,15 +216,13 @@ exports.faceMatchVerification = async (req, res) => {
     });
   }
 
-  const tnId = genrateUniqueServiceId();
-  console.log("bin txn Id ===>>", tnId);
-  faceServiceLogger.info("bin txn Id ===>>", tnId);
   const maintainanceResponse = await deductCredits(
     storingClient,
     serviceId,
     categoryId,
     tnId,
     req,
+    faceServiceLogger,
   );
 
   if (!maintainanceResponse?.result) {
@@ -227,9 +233,15 @@ exports.faceMatchVerification = async (req, res) => {
     });
   }
 
-  const service = await selectService(categoryId, serviceId, storingClient, req);
+  const service = await selectService(
+    categoryId,
+    serviceId,
+    tnId,
+    req,
+    faceServiceLogger
+  );
 
-  if (!service.length || service === undefined) {
+  if (!service.length) {
     return res.status(503).json({ error: "No service available" });
   }
   try {

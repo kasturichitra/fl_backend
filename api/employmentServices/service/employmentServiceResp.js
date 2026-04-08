@@ -175,7 +175,7 @@ const dualEmploymentCheckActiveServiceResponse = async (
   try {
     const res = await dualEmploymentCheckApiCall(data, serviceName, 0, client);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 
@@ -307,7 +307,7 @@ const form16CheckActiveServiceResponse = async (
   try {
     const res = await form16VerifyApiCall(data, serviceName, 0, client);
 
-    if (res?.success) {
+    if (res?.data) {
       return res.data;
     }
 

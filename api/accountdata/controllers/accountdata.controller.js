@@ -363,6 +363,7 @@ exports.verifyPennyLessBankAccount = async (req, res, next) => {
       categoryId,
       tnId,
       req,
+      bankServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
