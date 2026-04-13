@@ -29,7 +29,7 @@ const pincodeGeofencingModel = require("../models/pincodeGeofencingModel");
 exports.handlePincodeGeofencing = async (req, res) => {
   const { pincode, mobileNumber = "" } = req.body;
 
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
   const tnId = genrateUniqueServiceId();
   locationServiceLogger.info(
     `Generated pincode geofencing txn Id: ${tnId} for this client: ${clientId}`,
@@ -304,7 +304,7 @@ exports.handlePincodeGeofencing = async (req, res) => {
 exports.handleLongLatGeofencing = async (req, res) => {
   const { latitude, longitude, mobileNumber = "" } = req.body;
 
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
   const tnId = genrateUniqueServiceId();
   locationServiceLogger.info(
     `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
@@ -559,20 +559,37 @@ exports.handleLongLatGeofencing = async (req, res) => {
 exports.handleLongLatToDigiPin = async (req, res) => {
   const { latitude, longitude, mobileNumber = "" } = req.body;
 
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  locationServiceLogger.info(
+    `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
+  );
 
   locationServiceLogger.info(
     `latitude and longitude Details ===>> longitude: ${longitude} and latitude: ${latitude} for this client: ${clientId}`,
   );
 
-  const isLatValid = handleValidation("latitude", latitude, res, clientId);
+  const isLatValid = handleValidation(
+    "latitude",
+    latitude,
+    res,
+    tnId,
+    locationServiceLogger,
+  );
   if (!isLatValid) return;
-  const isLongValid = handleValidation("longitude", longitude, res, clientId);
+  const isLongValid = handleValidation(
+    "longitude",
+    longitude,
+    res,
+    tnId,
+    locationServiceLogger,
+  );
   if (!isLongValid) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "LONG_LAT_TO_DIGIPIN",
-    locationServiceLogger
+    tnId,
+    locationServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -580,10 +597,13 @@ exports.handleLongLatToDigiPin = async (req, res) => {
     `Executing longLat geofencing for client: ${clientId}, service: ${idOfService}, category: ${idOfCategory}`,
   );
   try {
-    const identifierHash = hashIdentifiers({
-      lat: latitude,
-      long: longitude,
-    });
+    const identifierHash = hashIdentifiers(
+      {
+        lat: latitude,
+        long: longitude,
+      },
+      locationServiceLogger,
+    );
 
     const longLatGeofencingRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -605,17 +625,13 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    locationServiceLogger.info(
-      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
-    );
-
     const maintainanceResponse = await deductCredits(
       clientId,
       idOfService,
       idOfCategory,
       tnId,
       req,
+      locationServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -633,7 +649,7 @@ exports.handleLongLatToDigiPin = async (req, res) => {
     const encryptedLongitude = encryptData(longitude);
 
     // Check if the record is present in the DB
-    const existingGstin = await longLatToDigiPinModel.findOne({
+    const existingdigipinFromLongLat = await longLatToDigiPinModel.findOne({
       longitude: encryptedLongitude,
       latitude: encryptedLatitude,
     });
@@ -642,6 +658,9 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       clientId,
       idOfService,
       idOfCategory,
+      "success",
+      tnId,
+      locationServiceLogger,
     );
     if (!analyticsResult.success) {
       locationServiceLogger.warn(
@@ -650,54 +669,43 @@ exports.handleLongLatToDigiPin = async (req, res) => {
     }
 
     locationServiceLogger.info(
-      `Checked for existing GSTIN record in DB: ${existingGstin ? "Found" : "Not Found"}`,
+      `Checked for existing GSTIN record in DB: ${existingdigipinFromLongLat ? "Found" : "Not Found"}`,
     );
-    if (existingGstin) {
-      if (existingGstin?.status == 1) {
-        locationServiceLogger.info(
-          `Returning cached GSTIN response for client: ${clientId}`,
+    if (existingdigipinFromLongLat) {
+      const isValid = existingdigipinFromLongLat?.status == 1;
+      await responseModel.create({
+        serviceId: idOfService,
+        categoryId: idOfCategory,
+        clientId,
+        TxnID: tnId,
+        result: existingLongLatGeofencing?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            isValid
+              ? existingLongLatGeofencing?.response
+              : existingLongLatGeofencing?.response,
+            isValid ? "Valid" : "Invalid",
+          ),
         );
-
-        const decrypted = {
-          ...existingGstin?.response,
-          gstinNumber: gstinNumber,
-        };
-        await responseModel.create({
-          serviceId: idOfService,
-          categoryId: idOfCategory,
-          clientId,
-          result: existingGstin?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = decrypted;
-        return res
-          .status(200)
-          .json(createApiResponse(200, dataToShow, "Valid"));
-      } else {
-        locationServiceLogger.info(
-          `Returning cached GSTIN response for client: ${clientId}`,
-        );
-        await responseModel.create({
-          serviceId: idOfService,
-          categoryId: idOfCategory,
-          clientId,
-          result: existingGstin?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = existingGstin?.response;
-        return res
-          .status(200)
-          .json(createApiResponse(200, dataToShow, "Valid"));
-      }
     }
 
     // Get All Active Services
-    const service = await selectService(idOfCategory, idOfService);
-    if (!service) {
+    const service = await selectService(
+      idOfCategory,
+      idOfService,
+      tnId,
+      req,
+      locationServiceLogger,
+    );
+    if (!service?.length) {
       locationServiceLogger.warn(
-        `Active service not found for GSTIN category ${categoryId}, service ${serviceId}`,
+        `Active service not found for GSTIN category ${idOfCategory}, service ${idOfService}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
@@ -714,77 +722,67 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       clientId,
     );
     locationServiceLogger.info(
-      `Response received from active service ${response?.service}: ${response?.message}`,
+      `Response received from active service: ${response?.service} for longlat to digipin with message: ${response?.message} and response: ${JSON.stringify(response)}`,
     );
 
     // Response form Active Service if response message is Valid
-    if (response?.message?.toUpperCase() == "VALID") {
-      const encryptedResponse = {
-        ...response?.result,
-        gstinNumber: encryptedGst,
-      };
-      await responseModel.create({
-        serviceId: idOfService,
-        categoryId: idOfCategory,
-        clientId,
-        result: response?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        status: 1,
-        gstinNumber: encryptedGst,
-        response: encryptedResponse,
-        serviceResponse: response?.responseOfService,
-        serviceName: response?.service,
-        message: response?.message,
-        mobileNumber,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
+    const isValid = response?.message?.toUpperCase() == "VALID";
+    await responseModel.create({
+      serviceId: idOfService,
+      categoryId: idOfCategory,
+      clientId,
+      TxnID: tnId,
+      result: response?.result,
+      createdTime: new Date().toLocaleTimeString(),
+      createdDate: new Date().toLocaleDateString(),
+    });
+    const storingData = {
+      status: isValid ? 1 : 2,
+      longitude: encryptedLongitude,
+      latitude: encryptedLatitude,
+      response: isValid
+        ? response?.result
+        : {
+            longitude: longitude,
+            latitude: latitude,
+          },
+      serviceResponse: isValid ? response?.responseOfService : {},
+      serviceName: response?.service,
+      message: response?.message,
+      ...(mobileNumber && { mobileNumber }),
+      createdDate: new Date().toLocaleDateString(),
+      createdTime: new Date().toLocaleTimeString(),
+    };
 
-      await longLatToDigiPinModel.create(storingData);
-      locationServiceLogger.info(
-        `Valid GSTIN response stored and sent to client: ${clientId}`,
-      );
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Success"));
-    } else {
-      await responseModel.create({
-        serviceId: idOfService,
-        categoryId: idOfCategory,
-        clientId,
-        result: {
-          gstinNumber: gstinNumber,
-          ...findingInValidResponses("gstIn"),
-        },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        status: 2,
-        gstinNumber: encryptedGst,
-        response: {
-          gstinNumber: gstinNumber,
-          ...findingInValidResponses("gstIn"),
-        },
-        serviceResponse: {},
-        serviceName: response?.service,
-        mobileNumber,
-        message: response?.message,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
+    const filter = {
+      latitude: encryptedLatitude,
+      longitude: encryptedLongitude,
+    };
 
-      await longLatToDigiPinModel.create(storingData);
-      locationServiceLogger.info(
-        `Invalid GSTIN response received and sent to client: ${clientId}`,
-      );
-      return res
-        .status(404)
-        .json(createApiResponse(404, { gstinNumber }, "Failed"));
-    }
+    await longLatToDigiPinModel.findOneAndUpdate(
+      filter,
+      { $set: storingData },
+      {
+        new: true,
+        upsert: true,
+      },
+    );
+
+    locationServiceLogger.info(
+      `${isValid ? "Valid" : "Invalid"} GSTIN response stored and sent to client: ${clientId} with this txnId: ${tnId}`,
+    );
+    return res.status(isValid ? 200 : 404).json(
+      createApiResponse(
+        isValid ? 200 : 404,
+        isValid
+          ? response?.result
+          : {
+              longitude: longitude,
+              latitude: latitude,
+            },
+        isValid ? "Valid" : "Invalid",
+      ),
+    );
   } catch (error) {
     locationServiceLogger.error(
       `System error in long lat to digiPin for client ${clientId}: ${error.message}`,
@@ -811,11 +809,11 @@ exports.handleLongLatToDigiPin = async (req, res) => {
 exports.handleDigiPinToLongLat = async (req, res) => {
   const { digiPin, mobileNumber = "" } = req.body;
 
-  const clientId = req.clientId || "CID-6140971541";
-    const tnId = genrateUniqueServiceId();
-    locationServiceLogger.info(
-      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
-    );
+  const clientId = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  locationServiceLogger.info(
+    `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
+  );
 
   locationServiceLogger.info(
     `digiPin Details ===>> digiPin: ${digiPin} for this client: ${clientId}`,
@@ -827,7 +825,7 @@ exports.handleDigiPinToLongLat = async (req, res) => {
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DIGIPIN_TO_LONG_LAT",
     tnId,
-    locationServiceLogger
+    locationServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -835,9 +833,12 @@ exports.handleDigiPinToLongLat = async (req, res) => {
     `Executing longLat geofencing for client: ${clientId}, service: ${idOfService}, category: ${idOfCategory}`,
   );
   try {
-    const identifierHash = hashIdentifiers({
-      digiPin: digiPin,
-    });
+    const identifierHash = hashIdentifiers(
+      {
+        digiPin: digiPin,
+      },
+      locationServiceLogger,
+    );
 
     const longLatGeofencingRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -862,6 +863,7 @@ exports.handleDigiPinToLongLat = async (req, res) => {
       idOfCategory,
       tnId,
       req,
+      locationServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -888,6 +890,9 @@ exports.handleDigiPinToLongLat = async (req, res) => {
       clientId,
       idOfService,
       idOfCategory,
+      "success",
+      tnId,
+      locationServiceLogger,
     );
     if (!analyticsResult.success) {
       locationServiceLogger.warn(
@@ -1057,7 +1062,7 @@ exports.handleDigiPinToLongLat = async (req, res) => {
 exports.handleAddressToDigiPin = async (req, res) => {
   const { address, mobileNumber = "" } = req.body;
 
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
 
   locationServiceLogger.info(
     `digiPin Details ===>> digiPin: ${digiPin} for this client: ${clientId}`,
@@ -1309,7 +1314,7 @@ exports.handleAddressToDigiPin = async (req, res) => {
 exports.handleGeoTagging = async (req, res) => {
   const { latitude, longitude, mobileNumber = "" } = req.body;
 
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
 
   locationServiceLogger.info(
     `latitude and longitude Details ===>> longitude: ${longitude} and latitude: ${latitude} for this client: ${clientId}`,
@@ -1556,7 +1561,7 @@ exports.handleGeoTagging = async (req, res) => {
 exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
   const { address, latitude, longitude, mobileNumber = "" } = req.body;
 
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
   const tnId = genrateUniqueServiceId();
   locationServiceLogger.info(
     `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,

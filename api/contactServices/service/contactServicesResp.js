@@ -57,7 +57,7 @@ const mobileToPanApiCall = async (data, service, CID) => {
         docType: "589",
         mobile_number: data,
       },
-      url: process.env.TRUTNSCREEN_MOBILE_TO_PAN_URL,
+      url: process.env.TRUTHSCREEN_MOBILE_TO_PAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -194,7 +194,7 @@ const mobileToUanApiCall = async (data, service, CID) => {
         doc_type: 526,
         mobile_number: data,
       },
-      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
+      url: process.env.TRUTHSCREEN_MOBILE_TO_UAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

@@ -137,7 +137,7 @@ exports.verifyPanNameMatch = async (req, res) => {
   const data = req.body;
   const { panNumber, nameToMatch, mobileNumber = "" } = data;
 
-  const storingClient = req.clientId || "CID-6140971541";
+  const storingClient = req.clientId;
   const capitalPanNumber = reusablePanNumberFieldVerification(
     panNumber,
     storingClient,
@@ -381,7 +381,7 @@ exports.verifyPanNameMatch = async (req, res) => {
 exports.verifyPanNameDob = async (req, res) => {
   const data = req.body;
   const { panNumber, fullName, dateOfBirth, mobileNumber = "" } = data;
-  const storingClient = req.clientId || "CID-6140971541";
+  const storingClient = req.clientId;
   const isDobValid = await handleValidation(
     "DateOfBirth",
     dateOfBirth,

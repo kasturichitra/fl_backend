@@ -53,7 +53,7 @@ const BSAViaNBApiCall = async (data, service) => {
         docType: "526",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
+      url: process.env.TRUTHSCREEN_MOBILE_TO_UAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -182,7 +182,7 @@ const chequeClassifyApiCall = async (data, service) => {
         docType: "526",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_MOBILE_TO_UAN_URL,
+      url: process.env.TRUTHSCREEN_MOBILE_TO_UAN_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

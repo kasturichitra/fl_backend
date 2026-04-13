@@ -315,7 +315,7 @@ const challanViaRcApiCall = async (data, service) => {
         docType: "487",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_CHALLAN_VIA_RC_URL,
+      url: process.env.TRUTHSCREEN_CHALLAN_VIA_RC_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

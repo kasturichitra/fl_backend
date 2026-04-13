@@ -344,9 +344,10 @@ const longLatDigiPinApiCall = async (data, service, CID) => {
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
-        transID: tskId,
+        trans_id: tskId,
         docType: "588",
-        docNumber: data,
+        lng: data?.longitude,
+        lat: data?.latitude,
       },
       url: process.env.TRUTHSCREEN_LONG_LAT_DIGI_PIN,
       header: {
@@ -388,11 +389,12 @@ const longLatDigiPinApiCall = async (data, service, CID) => {
   }
 
   const obj = ApiResponse;
-  console.log("obj ==>", obj);
+  console.log(`obj in longlat to digipin ==> ${obj}`);
+  locationServiceLogger.info(
+    `obj in longlat to digipin for this client: ${CID} ===> ${obj}`,
+  );
 
-  let returnedObj = {};
-
-  if (obj.status != 1) {
+  if (obj.status == 0) {
     return {
       success: false,
       data: {
@@ -406,16 +408,23 @@ const longLatDigiPinApiCall = async (data, service, CID) => {
 
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = {
-        gstinNumber: obj?.result?.essentials?.gstin || "",
-      };
+      if (obj.status == 1) {
+        return {
+          success: true,
+          data: {
+            result: obj?.msg,
+            message: "Valid",
+            responseOfService: obj,
+            service: service,
+          },
+        };
+      }
       break;
   }
   return {
     success: true,
     data: {
-      gstinNumber: data || "",
-      result: returnedObj,
+      result: obj?.msg,
       message: "Valid",
       responseOfService: obj,
       service: service,
@@ -718,6 +727,7 @@ const addressToDigiPinApiCall = async (data, service, CID) => {
     },
   };
 };
+
 const geoTaggingActiveServiceResponse = async (
   data,
   services = [],
@@ -865,6 +875,7 @@ const geoTaggingApiCall = async (data, service, CID) => {
     },
   };
 };
+
 const geoTaggingDistanceCalculationActiveServiceResponse = async (
   data,
   services = [],

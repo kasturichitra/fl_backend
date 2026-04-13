@@ -10,6 +10,7 @@ const {
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const handleValidation = require("../../../utils/lengthCheck");
+const { riskServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 
@@ -17,13 +18,32 @@ exports.handleDomainVerification = async (req, res) => {
   const data = req.body;
   const { domain, emailAddress, mobileNumber = "" } = data;
   const storingClient = req.clientId;
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  riskServiceLogger.info(
+    `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
+  );
 
-  const isValid = handleValidation("email", emailAddress, res, storingClient);
+  if (!domain || !emailAddress) {
+    res.status(400).json({
+      ...ERROR_CODES?.BAD_REQUEST,
+      response: `Required values are Missing 🤦‍♂️`,
+    });
+  }
+
+  const isValid = handleValidation(
+    "email",
+    emailAddress,
+    res,
+    tnId,
+    riskServiceLogger,
+  );
 
   if (!isValid) return;
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DOMAIN",
-    storingClient,
+    tnId,
+    riskServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -31,43 +51,54 @@ exports.handleDomainVerification = async (req, res) => {
   const serviceId = idOfService;
   try {
     riskServiceLogger.info(
-      `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    riskServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
+      `Executing domain verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     // Common: hash identifier
-    const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
-    });
+    let identifierHash;
+    if (domain) {
+      identifierHash = hashIdentifiers(
+        {
+          domain: domain,
+        },
+        riskServiceLogger,
+      );
+    } else {
+      identifierHash = hashIdentifiers(
+        {
+          email: emailAddress,
+        },
+        riskServiceLogger,
+      );
+    }
 
-    const panRateLimitResult = await checkingRateLimit({
+    const domainRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId,
       categoryId,
       clientId: storingClient,
+      req,
+      TxnID: tnId,
+      logger: riskServiceLogger,
     });
 
-    if (!panRateLimitResult.allowed) {
+    if (!domainRateLimitResult.allowed) {
       riskServiceLogger.warn(
-        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+        `Rate limit exceeded for domain verification: client ${storingClient}, service ${serviceId}`,
       );
       return res.status(429).json({
         success: false,
-        message: panRateLimitResult.message,
+        message: domainRateLimitResult.message,
       });
     }
 
     const maintainanceResponse = await deductCredits(
       storingClient,
       serviceId,
-      "PANSERVICES",
+      categoryId,
       tnId,
       req,
+      riskServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -81,16 +112,31 @@ exports.handleDomainVerification = async (req, res) => {
       });
     }
 
-    const encryptedPan = encryptData(capitalPanNumber);
+    let encryptedValue;
+    if (domain) {
+      encryptedValue = encryptData(domain);
+    } else {
+      encryptedValue = encryptData(emailAddress);
+    }
 
-    const existingPanNumber = await panverificationModel.findOne({
-      panNumber: encryptedPan,
-    });
+    let existingDomain;
+    if (domain) {
+       existingDomain = await panverificationModel.findOne({
+        panNumber: encryptedValue,
+      });
+    } else {
+        existingDomain = await panverificationModel.findOne({
+        panNumber: encryptedValue,
+      });
+    }
 
     const analyticsResult = await AnalyticsDataUpdate(
       storingClient,
       serviceId,
       categoryId,
+      "success",
+      tnId,
+      riskServiceLogger,
     );
     if (!analyticsResult.success) {
       riskServiceLogger.warn(
@@ -99,16 +145,15 @@ exports.handleDomainVerification = async (req, res) => {
     }
 
     riskServiceLogger.info(
-      `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
+      `Checked for existing domain verify record in DB: ${existingDomain ? "Found" : "Not Found"}`,
     );
-    if (existingPanNumber) {
-      const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-      const resOfPan = existingPanNumber?.response;
+    if (existingDomain) {
+      const decryptedPanNumber = decryptData(existingDomain?.panNumber);
+      const resOfPan = existingDomain?.response;
 
-      if (existingPanNumber?.status == 1) {
+      if (existingDomain?.status == 1) {
         const decryptedResponse = {
-          ...existingPanNumber?.response,
-          PAN: decryptedPanNumber,
+          ...existingDomain?.response
         };
         await responseModel.create({
           serviceId,
@@ -257,7 +302,7 @@ exports.handleDomainVerification = async (req, res) => {
 
 exports.handleAdvanceProfile = async (req, res) => {
   const data = req.body;
-  const { domain, emailAddress, mobileNumber = "" } = data;
+  const { mobileNumber } = data;
   const storingClient = req.clientId;
 
   const isValid = handleValidation("email", emailAddress, res, storingClient);

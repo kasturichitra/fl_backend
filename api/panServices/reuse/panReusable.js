@@ -187,7 +187,7 @@ async function handlePanVerification({
   transformInvalidResponse,
 }) {
   const { panNumber, mobileNumber = "" } = req.body;
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
   const txnId = genrateUniqueServiceId();
 
   const capitalPan = reusablePanNumberFieldVerification(panNumber, txnId, res);
