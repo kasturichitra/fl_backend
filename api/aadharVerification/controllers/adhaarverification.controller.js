@@ -555,7 +555,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
       payload,
       username,
       password,
-      cId: storingClient,
+      cId: client_Id,
       logger: aadhaarServiceLogger
     });
 
@@ -606,6 +606,7 @@ exports.initiateAadhaarDigilocker = async (req, res) => {
 exports.checkAadhaarDigilockerStatus = async (req, res) => {
   const startTime = new Date();
   aadhaarServiceLogger.info("Entered checkAadhaarDigilockerStatus controller");
+    const client_Id = req.clientId;
 
   try {
     const { tsTransId } = req.body;
@@ -637,7 +638,7 @@ exports.checkAadhaarDigilockerStatus = async (req, res) => {
       payload,
       username,
       password,
-      cId: storingClient,
+      cId: client_Id,
       logger: aadhaarServiceLogger
     });
     aadhaarServiceLogger.info(

@@ -111,6 +111,7 @@ const clientValidation = async (req, res, next) => {
                 return res.status(404).json(createApiResponse(404,{},'Client Not found'))
             }
             commonLogger.error(`Super Admin API Error: ${JSON.stringify(apiError)}`);
+            commonLogger.error(`Super Admin API Error with message: ${apiError.message}`);
             return res.status(403).json({ message: "Access denied. IP validation service unavailable." });
         }
 

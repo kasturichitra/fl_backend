@@ -497,7 +497,7 @@ exports.handleAdvanceProfile = async (req, res) => {
   }
 };
 
-exports.handleDomainVerification = async (req, res) => {
+exports.handleCourtRecords = async (req, res) => {
   const data = req.body;
   const { domain, emailAddress, mobileNumber = "" } = data;
   const storingClient = req.clientId;

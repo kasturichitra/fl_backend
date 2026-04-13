@@ -1,4 +1,4 @@
-const { governmentServiceLogger } = require("../../Logger/logger");
+const { riskServiceLogger } = require("../../Logger/logger");
 const {
   callTruthScreenAPI,
   generateTransactionId,
@@ -54,10 +54,10 @@ const domainApiCall = async (data, service, CID) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "10",
+        docType: "417",
         docNumber: data,
       },
-      url: process.env.TRUTHSCREEN_ID_SEARCH_URL,
+      url: process.env.TRUTHSCREEN_DOMAIN_VERIFY,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -199,10 +199,10 @@ const advanceProfileApiCall = async (data, service, CID) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "306",
+        docType: "220",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_PROFILE_ADVANCE,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -214,7 +214,7 @@ const advanceProfileApiCall = async (data, service, CID) => {
   if (!service?.trim()) {
     service = Object.keys(ApiData)[0];
     console.log("Empty provider → defaulting to:", service);
-    governmentServiceLogger.info("Empty provider → defaulting to:", service);
+    riskServiceLogger.info("Empty provider → defaulting to:", service);
   }
 
   const config = ApiData[service];
@@ -345,10 +345,10 @@ const courtRecordCheckApiCall = async (data, service, CID) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "306",
+        docType: "9",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_COURT_RECORDS_CHECK,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -360,7 +360,7 @@ const courtRecordCheckApiCall = async (data, service, CID) => {
   if (!service?.trim()) {
     service = Object.keys(ApiData)[0];
     console.log("Empty provider → defaulting to:", service);
-    governmentServiceLogger.info("Empty provider → defaulting to:", service);
+    riskServiceLogger.info("Empty provider → defaulting to:", service);
   }
 
   const config = ApiData[service];

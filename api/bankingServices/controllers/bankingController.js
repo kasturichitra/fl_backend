@@ -15,31 +15,23 @@ const {
 } = require("../service/bankingServiceResp");
 
 exports.handleBSAViaNetBanking = async (req, res) => {
-  const {
-    panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-  } = req.body;
+  const { panNumber, mobileNumber = "" } = req.body;
   const capitalPanNumber = panNumber?.toUpperCase();
+  const storingClient = req.clientId;
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  bankServiceLogger.info(
+    `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
+  );
 
   const isValid = handleValidation("pan", capitalPanNumber, res);
   if (!isValid) return;
 
   bankServiceLogger.info("All inputs in pan are valid, continue processing...");
 
-  const storingClient = req.clientId || clientId;
-
   try {
     bankServiceLogger.info(
       `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    bankServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
     );
 
     // Common: hash identifier
@@ -770,15 +762,14 @@ exports.CibilVerification = async (req, res) => {
 
 exports.handleChequeClassification = async (req, res) => {
   const data = req.body;
-  const {
-    panNumber,
-    mobileNumber = "",
-    serviceId = "",
-    categoryId = "",
-    clientId = "",
-  } = data;
-  const storingClient = req.clientId || clientId;
+  const { panNumber, mobileNumber = "" } = data;
+  const storingClient = req.clientId;
   const capitalPanNumber = panNumber?.toUpperCase();
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  bankServiceLogger.info(
+    `Generated cheque classification txn Id: ${tnId} for the client: ${storingClient}`,
+  );
 
   const isValid = handleValidation("pan", capitalPanNumber, res);
   if (!isValid) return;
@@ -788,12 +779,6 @@ exports.handleChequeClassification = async (req, res) => {
   try {
     bankServiceLogger.info(
       `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    bankServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
     );
 
     // Common: hash identifier
