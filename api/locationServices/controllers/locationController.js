@@ -30,17 +30,24 @@ exports.handlePincodeGeofencing = async (req, res) => {
   const { pincode, mobileNumber = "" } = req.body;
 
   const clientId = req.clientId || "CID-6140971541";
-
+  const tnId = genrateUniqueServiceId();
   locationServiceLogger.info(
-    `pincode Details ===>> pincode: ${pincode} for this client: ${clientId}`,
+    `Generated pincode geofencing txn Id: ${tnId} for this client: ${clientId}`,
   );
 
-  const isValid = handleValidation("pincode", pincode, res, clientId);
+  const isValid = handleValidation(
+    "pincode",
+    pincode,
+    res,
+    tnId,
+    locationServiceLogger,
+  );
   if (!isValid) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "PINCODE_GEOFENCING",
-    clientId,
+    tnId,
+    locationServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -49,50 +56,52 @@ exports.handlePincodeGeofencing = async (req, res) => {
   );
 
   try {
-    // const identifierHash = hashIdentifiers({
-    //   pin: pincode,
-    // });
+    const identifierHash = hashIdentifiers(
+      {
+        pin: pincode,
+      },
+      locationServiceLogger,
+    );
 
-    // const pincodeGeofencingRateLimitResult = await checkingRateLimit({
-    //   identifiers: { identifierHash },
-    //   serviceId: idOfService,
-    //   categoryId: idOfCategory,
-    //   clientId: clientId,
-    // });
+    const pincodeGeofencingRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId: idOfService,
+      categoryId: idOfCategory,
+      clientId: clientId,
+      req,
+      TxnID: tnId,
+      logger: locationServiceLogger,
+    });
 
-    // if (!pincodeGeofencingRateLimitResult.allowed) {
-    //   locationServiceLogger.warn(
-    //     `Rate limit exceeded for GSTIN verification: client ${clientId}, service ${idOfService}`,
-    //   );
-    //   return res.status(429).json({
-    //     success: false,
-    //     message: pincodeGeofencingRateLimitResult.message,
-    //   });
-    // }
+    if (!pincodeGeofencingRateLimitResult.allowed) {
+      locationServiceLogger.warn(
+        `Rate limit exceeded for GSTIN verification: client ${clientId}, service ${idOfService}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: pincodeGeofencingRateLimitResult.message,
+      });
+    }
 
-    // const tnId = genrateUniqueServiceId();
-    // locationServiceLogger.info(
-    //   `Generated pincode geofencing txn Id: ${tnId} for this client: ${clientId}`,
-    // );
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      idOfService,
+      idOfCategory,
+      tnId,
+      req,
+      locationServiceLogger,
+    );
 
-    // const maintainanceResponse = await deductCredits(
-    //   clientId,
-    //   serviceId,
-    //   idOfCategory,
-    //   tnId,
-    //   req,
-    // );
-
-    // if (!maintainanceResponse?.result) {
-    //   locationServiceLogger.error(
-    //     `Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`,
-    //   );
-    //   return res.status(500).json({
-    //     success: false,
-    //     message: maintainanceResponse?.message || "Invalid",
-    //     response: {},
-    //   });
-    // }
+    if (!maintainanceResponse?.result) {
+      locationServiceLogger.error(
+        `Credit deduction failed for GSTIN verification: client ${clientId}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
 
     const encryptedPincode = encryptData(pincode);
 
@@ -105,6 +114,9 @@ exports.handlePincodeGeofencing = async (req, res) => {
       clientId,
       idOfService,
       idOfCategory,
+      "success",
+      tnId,
+      locationServiceLogger,
     );
     if (!analyticsResult.success) {
       locationServiceLogger.info(
@@ -123,12 +135,13 @@ exports.handlePincodeGeofencing = async (req, res) => {
 
         const decrypted = {
           ...existingPincode?.response,
-          gstinNumber: gstinNumber,
+          Pincode: pincode,
         };
         await responseModel.create({
           serviceId: idOfService,
           categoryId: idOfCategory,
           clientId,
+          TxnID: tnId,
           result: existingPincode?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -145,6 +158,7 @@ exports.handlePincodeGeofencing = async (req, res) => {
           serviceId: idOfService,
           categoryId: idOfCategory,
           clientId,
+          TxnID: tnId,
           result: existingPincode?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -157,8 +171,14 @@ exports.handlePincodeGeofencing = async (req, res) => {
     }
 
     // Get All Active Services
-    const service = await selectService(idOfCategory, idOfService);
-    if (!service) {
+    const service = await selectService(
+      idOfCategory,
+      idOfService,
+      tnId,
+      req,
+      locationServiceLogger,
+    );
+    if (!service?.length) {
       locationServiceLogger.warn(
         `Active service not found for GSTIN category ${idOfCategory}, service ${idOfService}`,
       );
@@ -180,15 +200,20 @@ exports.handlePincodeGeofencing = async (req, res) => {
       `Response received from active service ${service.serviceFor}: ${response?.message}`,
     );
 
+    if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
     // Response form Active Service if response message is Valid
     if (response?.message?.toUpperCase() == "VALID") {
       const encryptedResponse = {
         ...response?.result,
-        gstinNumber: encryptedPincode,
+        Pincode: encryptedPincode,
       };
       await responseModel.create({
         serviceId: idOfService,
         categoryId: idOfCategory,
+        TxnID: tnId,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -217,10 +242,10 @@ exports.handlePincodeGeofencing = async (req, res) => {
       await responseModel.create({
         serviceId: idOfService,
         categoryId: idOfCategory,
+        TxnID: tnId,
         clientId,
         result: {
           pincode: pincode,
-          ...findingInValidResponses("pincode"),
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -230,7 +255,6 @@ exports.handlePincodeGeofencing = async (req, res) => {
         pincode: encryptedPincode,
         response: {
           pincode: pincode,
-          ...findingInValidResponses("pincode"),
         },
         serviceResponse: {},
         serviceName: response?.service,
@@ -249,7 +273,6 @@ exports.handlePincodeGeofencing = async (req, res) => {
           404,
           {
             pincode: pincode,
-            ...findingInValidResponses("pincode"),
           },
           "Invalid",
         ),
@@ -260,6 +283,19 @@ exports.handlePincodeGeofencing = async (req, res) => {
       `System error in pincode geofencing for client ${clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      tnId,
+      locationServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.info(
+        `Analytics update failed for pincode geofencing for this client: ${clientId} with service: ${idOfService} and category: ${idOfCategory}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -269,40 +305,59 @@ exports.handleLongLatGeofencing = async (req, res) => {
   const { latitude, longitude, mobileNumber = "" } = req.body;
 
   const clientId = req.clientId || "CID-6140971541";
+  const tnId = genrateUniqueServiceId();
+  locationServiceLogger.info(
+    `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
+  );
 
   locationServiceLogger.info(
     `latitude and longitude Details ===>> longitude: ${longitude} and latitude: ${latitude} for this client: ${clientId}`,
   );
 
+  const isLatValid = handleValidation(
+    "latitude",
+    latitude,
+    res,
+    tnId,
+    locationServiceLogger,
+  );
+  if (!isLatValid) return;
+  const isLongValid = handleValidation(
+    "longitude",
+    longitude,
+    res,
+    tnId,
+    locationServiceLogger,
+  );
+  if (!isLongValid) return;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "LONG_LAT_GEOFENCING",
+    tnId,
+    locationServiceLogger,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  locationServiceLogger.info(
+    `Executing longLat geofencing for client: ${clientId}, service: ${idOfService}, category: ${idOfCategory}`,
+  );
   try {
-    const isLatValid = handleValidation("latitude", latitude, res, clientId);
-    if (!isLatValid) return;
-    const isLongValid = handleValidation("longitude", longitude, res, clientId);
-    if (!isLongValid) return;
-
-    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-      "LONG_LAT_GEOFENCING",
+    const identifierHash = hashIdentifiers(
+      {
+        lat: latitude,
+        long: longitude,
+      },
+      locationServiceLogger,
     );
-    console.log(
-      "idOfService and idOfCategory ====>>",
-      idOfService,
-      idOfCategory,
-    );
-
-    locationServiceLogger.info(
-      `Executing longLat geofencing for client: ${clientId}, service: ${idOfService}, category: ${idOfCategory}`,
-    );
-
-    const identifierHash = hashIdentifiers({
-      lat: latitude,
-      long: longitude,
-    });
 
     const longLatGeofencingRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
       serviceId: idOfService,
       categoryId: idOfCategory,
       clientId: clientId,
+      req,
+      TxnID: tnId,
+      logger: locationServiceLogger,
     });
 
     if (!longLatGeofencingRateLimitResult.allowed) {
@@ -315,17 +370,13 @@ exports.handleLongLatGeofencing = async (req, res) => {
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    locationServiceLogger.info(
-      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
-    );
-
     const maintainanceResponse = await deductCredits(
       clientId,
       idOfService,
       idOfCategory,
       tnId,
       req,
+      locationServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -352,60 +403,52 @@ exports.handleLongLatGeofencing = async (req, res) => {
       clientId,
       idOfService,
       idOfCategory,
+      "success",
+      tnId,
+      locationServiceLogger,
     );
     if (!analyticsResult.success) {
       locationServiceLogger.warn(
-        `Analytics update failed for GSTIN verification: client ${clientId}, service ${idOfService}`,
+        `Analytics update failed for latlong geofencing verification: client ${clientId}, service ${idOfService}`,
       );
     }
 
     locationServiceLogger.info(
-      `Checked for existing GSTIN record in DB: ${existingLongLatGeofencing ? "Found" : "Not Found"}`,
+      `Checked for existing latlong geofencing record in DB: ${existingLongLatGeofencing ? "Found" : "Not Found"}`,
     );
     if (existingLongLatGeofencing) {
-      if (existingLongLatGeofencing?.status == 1) {
-        locationServiceLogger.info(
-          `Returning cached GSTIN response for client: ${clientId}`,
+      const isValid = existingLongLatGeofencing?.status == 1;
+      await responseModel.create({
+        serviceId: idOfService,
+        categoryId: idOfCategory,
+        clientId,
+        TxnID: tnId,
+        result: existingLongLatGeofencing?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            isValid
+              ? existingLongLatGeofencing?.response
+              : existingLongLatGeofencing?.response,
+            isValid ? "Valid" : "Invalid",
+          ),
         );
-
-        const decrypted = {
-          ...existingLongLatGeofencing?.response,
-          gstinNumber: gstinNumber,
-        };
-        await responseModel.create({
-          serviceId: idOfService,
-          categoryId: idOfCategory,
-          clientId,
-          result: existingLongLatGeofencing?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = decrypted;
-        return res
-          .status(200)
-          .json(createApiResponse(200, dataToShow, "Valid"));
-      } else {
-        locationServiceLogger.info(
-          `Returning cached GSTIN response for client: ${clientId}`,
-        );
-        await responseModel.create({
-          serviceId: idOfService,
-          categoryId: idOfCategory,
-          clientId,
-          result: existingLongLatGeofencing?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = existingLongLatGeofencing?.response;
-        return res
-          .status(200)
-          .json(createApiResponse(200, dataToShow, "Valid"));
-      }
     }
 
     // Get All Active Services
-    const service = await selectService(idOfCategory, idOfService);
-    if (!service) {
+    const service = await selectService(
+      idOfCategory,
+      idOfService,
+      tnId,
+      req,
+      locationServiceLogger,
+    );
+    if (!service?.length) {
       locationServiceLogger.warn(
         `Active service not found for long lat Geofencing with category ${idOfCategory}, service ${idOfService}`,
       );
@@ -427,79 +470,87 @@ exports.handleLongLatGeofencing = async (req, res) => {
       `Response received from active service ${response?.service}: ${response?.message}`,
     );
 
-    // Response form Active Service if response message is Valid
-    if (response?.message?.toUpperCase() == "VALID") {
-      const encryptedResponse = {
-        ...response?.result,
-        gstinNumber: encryptedGst,
-      };
-      await responseModel.create({
-        serviceId: idOfService,
-        categoryId: idOfCategory,
-        clientId,
-        result: response?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        status: 1,
-        gstinNumber: encryptedGst,
-        response: encryptedResponse,
-        serviceResponse: response?.responseOfService,
-        serviceName: response?.service,
-        message: response?.message,
-        mobileNumber,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await longLatGeofencingModel.create(storingData);
-      locationServiceLogger.info(
-        `Valid GSTIN response stored and sent to client: ${clientId}`,
-      );
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Success"));
-    } else {
-      await responseModel.create({
-        serviceId: idOfService,
-        categoryId: idOfCategory,
-        clientId,
-        result: {
-          gstinNumber: gstinNumber,
-          ...findingInValidResponses("gstIn"),
-        },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        status: 2,
-        gstinNumber: encryptedGst,
-        response: {
-          gstinNumber: gstinNumber,
-          ...findingInValidResponses("gstIn"),
-        },
-        serviceResponse: {},
-        serviceName: response?.service,
-        mobileNumber,
-        message: response?.message,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await longLatGeofencingModel.create(storingData);
-      locationServiceLogger.info(
-        `Invalid GSTIN response received and sent to client: ${clientId}`,
-      );
-      return res
-        .status(404)
-        .json(createApiResponse(404, { gstinNumber }, "Failed"));
+    if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
     }
+
+    // Response form Active Service if response message is Valid
+    const isValid = response?.message?.toUpperCase() == "VALID";
+
+    await responseModel.create({
+      serviceId: idOfService,
+      categoryId: idOfCategory,
+      clientId,
+      TxnID: tnId,
+      result: response?.result,
+      createdTime: new Date().toLocaleTimeString(),
+      createdDate: new Date().toLocaleDateString(),
+    });
+
+    const storingData = {
+      status: isValid ? 1 : 2,
+      longitude: encryptedLongitude,
+      latitude: encryptedLatitude,
+      response: isValid
+        ? response?.result
+        : {
+            latitude,
+            longitude,
+          },
+      serviceResponse: isValid ? response?.responseOfService : {},
+      serviceName: response?.service,
+      message: response?.message,
+      ...(mobileNumber && { mobileNumber }),
+      createdDate: new Date().toLocaleDateString(),
+      createdTime: new Date().toLocaleTimeString(),
+    };
+
+    // Use latitude & longitude as filter
+    const filter = {
+      latitude: encryptedLatitude,
+      longitude: encryptedLongitude,
+    };
+
+    await longLatGeofencingModel.findOneAndUpdate(
+      filter,
+      { $set: storingData },
+      {
+        new: true,
+        upsert: true,
+      },
+    );
+
+    locationServiceLogger.info(
+      `${isValid ? "Valid" : "Invalid"} latlong geofencing response stored and sent to client: ${clientId}`,
+    );
+
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          isValid ? response?.result : { latitude, longitude },
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
   } catch (error) {
     locationServiceLogger.error(
       `System error in long lat geofencing for client ${clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      tnId,
+      locationServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.info(
+        `Analytics update failed for pincode geofencing for this client: ${clientId} with service: ${idOfService} and category: ${idOfCategory}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -538,6 +589,9 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       serviceId: idOfService,
       categoryId: idOfCategory,
       clientId: clientId,
+      req,
+      TxnID: tnId,
+      logger: locationServiceLogger,
     });
 
     if (!longLatGeofencingRateLimitResult.allowed) {
@@ -735,6 +789,19 @@ exports.handleLongLatToDigiPin = async (req, res) => {
       `System error in long lat to digiPin for client ${clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      tnId,
+      locationServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.info(
+        `Analytics update failed for pincode geofencing for this client: ${clientId} with service: ${idOfService} and category: ${idOfCategory}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -967,6 +1034,19 @@ exports.handleDigiPinToLongLat = async (req, res) => {
       `System error in digiPin to long lat for client ${clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      tnId,
+      locationServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.info(
+        `Analytics update failed for pincode geofencing for this client: ${clientId} with service: ${idOfService} and category: ${idOfCategory}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -1206,6 +1286,19 @@ exports.handleAddressToDigiPin = async (req, res) => {
       `System error in Address to digipin for client ${clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      tnId,
+      locationServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.info(
+        `Analytics update failed for pincode geofencing for this client: ${clientId} with service: ${idOfService} and category: ${idOfCategory}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -1225,9 +1318,8 @@ exports.handleGeoTagging = async (req, res) => {
   const isLongValid = handleValidation("longitude", longitude, res, clientId);
   if (!isLongValid) return;
 
-  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "GEO_TAGGING",
-  );
+  const { idOfCategory, idOfService } =
+    getCategoryIdAndServiceId("GEO_TAGGING");
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
   locationServiceLogger.info(
@@ -1441,6 +1533,19 @@ exports.handleGeoTagging = async (req, res) => {
       `System error in long lat to digiPin for client ${clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      tnId,
+      locationServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.info(
+        `Analytics update failed for pincode geofencing for this client: ${clientId} with service: ${idOfService} and category: ${idOfCategory}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }
@@ -1450,9 +1555,9 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
   const { address, latitude, longitude, mobileNumber = "" } = req.body;
 
   const clientId = req.clientId || "CID-6140971541";
-
+  const tnId = genrateUniqueServiceId();
   locationServiceLogger.info(
-    `digiPin Details ===>> digiPin: ${digiPin} for this client: ${clientId}`,
+    `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
   );
 
   const isValid = handleValidation("address", address, res, clientId);
@@ -1475,12 +1580,13 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
       digiPin: digiPin,
     });
 
-    const geoTaggingDistanceCalculationRateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId: idOfService,
-      categoryId: idOfCategory,
-      clientId: clientId,
-    });
+    const geoTaggingDistanceCalculationRateLimitResult =
+      await checkingRateLimit({
+        identifiers: { identifierHash },
+        serviceId: idOfService,
+        categoryId: idOfCategory,
+        clientId: clientId,
+      });
 
     if (!geoTaggingDistanceCalculationRateLimitResult.allowed) {
       locationServiceLogger.info(
@@ -1491,11 +1597,6 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
         message: geoTaggingDistanceCalculationRateLimitResult.message,
       });
     }
-
-    const tnId = genrateUniqueServiceId();
-    locationServiceLogger.info(
-      `Generated longLat geofencing txn Id: ${tnId} for this client: ${clientId}`,
-    );
 
     const maintainanceResponse = await deductCredits(
       clientId,
@@ -1613,6 +1714,7 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
       await responseModel.create({
         serviceId: idOfService,
         categoryId: idOfCategory,
+        TxnID: tnId,
         clientId,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
@@ -1641,10 +1743,10 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
       await responseModel.create({
         serviceId: idOfService,
         categoryId: idOfCategory,
+        TxnID: tnId,
         clientId,
         result: {
-          gstinNumber: gstinNumber,
-          ...findingInValidResponses("AddressToDigiPin"),
+          digiPin: digiPin,
         },
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -1654,7 +1756,6 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
         gstinNumber: encryptedGst,
         response: {
           digiPin: digiPin,
-          ...findingInValidResponses("AddressToDigiPin"),
         },
         serviceResponse: {},
         serviceName: response?.service,
@@ -1673,7 +1774,6 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
           404,
           {
             digiPin: digiPin,
-            ...findingInValidResponses("AddressToDigiPin"),
           },
           "Invalid",
         ),
@@ -1684,6 +1784,19 @@ exports.handleGeoTaggingDistacnceCalculation = async (req, res) => {
       `System error in Address to digipin for client ${clientId}: ${error.message}`,
       error,
     );
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      idOfService,
+      idOfCategory,
+      "failed",
+      tnId,
+      locationServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      locationServiceLogger.info(
+        `Analytics update failed for pincode geofencing for this client: ${clientId} with service: ${idOfService} and category: ${idOfCategory}`,
+      );
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }

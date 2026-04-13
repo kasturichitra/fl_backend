@@ -426,7 +426,7 @@ const drivingLicenseServiceResponse = async (
   );
 
   try {
-    const res = await drivingLicenseApiCall(data, serviceName, 0);
+    const res = await drivingLicenseApiCall(data, serviceName, client);
 
     vehicleServiceLogger.info(
       `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${client}`,
@@ -458,7 +458,7 @@ const drivingLicenseServiceResponse = async (
     return drivingLicenseServiceResponse(data, services, index + 1);
   }
 };
-const drivingLicenseApiCall = async (data, service) => {
+const drivingLicenseApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -495,6 +495,8 @@ const drivingLicenseApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: vehicleServiceLogger
       });
       console.log(
         "[Driving License verification Api call] TruthScreen API response:",
@@ -655,7 +657,8 @@ const vehicleRegisterationApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        cId: CID
+        cId: CID,
+        logger: vehicleServiceLogger
       });
       console.log(
         "[Driving License verification Api call] TruthScreen API response:",

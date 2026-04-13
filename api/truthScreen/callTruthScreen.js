@@ -193,6 +193,7 @@ async function callTruthScreenAPI({
 
     return JSON.parse(decrypted);
   } catch (error) {
+    console.log("error in truthscreen error?.message===>>", error);
     console.log("error in truthscreen error?.message===>>", error?.message);
     console.log(
       "error in truthscreen error?.response?.data===>>",
@@ -224,6 +225,7 @@ async function callTruthScreenAPIForImage({
   username,
   password,
   cId = "",
+  logger = ""
 }) {
   // displaying password in logs is bad practice, removing it.
   commonLogger.info(

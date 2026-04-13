@@ -1,3 +1,4 @@
+const { gstServiceLogger } = require("../../Logger/logger");
 const {
   generateTransactionId,
   callTruthScreenAPI,
@@ -95,6 +96,7 @@ const ComprehensiveGstApiCall = async (data, service, CID) => {
         username: config.header.username,
         password: config.header.password,
         cId: CID,
+        logger: gstServiceLogger
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -226,6 +228,7 @@ const GstAdvanceApiCall = async (data, service, CID) => {
         username: config.header.username,
         password: config.header.password,
         cId: CID,
+        logger: gstServiceLogger
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {

@@ -93,6 +93,7 @@ const ifscApiCall = async (data, service, CID) => {
         username: config.header.username,
         password: config.header.token,
         cId: CID,
+        logger: bankServiceLogger
       });
       console.log(
         "[ifscApiCall] TruthScreen API response:",

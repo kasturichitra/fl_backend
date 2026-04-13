@@ -127,6 +127,7 @@ const CinApiCall = async (data, service, TxnID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
+        cId: TxnID,
         logger: businessServiceLogger
       });
     } else {
@@ -290,6 +291,7 @@ const CinCompanyApiCall = async (data, service, TxnID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
+        cId: TxnID,
         logger: businessServiceLogger
       });
     } else {
@@ -398,6 +400,7 @@ const CompanySearchApiCall = async (data, service, TxnID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
+        cId: TxnID,
         logger: businessServiceLogger
       });
     } else {

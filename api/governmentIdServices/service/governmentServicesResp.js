@@ -83,6 +83,8 @@ const voterIdApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: governmentServiceLogger
       });
       console.log(
         "[voter id verification api call] TruthScreen API response:",
@@ -229,6 +231,8 @@ const passportApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: governmentServiceLogger
       });
       console.log(
         "[passport file no api call] TruthScreen API response:",
@@ -375,6 +379,8 @@ const electricityBillApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: governmentServiceLogger
       });
       console.log(
         "[passport file no api call] TruthScreen API response:",
