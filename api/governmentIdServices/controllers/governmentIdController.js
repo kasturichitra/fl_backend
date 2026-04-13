@@ -1344,3 +1344,240 @@ exports.handlePassportOcrVerify = async (req, res) => {
     return res.status(errorObj.httpCode).json(errorObj);
   }
 };
+
+
+// TIN VERIFICATION (TRUTHSCREEN:Service has been deprecated) 
+exports.handleTINVerification = async (req, res) => {
+  const { TIN, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
+
+  if (!TIN) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+
+  businessServiceLogger.info(`TxnID:${TxnID}, TIN Number Details: ${TIN}`);
+  try {
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', TxnID, businessServiceLogger);
+
+    businessServiceLogger.info(
+      `TxnID:${TxnID}, Executing TIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+    );
+
+    //1. HASH TIN NUMBER
+    const identifierHash = hashIdentifiers({
+      TIN
+    }, businessServiceLogger);
+
+    //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
+    const tinRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId,
+      req,
+      TxnID,
+      logger: businessServiceLogger
+    });
+
+    if (!tinRateLimitResult.allowed) {
+      businessServiceLogger.warn(`Rate limit exceeded for TIN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
+      return res.status(429).json({
+        success: false,
+        message: tinRateLimitResult.message,
+      });
+    };
+
+    businessServiceLogger.info(`Generated TIN txn Id: ${TxnID}`);
+
+    // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      TxnID,
+      req,
+      businessServiceLogger
+    );
+
+    if (!maintainanceResponse?.result) {
+      businessServiceLogger.error(`TxnID:${TxnID}, Credit deduction failed for TIN verification: client ${clientId}, txnId ${TxnID}`);
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    // 4. CHECK IN THE DB IS DATA PRESENT 
+    const encryptedtTIN = encryptData(TIN);
+
+    const existingTin = await tin_verifyModel.findOne({ tinNumber: encryptedtTIN })
+
+    // 5. UPDATE TO THE ANALYTICS COLLECTION
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      'success',
+      businessServiceLogger
+    );
+    if (!analyticsResult.success) {
+      businessServiceLogger.warn(
+        `TxnID:${TxnID}, Analytics update failed for TIN verification: client ${clientId}, service ${serviceId}`,
+      );
+    }
+
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Checked for existing TIN record in DB: ${existingTin ? "Found" : "Not Found"}`,
+    );
+
+    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
+    if (existingTin) {
+      if (existingTin?.status == 1) {
+        businessServiceLogger.info(
+          `txnId: ${TxnID}, Returning cached TIN response for client: ${clientId}`,
+        );
+
+        const decrypted = {
+          ...existingTin?.response,
+          tinNumber: TIN,
+        };
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          TxnID,
+          clientId,
+          result: existingTin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        businessServiceLogger.info(
+          `txnId: ${TxnID}, Returning cached TIN response for client: ${clientId}`,
+        );
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          TxnID,
+          clientId,
+          result: existingTin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingTin?.response;
+        return res
+          .status(404)
+          .json(createApiResponse(404, dataToShow, "inValid"));
+      }
+    };
+
+    //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
+    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
+    if (!service.length) {
+      businessServiceLogger.warn(
+        `TxnID:${TxnID}, Active service not found for TIN category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Active service selected for TIN verification: ${service}`
+    );
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    let response = await TinActiveServiceResponse(TIN, service, 0, TxnID);
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Response received TIN from active service ${response?.service}: ${response?.message}`,
+    );
+
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        tinNumber: encryptedtTIN,
+      };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        tinNumber: encryptedtTIN,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await tin_verifyModel.findOneAndUpdate(
+        { TIN: encryptedtTIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+      businessServiceLogger.info(
+        `txnId: ${TxnID}, Valid TIN response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: {
+          tinNumber: TIN
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        tinNumber: encryptedtTIN,
+        response: {
+          tinNumber: TIN
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await tin_verifyModel.findOneAndUpdate(
+        { TIN: encryptedtTIN },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true }
+      );
+      businessServiceLogger.info(
+        `txnId: ${TxnID}, Invalid TIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { tinNumber: TIN }, "Failed"));
+    }
+
+  } catch (error) {
+    businessServiceLogger.error(
+      `txnId: ${TxnID}, System error in TIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
