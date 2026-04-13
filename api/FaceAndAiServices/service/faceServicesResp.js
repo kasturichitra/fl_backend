@@ -121,6 +121,7 @@ const imageApiCall = async (data, service, serviceKey, CID) => {
         username: process.env.TRUTHSCREEN_USERNAME,
         password: process.env.TRUTHSCREEN_TOKEN,
         cId: CID,
+        logger: faceServiceLogger
       });
 
       apiResponse = faceRes;

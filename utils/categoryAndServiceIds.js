@@ -10,7 +10,7 @@ const CATEGORIES = {
   FACE: "FACEAIVERIFICATION",
   BANK: "BANKINGFINANCIAL",
   EMPLOYMENT: "EMPLOYMENTINCOME",
-  OTHER: "OTHERSERVICES"
+  OTHER: "OTHERSERVICES",
 };
 
 const SERVICES = {
@@ -61,31 +61,31 @@ const SERVICES = {
   // geo and location
   PINCODE_GEOFENCING: {
     category: "GEO",
-    serviceId: "PINCODEGEOFENCINGAPI",
+    serviceId: "PINCODEGEOFENCING",
   },
   LONG_LAT_GEOFENCING: {
     category: "GEO",
-    serviceId: "LONGITUDELATITUDEGEOFENCINGAPI",
+    serviceId: "LONGITUDELATITUDEGEOFENCING",
   },
   LONG_LAT_TO_DIGIPIN: {
     category: "GEO",
-    serviceId: "asdfgh",
+    serviceId: "LATLONGTODIGIPIN",
   },
   DIGIPIN_TO_LONG_LAT: {
     category: "GEO",
-    serviceId: "asdfgh",
+    serviceId: "DIGIPINTOLATLONG",
   },
-  LONG_LAT_GEOFENCING: {
+  ADDRESS_TO_DIGIPIN: {
     category: "GEO",
-    serviceId: "",
+    serviceId: "ADDRESSTODIGIPIN",
   },
   GEO_TAGGING_DISTANCE_CALCULATION: {
     category: "GEO",
-    serviceId: "",
+    serviceId: "GEOTAGGINGDISTANCECALCULATION",
   },
   GEO_TAGGING: {
     category: "GEO",
-    serviceId: "",
+    serviceId: "GEOTAGGINGSEARCH",
   },
 
   // vehicle services
@@ -163,6 +163,10 @@ const SERVICES = {
   },
 
   // contact services
+  MOBILE_OTP_VERIFY: {
+     category: "CONTACT",
+    serviceId: "MOBILEOTPVERIFICATION",
+  },
   MOBILE_TO_PAN: {
     category: "CONTACT",
     serviceId: "MOBILETOPAN",

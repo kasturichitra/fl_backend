@@ -59,8 +59,8 @@ const pincodeGeofencingApiCall = async (data, service, CID) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "554",
-        docNumber: data,
+        docType: 554,
+        pincode: data,
       },
       url: process.env.TRUTHSCREEN_PINCODE_GEOFENCING,
       header: {
@@ -82,9 +82,20 @@ const pincodeGeofencingApiCall = async (data, service, CID) => {
   let ApiResponse;
 
   try {
-    ApiResponse = await axios.post(config.url, config.BodyData, {
-      headers: config.header,
-    });
+    if (service === "TRUTHSCREEN") {
+      ApiResponse = await callTruthScreenAPI({
+        url: config.url,
+        payload: config.BodyData,
+        username: config.header.username,
+        password: config.header.token,
+        cId: CID,
+        logger: locationServiceLogger,
+      });
+    } else {
+      ApiResponse = await axios.post(config.url, config.BodyData, {
+        headers: config.header,
+      });
+    }
   } catch (error) {
     console.log(
       `[pincode geofencing ApiCall] API Error in ${service}:`,
@@ -101,48 +112,35 @@ const pincodeGeofencingApiCall = async (data, service, CID) => {
 
   let returnedObj = {};
 
-  if (obj?.status != 1 && obj?.msg == "No Record Found") {
-    return {
-      success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
-      },
-    };
-  }
-
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = {
-        gstinNumber: obj?.result?.essentials?.gstin || "",
-        business_constitution:
-          obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-        central_jurisdiction:
-          obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-        gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-        companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-        other_business_address:
-          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
-          "",
-        register_cancellation_date:
-          obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-        state_jurisdiction:
-          obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-        tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-        trade_name:
-          obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-        primary_business_address:
-          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
-          "",
-      };
+      if (obj.status == 0) {
+        return {
+          success: false,
+          data: {
+            result: "NODATAFOUND",
+            message: "Valid",
+            responseOfService: {},
+            service: service,
+          },
+        };
+      }
+      if (obj.status == 1) {
+        return {
+          success: true,
+          data: {
+            result: obj.msg,
+            message: "Valid",
+            responseOfService: obj,
+            service: service,
+          },
+        };
+      }
       break;
   }
   return {
     success: true,
     data: {
-      gstinNumber: data || "",
       result: returnedObj,
       message: "Valid",
       responseOfService: obj,
@@ -164,8 +162,8 @@ const longLatGeofencingActiveServiceResponse = async (
     index,
   );
   if (index >= services?.length) {
-    console.log(
-      "index increased in gst to pan verify ====>>>",
+    locationServiceLogger.info(
+      "index increased in longlat geofencing ====>>>",
       index,
       services?.length,
     );
@@ -204,9 +202,10 @@ const longLatGeofencingApiCall = async (data, service, CID) => {
       BodyData: {
         transID: tskId,
         docType: "553",
-        docNumber: data,
+        longitude: data?.longitude,
+        latitude: data?.latitude,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_LONG_LAT_GEOFENCING,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -232,6 +231,8 @@ const longLatGeofencingApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: locationServiceLogger,
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -248,7 +249,7 @@ const longLatGeofencingApiCall = async (data, service, CID) => {
 
   let returnedObj = {};
 
-  if (obj.status != 1) {
+  if (obj.status == 0) {
     return {
       success: false,
       data: {
@@ -262,16 +263,23 @@ const longLatGeofencingApiCall = async (data, service, CID) => {
 
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = {
-        gstinNumber: obj?.result?.essentials?.gstin || "",
-      };
+      if (obj.status == 1) {
+        return {
+          success: true,
+          data: {
+            result: obj?.msg,
+            message: "Valid",
+            responseOfService: obj,
+            service: service,
+          },
+        };
+      }
       break;
   }
   return {
     success: true,
     data: {
-      gstinNumber: data || "",
-      result: returnedObj,
+      result: obj?.msg,
       message: "Valid",
       responseOfService: obj,
       service: service,
@@ -366,6 +374,8 @@ const longLatDigiPinApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: locationServiceLogger,
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -449,7 +459,9 @@ const digipinToLongLatActiveServiceResponse = async (
 
   const serviceName = newService.providerId || "";
   console.log(`Trying service: ${newService} for this client: ${client}`);
-  locationServiceLogger.info(`Trying service: ${newService} for this client: ${client}`);
+  locationServiceLogger.info(
+    `Trying service: ${newService} for this client: ${client}`,
+  );
 
   try {
     const res = await digipinToLongLatApiCall(data, serviceName, client);
@@ -458,8 +470,12 @@ const digipinToLongLatActiveServiceResponse = async (
       return res.data;
     }
 
-    console.log(`${serviceName} responded failure → trying next for this client: ${client}`);
-    locationServiceLogger.info(`${serviceName} responded failure → trying next for this client: ${client}`);
+    console.log(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
+    locationServiceLogger.info(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
     return digipinToLongLatActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(`Error from ${serviceName}:`, err.message);
@@ -502,7 +518,8 @@ const digipinToLongLatApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        CID
+        cId: CID,
+        logger: locationServiceLogger,
       });
       console.log(
         "[digipin to long lat] TruthScreen API response:",
@@ -590,7 +607,9 @@ const addressToDigiPinActiveServiceResponse = async (
 
   const serviceName = newService.providerId || "";
   console.log(`Trying service: ${newService} for this client: ${client}`);
-  locationServiceLogger.info(`Trying service: ${newService} for this client: ${client}`);
+  locationServiceLogger.info(
+    `Trying service: ${newService} for this client: ${client}`,
+  );
 
   try {
     const res = await addressToDigiPinApiCall(data, serviceName, client);
@@ -599,8 +618,12 @@ const addressToDigiPinActiveServiceResponse = async (
       return res.data;
     }
 
-    console.log(`${serviceName} responded failure → trying next for this client: ${client}`);
-    locationServiceLogger.info(`${serviceName} responded failure → trying next for this client: ${client}`);
+    console.log(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
+    locationServiceLogger.info(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
     return addressToDigiPinActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(`Error from ${serviceName}:`, err.message);
@@ -643,7 +666,8 @@ const addressToDigiPinApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        CID
+        cId: CID,
+        logger: locationServiceLogger,
       });
       console.log(
         "[digipin to long lat] TruthScreen API response:",
@@ -730,7 +754,9 @@ const geoTaggingActiveServiceResponse = async (
 
   const serviceName = newService.providerId || "";
   console.log(`Trying service: ${newService} for this client: ${client}`);
-  locationServiceLogger.info(`Trying service: ${newService} for this client: ${client}`);
+  locationServiceLogger.info(
+    `Trying service: ${newService} for this client: ${client}`,
+  );
 
   try {
     const res = await geoTaggingApiCall(data, serviceName, client);
@@ -739,8 +765,12 @@ const geoTaggingActiveServiceResponse = async (
       return res.data;
     }
 
-    console.log(`${serviceName} responded failure → trying next for this client: ${client}`);
-    locationServiceLogger.info(`${serviceName} responded failure → trying next for this client: ${client}`);
+    console.log(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
+    locationServiceLogger.info(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
     return geoTaggingActiveServiceResponse(data, services, index + 1);
   } catch (err) {
     console.log(`Error from ${serviceName}:`, err.message);
@@ -783,7 +813,8 @@ const geoTaggingApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        CID
+        cId: CID,
+        logger: locationServiceLogger,
       });
       console.log(
         "[digipin to long lat] TruthScreen API response:",
@@ -865,26 +896,48 @@ const geoTaggingDistanceCalculationActiveServiceResponse = async (
     locationServiceLogger.info(
       `No service with priority ${index + 1}, trying next for this client: ${client}`,
     );
-    return geoTaggingDistanceCalculationActiveServiceResponse(data, services, index + 1);
+    return geoTaggingDistanceCalculationActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   }
 
   const serviceName = newService.providerId || "";
   console.log(`Trying service: ${newService} for this client: ${client}`);
-  locationServiceLogger.info(`Trying service: ${newService} for this client: ${client}`);
+  locationServiceLogger.info(
+    `Trying service: ${newService} for this client: ${client}`,
+  );
 
   try {
-    const res = await geoTaggingDistanceCalculationApiCall(data, serviceName, client);
+    const res = await geoTaggingDistanceCalculationApiCall(
+      data,
+      serviceName,
+      client,
+    );
 
     if (res?.data) {
       return res.data;
     }
 
-    console.log(`${serviceName} responded failure → trying next for this client: ${client}`);
-    locationServiceLogger.info(`${serviceName} responded failure → trying next for this client: ${client}`);
-    return geoTaggingDistanceCalculationActiveServiceResponse(data, services, index + 1);
+    console.log(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
+    locationServiceLogger.info(
+      `${serviceName} responded failure → trying next for this client: ${client}`,
+    );
+    return geoTaggingDistanceCalculationActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   } catch (err) {
     console.log(`Error from ${serviceName}:`, err.message);
-    return geoTaggingDistanceCalculationActiveServiceResponse(data, services, index + 1);
+    return geoTaggingDistanceCalculationActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   }
 };
 const geoTaggingDistanceCalculationApiCall = async (data, service, CID) => {
@@ -923,7 +976,8 @@ const geoTaggingDistanceCalculationApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        CID
+        cId: CID,
+        logger: locationServiceLogger,
       });
       console.log(
         "[digipin to long lat] TruthScreen API response:",
@@ -982,5 +1036,5 @@ module.exports = {
   digipinToLongLatActiveServiceResponse,
   addressToDigiPinActiveServiceResponse,
   geoTaggingActiveServiceResponse,
-  geoTaggingDistanceCalculationActiveServiceResponse
+  geoTaggingDistanceCalculationActiveServiceResponse,
 };

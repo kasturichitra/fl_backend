@@ -2,14 +2,13 @@ const dotenv = require("dotenv");
 const mobileModel = require("../model/otpModel");
 const axios = require("axios");
 const { ERROR_CODES } = require("../../../utils/errorCodes");
-const {
-  smsOtpActiveServiceResponse,
-} = require("../service/smsOtpResponse");
+const { smsOtpActiveServiceResponse } = require("../service/smsOtpResponse");
 const { selectService } = require("../../service/serviceSelector");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 const { contactServiceLogger } = require("../../Logger/logger");
 const handleValidation = require("../../../utils/lengthCheck");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 
 dotenv.config();
 
@@ -136,18 +135,37 @@ const handleOTPSend = async (mobileNumber, res, storingClient, next) => {
 
 // step 1
 const mobileOtpGeneration = async (req, res, next) => {
-  const { mobileNumber = "", serviceId = "", categoryId = "" } = req.body;
+  const { mobileNumber = "" } = req.body;
   console.log("mobile OTP Generation is called", req.body);
 
   const storingClient = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  contactServiceLogger.info(
+    `Generated mobile otp generation txn Id: ${tnId} for the client: ${storingClient}`,
+  );
 
-  const isValid = handleValidation("mobile", mobileNumber, res, storingClient, contactServiceLogger);
+  const isValid = handleValidation(
+    "mobile",
+    mobileNumber,
+    res,
+    tnId,
+    contactServiceLogger,
+  );
   if (!isValid) return;
+
+    const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "MOBILE_OTP_VERIFY",
+    tnId,
+    contactServiceLogger
+  );
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
 
   try {
     const identifierHash = hashIdentifiers({
       mobileNo: mobileNumber,
-    });
+    }, contactServiceLogger);
 
     const mobileRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -155,7 +173,7 @@ const mobileOtpGeneration = async (req, res, next) => {
       categoryId,
       clientId: storingClient,
       req,
-      logger: contactServiceLogger
+      logger: contactServiceLogger,
     });
 
     if (!mobileRateLimitResult.allowed) {
@@ -168,18 +186,13 @@ const mobileOtpGeneration = async (req, res, next) => {
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    contactServiceLogger.info(
-      `Generated mobile otp generation txn Id: ${tnId} for the client: ${storingClient}`,
-    );
-
     const maintainanceResponse = await deductCredits(
       storingClient,
       serviceId,
       categoryId,
       tnId,
       req,
-      contactServiceLogger
+      contactServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {

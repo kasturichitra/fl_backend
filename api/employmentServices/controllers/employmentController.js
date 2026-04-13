@@ -27,7 +27,18 @@ exports.handleBasicUanVerify = async (req, res) => {
   const { uanNumber = "", mobileNumber = "" } = data;
 
   const storingClient = req.clientId;
-  const isValid = handleValidation("uan", uanNumber, res, storingClient);
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  employmentServiceLogger.info(
+    `Generated basic uan txn Id: ${tnId} for the client: ${storingClient}`,
+  );
+  const isValid = handleValidation(
+    "uan",
+    uanNumber,
+    res,
+    tnId,
+    employmentServiceLogger,
+  );
   if (!isValid) return;
 
   employmentServiceLogger.info(
@@ -36,7 +47,8 @@ exports.handleBasicUanVerify = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "UAN_BASIC",
-    storingClient,
+    tnId,
+    employmentServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -48,15 +60,12 @@ exports.handleBasicUanVerify = async (req, res) => {
       `Executing basic uan verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    employmentServiceLogger.info(
-      `Generated basic uan txn Id: ${tnId} for the client: ${storingClient}`,
+    const identifierHash = hashIdentifiers(
+      {
+        uanNo: uanNumber,
+      },
+      employmentServiceLogger,
     );
-
-    const identifierHash = hashIdentifiers({
-      uanNo: uanNumber,
-    });
 
     const uanRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -64,6 +73,8 @@ exports.handleBasicUanVerify = async (req, res) => {
       categoryId,
       clientId: storingClient,
       req,
+      TxnID: tnId,
+      logger: employmentServiceLogger,
     });
 
     if (!uanRateLimitResult.allowed) {
@@ -108,6 +119,8 @@ exports.handleBasicUanVerify = async (req, res) => {
       serviceId,
       categoryId,
       "success",
+      tnId,
+      employmentServiceLogger,
     );
     if (!analyticsResult.success) {
       employmentServiceLogger.warn(
@@ -119,44 +132,38 @@ exports.handleBasicUanVerify = async (req, res) => {
       `Checked for existing UAN record in DB: ${existingUanNumber ? "Found" : "Not Found"} for this client: ${storingClient}`,
     );
     if (existingUanNumber) {
-      const decryptedUanNumber = decryptData(existingUanNumber?.uanNumber);
+      const isValid = existingUanNumber?.status == 1;
+      const noRecord = existingUanNumber?.status == 3;
       const resOfUan = existingUanNumber?.response;
 
-      if (existingUanNumber?.status == 1) {
-        const decryptedResponse = {
-          ...existingUanNumber?.response,
-          UAN: decryptedUanNumber,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: decryptedResponse,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        employmentServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
+      employmentServiceLogger.info(
+        `Returning cached ${isValid ? "Valid" : "Invalid"} basic uan response for client: ${storingClient}`,
+      );
+
+      const destructuredResponse = {
+        ...existingUanNumber?.response,
+        uan: uanNumber,
+      };
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        TxnID: tnId,
+        result: isValid ? destructuredResponse : existingUanNumber?.response,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
+      return res
+        .status(isValid ? 200 : noRecord ? 404 : 400)
+        .json(
+          createApiResponse(
+            isValid ? 200 : noRecord ? 404 : 400,
+            isValid ? destructuredResponse : existingUanNumber?.response,
+            isValid ? "Valid" : "Invalid",
+          ),
         );
-        return res
-          .status(200)
-          .json(createApiResponse(200, decryptedResponse, "Valid"));
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: resOfUan,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        employmentServiceLogger.info(
-          `Returning cached invalid PAN response for client: ${storingClient}`,
-        );
-        return res
-          .status(404)
-          .json(createApiResponse(404, resOfUan, "Invalid"));
-      }
     }
 
     const service = await selectService(
@@ -164,6 +171,7 @@ exports.handleBasicUanVerify = async (req, res) => {
       serviceId,
       storingClient,
       req,
+      employmentServiceLogger,
     );
 
     if (!service?.length) {
@@ -199,13 +207,19 @@ exports.handleBasicUanVerify = async (req, res) => {
     const isNoRecord = message === "NO RECORD FOUND";
     const isInvalid = !isValid && !isNoRecord;
 
+    const constructedData = {
+      uan: encryptedUan,
+      result: uanNumberResponse?.result,
+    };
+
     // Common responseModel create
     await responseModel.create({
       serviceId,
       categoryId,
       clientId: storingClient,
+      TxnID: tnId,
       result: isValid
-        ? uanNumberResponse?.result
+        ? constructedData
         : isNoRecord
           ? { uanNumber, message: "No Record Found" }
           : { uanNumber },
@@ -217,9 +231,7 @@ exports.handleBasicUanVerify = async (req, res) => {
     const storingData = {
       uanNumber: encryptedUan,
       userName: isValid ? uanNumberResponse?.result?.Name : "",
-      response: isValid
-        ? { ...uanNumberResponse?.result, uan: encryptedUan }
-        : { uanNumber },
+      response: isValid ? constructedData : { uanNumber },
       serviceResponse: uanNumberResponse?.responseOfService,
       status: isValid ? 1 : isNoRecord ? 3 : 2, // 1=valid, 2=invalid, 3=no record
       ...(mobileNumber && { mobileNumber }),
@@ -243,7 +255,7 @@ exports.handleBasicUanVerify = async (req, res) => {
 
       return res
         .status(200)
-        .json(createApiResponse(200, uanNumberResponse?.result, "Valid"));
+        .json(createApiResponse(200, constructedData, "Valid"));
     }
 
     if (isNoRecord) {
@@ -274,6 +286,8 @@ exports.handleBasicUanVerify = async (req, res) => {
       serviceId,
       categoryId,
       "failed",
+      tnId,
+      employmentServiceLogger,
     );
 
     if (!analyticsResult?.success) {
@@ -291,40 +305,39 @@ exports.handleDualEmploymentCheck = async (req, res) => {
   const { uanNumber = "", employer = "", mobileNumber = "" } = data;
 
   const storingClient = req.clientId;
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  employmentServiceLogger.info(
+    `Generated dual employment check txn Id: ${tnId} for the value: ${encryptedUan} for the client: ${storingClient}`,
+  );
   const isValid = handleValidation(
     "uan",
     uanNumber,
     res,
-    storingClient,
-    employmentServiceLogger
+    tnId,
+    employmentServiceLogger,
   );
   if (!isValid) return;
 
   employmentServiceLogger.info(
-    `All inputs in dual employment are valid for this client: ${storingClient} continue processing...`
+    `All inputs in dual employment are valid for this client: ${storingClient} continue processing...`,
   );
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DUAL_EMPLOYMENT",
-    storingClient,
-    employmentServiceLogger
+    tnId,
+    employmentServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
   const categoryId = idOfCategory;
   const serviceId = idOfService;
 
-  const encryptedUan = encryptData(uanNumber)
+  const encryptedUan = encryptData(uanNumber);
 
   try {
     employmentServiceLogger.info(
       `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    employmentServiceLogger.info(
-      `Generated dual employment check txn Id: ${tnId} for the value: ${encryptedUan} for the client: ${storingClient}`,
     );
 
     const identifierHash = hashIdentifiers({
@@ -337,7 +350,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       categoryId,
       clientId: storingClient,
       req,
-      logger: employmentServiceLogger
+      logger: employmentServiceLogger,
     });
 
     if (!dualEmploymentRateLimitResult.allowed) {
@@ -371,7 +384,8 @@ exports.handleDualEmploymentCheck = async (req, res) => {
     }
 
     const existingUanNumber = await dualEmplymentCheckModel.findOne({
-      uanNumber: uanNumber, employer: employer
+      uanNumber: uanNumber,
+      employer: employer,
     });
 
     const analyticsResult = await AnalyticsDataUpdate(
@@ -379,7 +393,8 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       serviceId,
       categoryId,
       "success",
-      employmentServiceLogger
+      tnId,
+      employmentServiceLogger,
     );
     if (!analyticsResult.success) {
       employmentServiceLogger.warn(
@@ -403,6 +418,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
           serviceId,
           categoryId,
           clientId: storingClient,
+          TxnID: tnId,
           result: decryptedResponse,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -419,6 +435,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
           categoryId,
           clientId: storingClient,
           result: resOfUan,
+          TxnID: tnId,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
         });
@@ -431,7 +448,13 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId, storingClient, req, employmentServiceLogger);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      storingClient,
+      req,
+      employmentServiceLogger,
+    );
 
     if (!service?.length) {
       employmentServiceLogger.warn(
@@ -444,21 +467,23 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       `Active service selected for dual employment check: ${service.serviceFor}`,
     );
     let dualEmploymentResponse = await basicUanActiveServiceResponse(
-      {uanNumber, employer},
+      { uanNumber, employer },
       service,
       0,
-      storingClient
+      storingClient,
     );
 
     employmentServiceLogger.info(
       `Response received from active service ${dualEmploymentResponse?.service} with message: ${dualEmploymentResponse?.message}`,
     );
 
-    if (dualEmploymentResponse?.message?.toLowerCase() === "all services failed") {
+    if (
+      dualEmploymentResponse?.message?.toLowerCase() === "all services failed"
+    ) {
       throw new Error("All services failed");
     }
 
-   const message = dualEmploymentResponse?.message?.toUpperCase();
+    const message = dualEmploymentResponse?.message?.toUpperCase();
 
     const isValid = message === "VALID";
     const isNoRecord = message === "NO RECORD FOUND";
@@ -469,6 +494,7 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       serviceId,
       categoryId,
       clientId: storingClient,
+      TxnID: tnId,
       result: isValid
         ? dualEmploymentResponse?.result
         : isNoRecord
@@ -539,6 +565,8 @@ exports.handleDualEmploymentCheck = async (req, res) => {
       serviceId,
       categoryId,
       "failed",
+      tnId,
+      employmentServiceLogger,
     );
 
     if (!analyticsResult?.success) {
@@ -556,11 +584,17 @@ exports.handleForm16Verification = async (req, res) => {
   const { uanNumber = "", mobileNumber = "" } = data;
 
   const storingClient = req.clientId;
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  employmentServiceLogger.info(
+    `Generated form 16 verification txn Id: ${tnId} for the client: ${storingClient}`,
+  );
   const isValid = handleValidation(
     "mobileToUan",
     mobileNumber,
     res,
-    storingClient,
+    tnId,
+    employmentServiceLogger,
   );
   if (!isValid) return;
 
@@ -570,7 +604,8 @@ exports.handleForm16Verification = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "UAN_BASIC",
-    storingClient,
+    tnId,
+    employmentServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -582,15 +617,12 @@ exports.handleForm16Verification = async (req, res) => {
       `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    employmentServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
+    const identifierHash = hashIdentifiers(
+      {
+        mobileNo: mobileNumber,
+      },
+      employmentServiceLogger,
     );
-
-    const identifierHash = hashIdentifiers({
-      mobileNo: mobileNumber,
-    });
 
     const form16ValidationRateLimit = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -659,6 +691,7 @@ exports.handleForm16Verification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID: tnId,
           clientId: storingClient,
           result: decryptedResponse,
           createdTime: new Date().toLocaleTimeString(),

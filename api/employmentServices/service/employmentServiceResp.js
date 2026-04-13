@@ -79,6 +79,8 @@ const basicUanApiCall = async (data, service, CID= "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: employmentServiceLogger
       });
     }
   } catch (error) {
@@ -119,7 +121,7 @@ const basicUanApiCall = async (data, service, CID= "") => {
   }
 
   // ✅ SUCCESS CASE
-  let returnedObj = [];
+  let returnedObj;
 
   if (Array.isArray(obj?.msg)) {
     returnedObj = obj.msg;
@@ -230,6 +232,7 @@ const dualEmploymentCheckApiCall = async (data, service, CID) => {
         username: config.header.username,
         password: config.header.token,
         cId: CID,
+        logger: employmentServiceLogger
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
