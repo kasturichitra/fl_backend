@@ -78,7 +78,7 @@ async function decryptMiddleware(req, res, next) {
         req.publicKey = publicKeyPem;
         req.body = decryptedData;
 
-        commonLogger.info("Request payload decrypted successfully.");
+        commonLogger.info("Request payload decrypted successfully.",req.body);
         next();
     } catch (error) {
         commonLogger.error(`Error occurred while decrypting payload: ${error.message}`);

@@ -2,43 +2,43 @@ const { businessServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId, callTruthScreenAPI } = require("../../truthScreen/callTruthScreen");
 const axios = require("axios");
 
-const BankActiveServiceResponse = async (data, services=[], ActiveService, index = 0) => {
+const BankActiveServiceResponse = async (data, services = [], ActiveService, index = 0, TxnID) => {
     if (index >= services?.length) {
         return { success: false, message: "All services failed" };
     }
 
     const newService = services?.find((ser) => ser.priority === index + 1);
-    console.log("[BankActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
-    businessServiceLogger.info("[BankActiveServiceResponse] incoming data ===>>", JSON.stringify(data))
+    businessServiceLogger.info(`TxnID:${TxnID}, [BankActiveServiceResponse] incoming data ===>> ${JSON.stringify(data)}`);
 
     if (!newService) {
-        console.log(`No service with priority ${index + 1}, trying next`);
-        return BankActiveServiceResponse(data, services, index + 1);
+        businessServiceLogger.info(`TxnID:${TxnID}, No service with priority ${index + 1}, trying next`);
+        return BankActiveServiceResponse(data, services, ActiveService, index + 1, TxnID);
     }
 
     const serviceName = newService.providerId || "";
-    console.log(`[BankActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
-    businessServiceLogger.info(`[BankActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    businessServiceLogger.info(`TxnID:${TxnID}, [BankActiveServiceResponse] Trying service with priority ${index + 1}: ${JSON.stringify(newService)}`);
 
     try {
-        // const res = await AdvanceBankApiCall(data, serviceName);
         let res;
-        switch(ActiveService){
+        switch (ActiveService) {
             case 'AdvanceBankApiCall':
-                AdvanceBankApiCall(data, serviceName);
-                break
+                res = await AdvanceBankApiCall(data, serviceName, TxnID);
+                break;
+            default:
+                businessServiceLogger.warn(`TxnID:${TxnID}, Unknown ActiveService: ${ActiveService}`);
+                break;
         }
 
         if (res?.success) {
             return res.data;
         }
 
-        console.log(`[BankActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
-        return BankActiveServiceResponse(data, services,ActiveService, index + 1);
+        businessServiceLogger.info(`TxnID:${TxnID}, [BankActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`);
+        return BankActiveServiceResponse(data, services, ActiveService, index + 1, TxnID);
 
     } catch (err) {
-        console.log(`[BankActiveServiceResponse] Error from ${serviceName}:`, err.message);
-        return BankActiveServiceResponse(data, services,ActiveService, index + 1);
+        businessServiceLogger.error(`TxnID:${TxnID}, [BankActiveServiceResponse] Error from ${serviceName}: ${err.message}`);
+        return BankActiveServiceResponse(data, services, ActiveService, index + 1, TxnID);
     }
 };
 
@@ -46,8 +46,8 @@ const BankActiveServiceResponse = async (data, services=[], ActiveService, index
 //         PAN API CALL (ALL SERVICES)
 // =======================================
 
-const AdvanceBankApiCall = async (data, service) => {
-    const tskId = await generateTransactionId(12);
+const AdvanceBankApiCall = async (data, service, TxnID) => {
+    const tskId = TxnID || await generateTransactionId(12);
     const ApiData = {
         TRUTHSCREEN: {
             BodyData: {

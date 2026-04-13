@@ -3,7 +3,7 @@ const businessRouters = express.Router();
 
 const { dinVerification, gstinverify, handleCINVerification,
         handleGST_INtoPANDetails, gstInTaxPayerVerification,
-        handleTINVerification, udyamNumberVerfication,
+        udyamNumberVerfication,
         handleCreateShopEstablishment, LEIVerification, 
         CompanVerification,
         gstinViewAndTrack,
@@ -20,8 +20,7 @@ businessRouters.post('/GstIn/TaxPayer/verify', gstInTaxPayerVerification);
 businessRouters.post('/Gstin/ViewAndTrack/verfiy', gstinViewAndTrack);
 businessRouters.post('/Cin/verify', handleCINVerification);
 businessRouters.post('/companylist/verify', CompanVerification);
-businessRouters.post('/company/tocin/search', CompanSearchVerification);
-businessRouters.post('/tin/verify', handleTINVerification);
+businessRouters.post('/cinbased/company/search', CompanSearchVerification);
 businessRouters.post('/IEC/verify', handleIECVerification);
 businessRouters.post('/udyam/verify', udyamNumberVerfication);
 businessRouters.post('/DGFT/verify', DGFTVerification);

@@ -89,7 +89,7 @@ const GSTApiCall = async (data, service, TxnID = "") => {
         docType: 23,
         docNumber: data,
       },
-      url: process.env.TRUTHSCREEN_API_URL,
+      url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,

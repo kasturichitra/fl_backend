@@ -35,7 +35,7 @@ mainRouter.use("/mobileNumber", otpRouter);
 mainRouter.use("/face", faceRouter);
 mainRouter.use("/account", accountRouter);
 mainRouter.use("/instant", instantPayRouter);
-mainRouter.use("/name", nameRouter);
+mainRouter.use("/common", nameRouter);
 mainRouter.use("/bin", binRouter);
 mainRouter.use("/card", fullCardRouter);
 mainRouter.use("/IP", ipRouter);
