@@ -29,7 +29,7 @@ exports.handleVoterIdVerify = async (req, res) => {
   const data = req.body;
   const { voterId, mobileNumber = "" } = data;
   const capitalVoterId = voterId?.toUpperCase();
-  const storingClient = req.clientId || "CID-6140971541";
+  const storingClient = req.clientId;
   // Always generate txnId
   const tnId = genrateUniqueServiceId();
   governmentServiceLogger.info(
@@ -272,7 +272,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
   const data = req.body;
   const { passportFileNo, DateOfBirth, mobileNumber = "" } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
-  const storingClient = req.clientId || "CID-6140971541";
+  const storingClient = req.clientId;
       // Always generate txnId
     const tnId = genrateUniqueServiceId();
     governmentServiceLogger.info(
@@ -540,7 +540,7 @@ exports.handleElectricityBill = async (req, res) => {
   const data = req.body;
   const { passportFileNo, DateOfBirth, mobileNumber = "" } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
-  const storingClient = req.clientId || "CID-6140971541";
+  const storingClient = req.clientId;
 
   const isFileNoValid = handleValidation(
     "passportFileNo",
@@ -815,7 +815,7 @@ exports.handlePassportVerify = async (req, res) => {
     mobileNumber = "",
   } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
-  const storingClient = req.clientId || "CID-6140971541";
+  const storingClient = req.clientId;
 
   const isFileNoValid = handleValidation(
     "passportFileNo",
@@ -1089,7 +1089,7 @@ exports.handlePassportOcrVerify = async (req, res) => {
     mobileNumber = "",
   } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
-  const storingClient = req.clientId || "CID-6140971541";
+  const storingClient = req.clientId;
 
   const isFileNoValid = handleValidation(
     "passportFileNo",

@@ -16,7 +16,7 @@ const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 async function handleImageVerification({ req, res, serviceKey }) {
   const { mobileNumber = "" } = req.body;
   const file = req.file;
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId;
   const txnId = genrateUniqueServiceId();
 
   if (mobileNumber) {
