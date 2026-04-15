@@ -79,5 +79,7 @@ module.exports = {
   professionalLogger:createSectionLogger('professional'),
   cibilLogger:createSectionLogger('cibil'),
   commonLogger: createSectionLogger('common'),
+  walletTopupLogger: createSectionLogger('walletTopup'),
+
 };
 

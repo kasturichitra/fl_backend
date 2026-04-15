@@ -6,12 +6,12 @@ const helmet = require("helmet");
 const bodyParser = require("body-parser");
 const exceptionHandling = require("./api/GlobalExceptionHandling/GlobalExceptionHandlingController");
 const mainRoutes = require("./routes/mainRoutes");
-const { keysApiroutes } = require("./api/Keysapi/keysapi.routes");
 const { encryptresponseData, DecryptTruthScreenResponse } = require("./api/TruthScreenTestController/TestTruthScreen.controller");
 const clientValidation = require("./middleware/ClientValidation.middleware");
 const { decryptMiddleware, encryptMiddleware } = require("./middleware/decryptPayload");
 const { decryptPayload, encryptPayload } = require("./middleware/clientDecryptPayload");
 const { connectDB } = require("./config/db.config");
+const { WalletApiroutes } = require("./api/WalletTopup/Routes.js/WalletRoutes");
 
 const app = express();
 
@@ -57,7 +57,11 @@ app.get('/health', (req, res) => {
 
 // ================== Public/Open Routes ==================
 // These routes do NOT need encryption, key validation, or whitelisting
-app.use("/kyc/api/v1/ApiModuels", keysApiroutes);
+
+
+
+
+app.use("/kyc/api/v1/ApiModuels", WalletApiroutes);
 
 const serverMiddleware = [clientValidation, decryptPayload, encryptPayload];
 const server = [ decryptPayload, encryptPayload ];
