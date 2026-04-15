@@ -193,12 +193,12 @@ async function callTruthScreenAPI({
 
     return JSON.parse(decrypted);
   } catch (error) {
-    console.log("error in truthscreen error?.message===>>", error);
-    console.log("error in truthscreen error?.message===>>", error?.message);
-    console.log(
-      "error in truthscreen error?.response?.data===>>",
-      error?.response?.data,
-    );
+    // console.log("error in truthscreen error?.message===>>", error);
+    // console.log("error in truthscreen error?.message===>>", error?.message);
+    // console.log(
+    //   "error in truthscreen error?.response?.data===>>",
+    //   error?.response?.data,
+    // );
     logger.error(
       `TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`,
     );

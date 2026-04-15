@@ -49,7 +49,7 @@ const TinApiCall = async (data, service, TxnID = "") => {
                 docType: 16,
                 docNumber: data,
             },
-            url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL, // TIN URL is similar to the Tin
+            url: process.env.TRUTNSCREEN_ID_SEARCH_URL, // TIN URL is similar to the Tin
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,
@@ -75,7 +75,8 @@ const TinApiCall = async (data, service, TxnID = "") => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
-                logger: businessServiceLogger
+                cId: TxnID,
+                logger: businessServiceLogger,
             });
             console.log('[TinApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 

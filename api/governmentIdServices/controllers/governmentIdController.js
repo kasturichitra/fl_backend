@@ -1,4 +1,3 @@
-const { error } = require("winston");
 const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const { createApiResponse } = require("../../../utils/ApiResponseHandler");
@@ -10,12 +9,12 @@ const {
 const { mapError } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
-const { findingInValidResponses } = require("../../../utils/InvalidResponses");
 const handleValidation = require("../../../utils/lengthCheck");
 const {
   passportVerifyServiceResponse,
   voterIdVerifyServiceResponse,
   electricityBillServiceResponse,
+  passportOcrVerifyServiceResponse,
 } = require("../service/governmentServicesResp");
 const { governmentServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
@@ -24,6 +23,10 @@ const passportVerifyModel = require("../models/passportFileNoVerifyModel");
 const voterIdVerifyModel = require("../models/voterIdVerifyModel");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const passportFileNoVerifyModel = require("../models/passportFileNoVerifyModel");
+const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
+const tinModel = require("../models/tin.model");
+const { TinActiveServiceResponse } = require("../service/tinServiceResponse");
+const passportOcrModel = require("../models/passportOcrModel");
 
 exports.handleVoterIdVerify = async (req, res) => {
   const data = req.body;
@@ -41,7 +44,7 @@ exports.handleVoterIdVerify = async (req, res) => {
     capitalVoterId,
     res,
     tnId,
-    governmentServiceLogger
+    governmentServiceLogger,
   );
   if (!isValid) return;
 
@@ -52,7 +55,7 @@ exports.handleVoterIdVerify = async (req, res) => {
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "VOTER_ID",
     tnId,
-    governmentServiceLogger
+    governmentServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -170,18 +173,21 @@ exports.handleVoterIdVerify = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      governmentServiceLogger,
+    );
 
-    if (!service) {
+    if (!service?.length) {
       governmentServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId} for this client: ${storingClient}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    governmentServiceLogger.info(
-      `Active service selected for voter id verfication: ${service.serviceFor}`,
-    );
     let voterIdResponse = await voterIdVerifyServiceResponse(
       capitalVoterId,
       service,
@@ -273,18 +279,18 @@ exports.handlePassportFileNoVerify = async (req, res) => {
   const { passportFileNo, DateOfBirth, mobileNumber = "" } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
   const storingClient = req.clientId;
-      // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    governmentServiceLogger.info(
-      `Generated driving license txn Id: ${tnId} for the client: ${storingClient}`,
-    );
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  governmentServiceLogger.info(
+    `Generated passport file no txn Id: ${tnId} for the client: ${storingClient}`,
+  );
 
   const isFileNoValid = handleValidation(
     "passportFileNo",
     capitalFileNo,
     res,
     tnId,
-    governmentServiceLogger
+    governmentServiceLogger,
   );
   if (!isFileNoValid) return;
 
@@ -293,7 +299,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
     DateOfBirth,
     res,
     tnId,
-    governmentServiceLogger
+    governmentServiceLogger,
   );
   if (!isDobValid) return;
 
@@ -304,7 +310,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "PASSPORT_WITH_FILE_NO",
     tnId,
-    governmentServiceLogger
+    governmentServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -316,9 +322,12 @@ exports.handlePassportFileNoVerify = async (req, res) => {
       `Executing driving license verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    const identifierHash = hashIdentifiers({
-      fileNo: capitalFileNo,
-    }, governmentServiceLogger);
+    const identifierHash = hashIdentifiers(
+      {
+        fileNo: capitalFileNo,
+      },
+      governmentServiceLogger,
+    );
 
     const passportLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -327,7 +336,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
       clientId: storingClient,
       req,
       TxnID: tnId,
-      logger: governmentServiceLogger
+      logger: governmentServiceLogger,
     });
 
     if (!passportLimitResult.allowed) {
@@ -426,18 +435,21 @@ exports.handlePassportFileNoVerify = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      governmentServiceLogger,
+    );
 
-    if (!service) {
+    if (!service?.length) {
       governmentServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    governmentServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
     let FileNoResponse = await passportVerifyServiceResponse(
       { passportFileNo, DateOfBirth },
       service,
@@ -450,7 +462,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
     );
 
     if (FileNoResponse?.message?.toLowerCase() === "all services failed") {
-      throw new Error("All passport verification services failed");
+      throw new Error("All services failed");
     }
 
     if (FileNoResponse?.message?.toUpperCase() == "VALID") {
@@ -538,7 +550,7 @@ exports.handlePassportFileNoVerify = async (req, res) => {
 
 exports.handleElectricityBill = async (req, res) => {
   const data = req.body;
-  const { passportFileNo, DateOfBirth, mobileNumber = "" } = data;
+  const { passportFileNo, state, mobileNumber = "" } = data;
   const capitalFileNo = passportFileNo?.toUpperCase();
   const storingClient = req.clientId;
 
@@ -689,18 +701,21 @@ exports.handleElectricityBill = async (req, res) => {
       }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      governmentServiceLogger,
+    );
 
-    if (!service) {
+    if (!service?.length) {
       governmentServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    governmentServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
     let FileNoResponse = await electricityBillServiceResponse(
       { serviceNo, state },
       service,
@@ -800,9 +815,8 @@ exports.handleElectricityBill = async (req, res) => {
 };
 
 exports.handlePassportVerify = async (req, res) => {
-  const data = req.body;
   const {
-    passportFileNo,
+    passportNo,
     surname,
     firstName,
     gender,
@@ -813,271 +827,255 @@ exports.handlePassportVerify = async (req, res) => {
     mrz1,
     mrz2,
     mobileNumber = "",
-  } = data;
-  const capitalFileNo = passportFileNo?.toUpperCase();
-  const storingClient = req.clientId;
+  } = req.body;
+  const clientId = req.clientId;
 
-  const isFileNoValid = handleValidation(
-    "passportFileNo",
-    capitalFileNo,
-    res,
-    storingClient,
-  );
-  if (!isFileNoValid) return;
-
-  const isDobValid = handleValidation(
-    "DateOfBirth",
-    DateOfBirth,
-    res,
-    storingClient,
-  );
-  if (!isDobValid) return;
+  const txnId = genrateUniqueServiceId();
 
   governmentServiceLogger.info(
-    "All inputs in pan are valid, continue processing...",
+    `Passport verification started | client=${clientId} | txn=${txnId}`,
   );
 
-  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "PASSPORT_VERIFY",
-    storingClient,
-  );
-  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
-
-  const categoryId = idOfCategory;
-  const serviceId = idOfService;
+  const capitalNo = passportNo?.toUpperCase();
 
   try {
-    governmentServiceLogger.info(
-      `Executing driving license verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
+    // ✅ Required validations
+    if (
+      !handleValidation(
+        "passportNumber",
+        capitalNo,
+        res,
+        txnId,
+        governmentServiceLogger,
+      )
+    )
+      return;
+    if (
+      !handleValidation(
+        "StrictDateOfBirth",
+        dateOfBirth,
+        res,
+        txnId,
+        governmentServiceLogger,
+      )
+    )
+      return;
+    if (
+      !handleValidation(
+        "StrictDateOfBirth",
+        dateOfExpiry,
+        res,
+        txnId,
+        governmentServiceLogger,
+      )
+    )
+      return;
+    if (!handleValidation("mrz1", mrz1, res, txnId, governmentServiceLogger))
+      return;
+    if (!handleValidation("mrz2", mrz2, res, txnId, governmentServiceLogger))
+      return;
 
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    governmentServiceLogger.info(
-      `Generated driving license txn Id: ${tnId} for the client: ${storingClient}`,
-    );
+    const { idOfCategory: categoryId, idOfService: serviceId } =
+      getCategoryIdAndServiceId(
+        "PASSPORT_VERIFY",
+        txnId,
+        governmentServiceLogger,
+      );
 
-    const identifierHash = hashIdentifiers({
-      fileNo: capitalFileNo,
-    });
-
-    const passportLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
+    // ✅ Rate limit check
+    const rateLimit = await checkingRateLimit({
+      identifiers: {
+        identifierHash: hashIdentifiers(
+          {
+            passportNo: capitalNo,
+            surname,
+            firstName,
+            gender,
+            dateOfBirth,
+            dateOfExpiry,
+            passportType,
+            countryCode,
+            mrz1,
+            mrz2,
+          },
+          governmentServiceLogger,
+        ),
+      },
       serviceId,
       categoryId,
-      clientId: storingClient,
+      clientId,
+      TxnID: txnId,
+      req,
+      logger: governmentServiceLogger,
     });
 
-    if (!passportLimitResult.allowed) {
-      governmentServiceLogger.info(
-        `Rate limit exceeded for driving license verification: client ${storingClient}, service: ${serviceId} category: ${categoryId}`,
-      );
+    if (!rateLimit.allowed) {
       return res.status(429).json({
         success: false,
-        message: passportLimitResult.message,
+        message: rateLimit.message,
       });
     }
 
-    const maintainanceResponse = await deductCredits(
-      storingClient,
+    // ✅ Credit deduction
+    const credit = await deductCredits(
+      clientId,
       serviceId,
       categoryId,
-      tnId,
-      req || "test",
+      txnId,
+      req,
       governmentServiceLogger,
     );
 
-    if (!maintainanceResponse?.result) {
-      governmentServiceLogger.info(
-        `Credit deduction failed for driving license verification: client ${storingClient}, txnId ${tnId}`,
-      );
+    if (!credit?.result) {
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "Invalid",
-        response: {},
+        message: credit?.message || "Credit deduction failed",
       });
     }
 
-    const encryptedFileNo = encryptData(capitalFileNo);
-
-    const existingPassport = await passportVerifyModel.findOne({
-      passportFileNo: encryptedFileNo,
-      dateOfBirth: DateOfBirth,
+    // 🔥 STEP 1: CHECK DB FIRST (CACHE)
+    const existingRecord = await passportVerifyModel.findOne({
+      passportNo: encryptData(capitalNo),
+      dateOfBirth,
+      surname,
+      firstName,
+      gender,
+      countryCode,
+      passportType,
+      dateOfExpiry,
+      mrz1,
+      mrz2,
     });
 
-    const analyticsResult = await AnalyticsDataUpdate(
-      storingClient,
-      serviceId,
+    if (existingRecord) {
+      governmentServiceLogger.info(
+        `Cache hit for passport verification | client=${clientId}`,
+      );
+
+      const isValid = existingRecord.status === 1;
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: existingRecord.response || {},
+        TxnID: txnId,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            existingRecord.response || {},
+            isValid ? "Valid" : "Invalid",
+          ),
+        );
+    }
+
+    // ✅ Get services
+    const services = await selectService(
       categoryId,
+      serviceId,
+      txnId,
+      req,
+      governmentServiceLogger,
     );
-    if (!analyticsResult.success) {
-      governmentServiceLogger.warn(
-        `Analytics update failed for passport verification: client ${storingClient}, service ${serviceId}`,
-      );
-    }
 
-    governmentServiceLogger.info(
-      `Checked for existing passport verification record in DB: ${existingPassport ? "Found" : "Not Found"}`,
-    );
-    if (existingPassport) {
-      const decryptedPanNumber = decryptData(existingPassport?.licenseNumber);
-      const resOfDl = existingPassport?.response;
-
-      if (existingPassport?.status == 1) {
-        const decryptedResponse = {
-          ...existingPassport?.response,
-          "Driving License Number": decryptedPanNumber,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: decryptedResponse,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        governmentServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Valid",
-          data: decryptedResponse,
-          success: true,
-        });
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: resOfDl,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        governmentServiceLogger.info(
-          `Returning cached invalid driving license response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Invalid",
-          data: resOfDl,
-          success: false,
-        });
-      }
-    }
-
-    const service = await selectService(categoryId, serviceId);
-
-    if (!service) {
-      governmentServiceLogger.warn(
-        `Active service not found for category ${categoryId}, service ${serviceId}`,
-      );
+    if (!services?.length) {
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    governmentServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
-    let FileNoResponse = await passportVerifyServiceResponse(
-      { passportFileNo, DateOfBirth },
-      service,
+    // 🔥 USE ALL FIELDS
+    const providerPayload = {
+      passportNo: capitalNo,
+      surname,
+      firstName,
+      gender,
+      countryCode,
+      dateOfBirth,
+      passportType,
+      dateOfExpiry,
+      mrz1,
+      mrz2,
+      mobileNumber,
+    };
+
+    // ✅ Call provider
+    const providerResponse = await passportVerifyServiceResponse(
+      providerPayload,
+      services,
       0,
-      storingClient,
+      clientId,
     );
 
-    governmentServiceLogger.info(
-      `Response received from active service ${FileNoResponse?.service} with message: ${FileNoResponse?.message} of data: ${JSON.stringify(FileNoResponse?.result)}`,
-    );
-
-    if (FileNoResponse?.message?.toLowerCase() === "all services failed") {
-      throw new Error("All passport verification services failed");
+    if (
+      !providerResponse ||
+      providerResponse?.message?.toLowerCase() === "all services failed"
+    ) {
+      throw new Error("all services failed");
     }
 
-    if (FileNoResponse?.message?.toUpperCase() == "VALID") {
-      const encryptedResponse = {
-        ...FileNoResponse?.result,
-        "Driving License Number": encryptedFileNo,
-      };
+    const now = new Date();
+    const isValid = providerResponse?.message?.toUpperCase() === "VALID";
 
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: FileNoResponse?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
+    // ✅ Log response
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId,
+      result: providerResponse?.result || {},
+      TxnID: txnId,
+      createdTime: now.toLocaleTimeString(),
+      createdDate: now.toLocaleDateString(),
+    });
 
-      const storingData = {
-        passportFileNo: encryptedFileNo,
-        dateOfBirth: DateOfBirth,
-        response: encryptedResponse,
-        serviceResponse: FileNoResponse?.responseOfService,
-        status: 1,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: FileNoResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
+    // ✅ STORE IN DB (CACHE SAVE)
+    await passportVerifyModel.create({
+      passportNo: encryptData(capitalNo),
+      surname,
+      firstName,
+      gender,
+      countryCode,
+      dateOfBirth,
+      passportType,
+      dateOfExpiry,
+      mrz1,
+      mrz2,
+      response: providerResponse.result,
+      serviceResponse: providerResponse.responseOfService,
+      status: isValid ? 1 : 2,
+      mobileNumber,
+      serviceName: providerResponse.service,
+      createdDate: now.toLocaleDateString(),
+      createdTime: now.toLocaleTimeString(),
+    });
 
-      await passportVerifyModel.create(storingData);
-      governmentServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
-      );
-
-      return res
-        .status(200)
-        .json(createApiResponse(200, FileNoResponse?.result, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: {
-          passportFileNo: passportFileNo,
-        },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        passportFileNo: encryptedFileNo,
-        dateOfBirth: DateOfBirth,
-        response: {
-          passportFileNo: passportFileNo,
-        },
-        serviceResponse: {},
-        status: 2,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: FileNoResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await passportVerifyModel.create(storingData);
-      governmentServiceLogger.info(
-        `Invalid PAN response received and sent to client: ${storingClient}`,
-      );
-      return res.status(404).json(
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
         createApiResponse(
-          404,
-          {
-            passportFileNo: passportFileNo,
-          },
-          "Invalid",
+          isValid ? 200 : 404,
+          providerResponse.result || {},
+          isValid ? "Valid" : "Invalid",
         ),
       );
-    }
   } catch (error) {
     governmentServiceLogger.error(
-      `System error in driving License verification for client ${storingClient}: ${error.message}`,
+      `Passport verification error | client=${clientId} | error=${error.message}`,
       error,
     );
-    const errorObj = mapError(error);
-    return res.status(errorObj.httpCode).json(errorObj);
+
+    const mappedError = mapError(error);
+    return res.status(mappedError.httpCode).json(mappedError);
   }
 };
 
 exports.handlePassportOcrVerify = async (req, res) => {
-  const data = req.body;
   const {
-    passportFileNo,
+    passportNo,
     surname,
     firstName,
     gender,
@@ -1087,269 +1085,261 @@ exports.handlePassportOcrVerify = async (req, res) => {
     mrz1,
     mrz2,
     mobileNumber = "",
-  } = data;
-  const capitalFileNo = passportFileNo?.toUpperCase();
-  const storingClient = req.clientId;
+  } = req.body;
 
-  const isFileNoValid = handleValidation(
-    "passportFileNo",
-    capitalFileNo,
-    res,
-    storingClient,
-  );
-  if (!isFileNoValid) return;
-
-  const isDobValid = handleValidation(
-    "DateOfBirth",
-    DateOfBirth,
-    res,
-    storingClient,
-  );
-  if (!isDobValid) return;
+  const clientId = req.clientId;
+  const txnId = genrateUniqueServiceId();
 
   governmentServiceLogger.info(
-    "All inputs in pan are valid, continue processing...",
+    `Passport OCR verification started | client=${clientId} | txn=${txnId}`,
   );
-
-  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "PASSPORT_VERIFY",
-    storingClient,
-  );
-  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
-
-  const categoryId = idOfCategory;
-  const serviceId = idOfService;
+  const capitalPassportNo = passportNo?.toUpperCase();
 
   try {
-    governmentServiceLogger.info(
-      `Executing driving license verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
+    // ✅ Validations
+    if (
+      !handleValidation(
+        "passportNumber",
+        capitalPassportNo,
+        res,
+        txnId,
+        governmentServiceLogger,
+      )
+    )
+      return;
+    if (
+      !handleValidation(
+        "StrictDateOfBirth",
+        dateOfBirth,
+        res,
+        txnId,
+        governmentServiceLogger,
+      )
+    )
+      return;
+    if (
+      !handleValidation(
+        "StrictDateOfBirth",
+        dateOfExpiry,
+        res,
+        txnId,
+        governmentServiceLogger,
+      )
+    )
+      return;
+    if (
+      !handleValidation(
+        "StrictDateOfBirth",
+        dateOfIssue,
+        res,
+        txnId,
+        governmentServiceLogger,
+      )
+    )
+      return;
+    if (!handleValidation("mrz1", mrz1, res, txnId, governmentServiceLogger))
+      return;
+    if (!handleValidation("mrz2", mrz2, res, txnId, governmentServiceLogger))
+      return;
 
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    governmentServiceLogger.info(
-      `Generated driving license txn Id: ${tnId} for the client: ${storingClient}`,
-    );
+    const { idOfCategory: categoryId, idOfService: serviceId } =
+      getCategoryIdAndServiceId(
+        "PASSPORT_VERIFY",
+        txnId,
+        governmentServiceLogger,
+      );
 
-    const identifierHash = hashIdentifiers({
-      fileNo: capitalFileNo,
-    });
-
-    const passportLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
+    // ✅ Rate limit
+    const rateLimit = await checkingRateLimit({
+      identifiers: {
+        identifierHash: hashIdentifiers(
+          {
+            passportNo: capitalPassportNo,
+            surname,
+            firstName,
+            gender,
+            dateOfBirth,
+            dateOfIssue,
+            dateOfExpiry,
+            mrz1,
+            mrz2,
+          },
+          governmentServiceLogger,
+        ),
+      },
       serviceId,
       categoryId,
-      clientId: storingClient,
+      clientId,
+      TxnID: txnId,
+      req,
+      logger: governmentServiceLogger,
     });
 
-    if (!passportLimitResult.allowed) {
-      governmentServiceLogger.info(
-        `Rate limit exceeded for driving license verification: client ${storingClient}, service: ${serviceId} category: ${categoryId}`,
-      );
+    if (!rateLimit.allowed) {
       return res.status(429).json({
         success: false,
-        message: passportLimitResult.message,
+        message: rateLimit.message,
       });
     }
 
-    const maintainanceResponse = await deductCredits(
-      storingClient,
+    // ✅ Deduct credits
+    const credit = await deductCredits(
+      clientId,
       serviceId,
       categoryId,
-      tnId,
-      req || "test",
+      txnId,
+      req,
       governmentServiceLogger,
     );
 
-    if (!maintainanceResponse?.result) {
-      governmentServiceLogger.info(
-        `Credit deduction failed for driving license verification: client ${storingClient}, txnId ${tnId}`,
-      );
+    if (!credit?.result) {
       return res.status(500).json({
         success: false,
-        message: maintainanceResponse?.message || "Invalid",
-        response: {},
+        message: credit?.message || "Credit deduction failed",
       });
     }
 
-    const encryptedFileNo = encryptData(capitalFileNo);
+    const encryptedPassportNo = encryptData(capitalPassportNo);
 
-    const existingPassport = await passportVerifyModel.findOne({
-      passportFileNo: encryptedFileNo,
-      dateOfBirth: DateOfBirth,
+    const existingPassport = await passportOcrModel.findOne({
+      passportNo: encryptedPassportNo,
+      surname,
+      firstName,
+      gender,
+      dateOfBirth,
+      dateOfIssue,
+      dateOfExpiry,
+      mrz1,
+      mrz2,
     });
 
-    const analyticsResult = await AnalyticsDataUpdate(
-      storingClient,
-      serviceId,
-      categoryId,
-    );
-    if (!analyticsResult.success) {
-      governmentServiceLogger.warn(
-        `Analytics update failed for passport verification: client ${storingClient}, service ${serviceId}`,
-      );
-    }
+    const now = new Date();
+    const createdTime = now.toLocaleTimeString();
+    const createdDate = now.toLocaleDateString();
 
-    governmentServiceLogger.info(
-      `Checked for existing passport verification record in DB: ${existingPassport ? "Found" : "Not Found"}`,
-    );
+    // ✅ CACHE HIT
     if (existingPassport) {
-      const decryptedPanNumber = decryptData(existingPassport?.licenseNumber);
-      const resOfDl = existingPassport?.response;
+      const isValid = existingPassport.status === 1;
 
-      if (existingPassport?.status == 1) {
-        const decryptedResponse = {
-          ...existingPassport?.response,
-          "Driving License Number": decryptedPanNumber,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: decryptedResponse,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        governmentServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        result: existingPassport.response || {},
+        TxnID: txnId,
+        createdTime,
+        createdDate,
+      });
+
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            existingPassport.response || {},
+            isValid ? "Valid" : "Invalid",
+          ),
         );
-        return res.json({
-          message: "Valid",
-          data: decryptedResponse,
-          success: true,
-        });
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: resOfDl,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        governmentServiceLogger.info(
-          `Returning cached invalid driving license response for client: ${storingClient}`,
-        );
-        return res.json({
-          message: "Invalid",
-          data: resOfDl,
-          success: false,
-        });
-      }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    // ✅ Get service
+    const services = await selectService(
+      categoryId,
+      serviceId,
+      txnId,
+      req,
+      governmentServiceLogger,
+    );
 
-    if (!service) {
-      governmentServiceLogger.warn(
-        `Active service not found for category ${categoryId}, service ${serviceId}`,
-      );
+    if (!services?.length) {
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    governmentServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
-    let FileNoResponse = await passportVerifyServiceResponse(
-      { passportFileNo, DateOfBirth },
-      service,
+    // 🔥 FULL OCR PAYLOAD (ALL FIELDS USED)
+    const providerPayload = {
+      passportFileNo: capitalFileNo,
+      surname,
+      firstName,
+      gender,
+      dateOfBirth,
+      dateOfIssue,
+      dateOfExpiry,
+      mrz1,
+      mrz2,
+      mobileNumber,
+    };
+
+    // ✅ Provider call
+    const FileNoResponse = await passportOcrVerifyServiceResponse(
+      providerPayload,
+      services,
       0,
-      storingClient,
+      clientId,
     );
 
-    governmentServiceLogger.info(
-      `Response received from active service ${FileNoResponse?.service} with message: ${FileNoResponse?.message} of data: ${JSON.stringify(FileNoResponse?.result)}`,
-    );
-
-    if (FileNoResponse?.message?.toLowerCase() === "all services failed") {
-      throw new Error("All passport verification services failed");
+    if (
+      !FileNoResponse ||
+      FileNoResponse?.message?.toLowerCase() === "all services failed"
+    ) {
+      throw new Error("All passport OCR services failed");
     }
 
-    if (FileNoResponse?.message?.toUpperCase() == "VALID") {
-      const encryptedResponse = {
-        ...FileNoResponse?.result,
-        "Driving License Number": encryptedFileNo,
-      };
+    const isValid = FileNoResponse?.message?.toUpperCase() === "VALID";
 
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: FileNoResponse?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
+    // ✅ Log response
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId,
+      result: FileNoResponse?.result || {},
+      TxnID: txnId,
+      createdTime,
+      createdDate,
+    });
 
-      const storingData = {
-        passportFileNo: encryptedFileNo,
-        dateOfBirth: DateOfBirth,
-        response: encryptedResponse,
-        serviceResponse: FileNoResponse?.responseOfService,
-        status: 1,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: FileNoResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
+    // 🔥 STORE DB (WITH HASH CACHE KEY)
+    const storingData = {
+      passportFileNo: encryptedFileNo,
+      surname,
+      firstName,
+      gender,
+      dateOfBirth,
+      dateOfIssue,
+      dateOfExpiry,
+      mrz1,
+      mrz2,
+      response: FileNoResponse.result,
+      serviceResponse: FileNoResponse.responseOfService,
+      status: isValid ? 1 : 2,
+      mobileNumber,
+      serviceName: FileNoResponse.service,
+      createdDate,
+      createdTime,
+    };
 
-      await passportVerifyModel.create(storingData);
-      governmentServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
-      );
+    await passportOcrModel.create(storingData);
 
-      return res
-        .status(200)
-        .json(createApiResponse(200, FileNoResponse?.result, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: {
-          passportFileNo: passportFileNo,
-        },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        passportFileNo: encryptedFileNo,
-        dateOfBirth: DateOfBirth,
-        response: {
-          passportFileNo: passportFileNo,
-        },
-        serviceResponse: {},
-        status: 2,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: FileNoResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await passportVerifyModel.create(storingData);
-      governmentServiceLogger.info(
-        `Invalid PAN response received and sent to client: ${storingClient}`,
-      );
-      return res.status(404).json(
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
         createApiResponse(
-          404,
-          {
-            passportFileNo: passportFileNo,
-          },
-          "Invalid",
+          isValid ? 200 : 404,
+          FileNoResponse?.result || {},
+          isValid ? "Valid" : "Invalid",
         ),
       );
-    }
   } catch (error) {
     governmentServiceLogger.error(
-      `System error in driving License verification for client ${storingClient}: ${error.message}`,
+      `Passport OCR verification error | client=${clientId} | error=${error.message}`,
       error,
     );
-    const errorObj = mapError(error);
-    return res.status(errorObj.httpCode).json(errorObj);
+
+    const mappedError = mapError(error);
+    return res.status(mappedError.httpCode).json(mappedError);
   }
 };
 
-
-// TIN VERIFICATION (TRUTHSCREEN:Service has been deprecated) 
+// TIN VERIFICATION (TRUTHSCREEN:Service has been deprecated)
 exports.handleTINVerification = async (req, res) => {
   const { TIN, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
@@ -1359,18 +1349,22 @@ exports.handleTINVerification = async (req, res) => {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
   }
 
-  businessServiceLogger.info(`TxnID:${TxnID}, TIN Number Details: ${TIN}`);
+  governmentServiceLogger.info(`TxnID:${TxnID}, TIN Number Details: ${TIN}`);
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('TIN', TxnID, businessServiceLogger);
+    const { idOfCategory: categoryId, idOfService: serviceId } =
+      await getCategoryIdAndServiceId("TIN", TxnID, governmentServiceLogger);
 
-    businessServiceLogger.info(
+    governmentServiceLogger.info(
       `TxnID:${TxnID}, Executing TIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
     );
 
     //1. HASH TIN NUMBER
-    const identifierHash = hashIdentifiers({
-      TIN
-    }, businessServiceLogger);
+    const identifierHash = hashIdentifiers(
+      {
+        TIN,
+      },
+      governmentServiceLogger,
+    );
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const tinRateLimitResult = await checkingRateLimit({
@@ -1380,18 +1374,18 @@ exports.handleTINVerification = async (req, res) => {
       clientId,
       req,
       TxnID,
-      logger: businessServiceLogger
+      logger: governmentServiceLogger,
     });
 
     if (!tinRateLimitResult.allowed) {
-      businessServiceLogger.warn(`Rate limit exceeded for TIN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`);
+      governmentServiceLogger.warn(
+        `Rate limit exceeded for TIN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`,
+      );
       return res.status(429).json({
         success: false,
         message: tinRateLimitResult.message,
       });
-    };
-
-    businessServiceLogger.info(`Generated TIN txn Id: ${TxnID}`);
+    }
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
@@ -1400,11 +1394,13 @@ exports.handleTINVerification = async (req, res) => {
       categoryId,
       TxnID,
       req,
-      businessServiceLogger
+      governmentServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
-      businessServiceLogger.error(`TxnID:${TxnID}, Credit deduction failed for TIN verification: client ${clientId}, txnId ${TxnID}`);
+      governmentServiceLogger.error(
+        `TxnID:${TxnID}, Credit deduction failed for TIN verification: client ${clientId}, txnId ${TxnID}`,
+      );
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -1412,171 +1408,161 @@ exports.handleTINVerification = async (req, res) => {
       });
     }
 
-    // 4. CHECK IN THE DB IS DATA PRESENT 
+    // 4. CHECK IN THE DB IS DATA PRESENT
     const encryptedtTIN = encryptData(TIN);
 
-    const existingTin = await tin_verifyModel.findOne({ tinNumber: encryptedtTIN })
+    const existingTin = await tinModel.findOne({
+      tinNumber: encryptedtTIN,
+    });
 
     // 5. UPDATE TO THE ANALYTICS COLLECTION
     const analyticsResult = await AnalyticsDataUpdate(
       clientId,
       serviceId,
       categoryId,
-      'success',
-      businessServiceLogger
+      "success",
+      TxnID,
+      governmentServiceLogger,
     );
     if (!analyticsResult.success) {
-      businessServiceLogger.warn(
+      governmentServiceLogger.warn(
         `TxnID:${TxnID}, Analytics update failed for TIN verification: client ${clientId}, service ${serviceId}`,
       );
     }
 
-    businessServiceLogger.info(
+    governmentServiceLogger.info(
       `txnId: ${TxnID}, Checked for existing TIN record in DB: ${existingTin ? "Found" : "Not Found"}`,
     );
 
+    const now = new Date();
+    const createdTime = now.toLocaleTimeString();
+    const createdDate = now.toLocaleDateString();
+
     // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
     if (existingTin) {
-      if (existingTin?.status == 1) {
-        businessServiceLogger.info(
-          `txnId: ${TxnID}, Returning cached TIN response for client: ${clientId}`,
-        );
+      const isValid = existingTin?.status === 1;
 
-        const decrypted = {
-          ...existingTin?.response,
-          tinNumber: TIN,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          TxnID,
-          clientId,
-          result: existingTin?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = decrypted;
-        return res
-          .status(200)
-          .json(createApiResponse(200, dataToShow, "Valid"));
-      } else {
-        businessServiceLogger.info(
-          `txnId: ${TxnID}, Returning cached TIN response for client: ${clientId}`,
+      // Prepare response data
+      const dataToShow = isValid
+        ? {
+            ...existingTin?.response,
+            tinNumber: TIN,
+          }
+        : existingTin?.response;
+
+      // Common DB log (always create)
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: existingTin?.response,
+        createdTime,
+        createdDate,
+      });
+
+      governmentServiceLogger.info(
+        `txnId: ${TxnID}, Returning cached ${
+          isValid ? "valid" : "invalid"
+        } TIN response for client: ${clientId}`,
+      );
+
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            dataToShow,
+            isValid ? "Valid" : "Invalid",
+          ),
         );
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          TxnID,
-          clientId,
-          result: existingTin?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        const dataToShow = existingTin?.response;
-        return res
-          .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
-      }
-    };
+    }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      TxnID,
+      req,
+      governmentServiceLogger,
+    );
     if (!service.length) {
-      businessServiceLogger.warn(
+      governmentServiceLogger.warn(
         `TxnID:${TxnID}, Active service not found for TIN category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    businessServiceLogger.info(
-      `txnId: ${TxnID}, Active service selected for TIN verification: ${service}`
+    governmentServiceLogger.info(
+      `txnId: ${TxnID}, Active service selected for TIN verification: ${service}`,
     );
 
-    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
     let response = await TinActiveServiceResponse(TIN, service, 0, TxnID);
-    businessServiceLogger.info(
+    governmentServiceLogger.info(
       `txnId: ${TxnID}, Response received TIN from active service ${response?.service}: ${response?.message}`,
     );
 
-    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
-    if (response?.message?.toUpperCase() == "VALID") {
-      const encryptedResponse = {
-        ...response?.result,
-        tinNumber: encryptedtTIN,
-      };
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        TxnID,
-        clientId,
-        result: response?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        status: 1,
-        tinNumber: encryptedtTIN,
-        response: encryptedResponse,
-        serviceResponse: response?.responseOfService,
-        serviceName: response?.service,
-        message: response?.message,
-        mobileNumber,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await tin_verifyModel.findOneAndUpdate(
-        { TIN: encryptedtTIN },
-        { $setOnInsert: storingData },
-        { upsert: true, new: true }
-      );
-      businessServiceLogger.info(
-        `txnId: ${TxnID}, Valid TIN response stored and sent to client: ${clientId}`,
-      );
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Success"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        TxnID,
-        clientId,
-        result: {
-          tinNumber: TIN
-        },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        status: 2,
-        tinNumber: encryptedtTIN,
-        response: {
-          tinNumber: TIN
-        },
-        serviceResponse: {},
-        serviceName: response?.service,
-        mobileNumber,
-        message: response?.message,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await tin_verifyModel.findOneAndUpdate(
-        { TIN: encryptedtTIN },
-        { $setOnInsert: storingData },
-        { upsert: true, new: true }
-      );
-      businessServiceLogger.info(
-        `txnId: ${TxnID}, Invalid TIN response received and sent to client: ${clientId}`,
-      );
-      return res
-        .status(404)
-        .json(createApiResponse(404, { tinNumber: TIN }, "Failed"));
+    if (response?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
     }
 
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    const isValid = response?.message?.toUpperCase() === "VALID";
+
+    // Prepare result data
+    const resultData = isValid ? response?.result : { tinNumber: TIN };
+
+    // Always create response log
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      TxnID,
+      clientId,
+      result: resultData,
+      createdTime,
+      createdDate,
+    });
+
+    // Prepare storing data
+    const storingData = {
+      status: isValid ? 1 : 2,
+      tinNumber: encryptedtTIN,
+      response: isValid
+        ? { ...response?.result, tinNumber: encryptedtTIN }
+        : { tinNumber: TIN },
+      serviceResponse: isValid ? response?.responseOfService : {},
+      serviceName: response?.service,
+      message: response?.message,
+      ...(mobileNumber && { mobileNumber }),
+      createdDate,
+      createdTime,
+    };
+
+    // Insert only if not exists
+    await tinModel.findOneAndUpdate(
+      { tinNumber: encryptedtTIN },
+      { $set: storingData },
+      { upsert: true, new: true },
+    );
+
+    governmentServiceLogger.info(
+      `txnId: ${TxnID}, ${
+        isValid ? "Valid" : "Invalid"
+      } TIN response ${isValid ? "stored and sent" : "received and sent"} to client: ${clientId}`,
+    );
+
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          isValid ? response?.result : { tinNumber: TIN },
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
   } catch (error) {
-    businessServiceLogger.error(
+    governmentServiceLogger.error(
       `txnId: ${TxnID}, System error in TIN verification for client ${clientId}: ${error.message}`,
       error,
     );

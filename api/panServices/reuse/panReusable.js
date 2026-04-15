@@ -315,6 +315,7 @@ async function handlePanVerification({
       categoryId,
       clientId,
       result: invalidResult,
+      txnId,
     });
 
     await model.findOneAndUpdate(

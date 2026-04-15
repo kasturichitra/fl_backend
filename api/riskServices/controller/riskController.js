@@ -13,33 +13,54 @@ const handleValidation = require("../../../utils/lengthCheck");
 const { riskServiceLogger } = require("../../Logger/logger");
 const { selectService } = require("../../service/serviceSelector");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const profileAdvanceModel = require("../models/profileAdvanceModel");
+const courtRecordModel = require("../models/courtRecordModel");
+const {
+  domainVerifyActiveServiceResponse,
+  courtRecordCheckServiceResponse,
+  advanceProfileServiceResponse,
+} = require("../service/riskServicesResp");
+const domainVerificationModel = require("../models/domainVerificationModel");
+const { mapError, ERROR_CODES } = require("../../../utils/errorCodes");
 
 exports.handleDomainVerification = async (req, res) => {
   const data = req.body;
-  const { domain, emailAddress, mobileNumber = "" } = data;
+  const { domain = "", emailAddress = "", mobileNumber = "" } = data;
   const storingClient = req.clientId;
   // Always generate txnId
   const tnId = genrateUniqueServiceId();
   riskServiceLogger.info(
-    `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
+    `Generated DOMAIN txn Id: ${tnId} for the client: ${storingClient}`,
   );
 
-  if (!domain || !emailAddress) {
-    res.status(400).json({
+  if (!domain && !emailAddress) {
+    return res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
       response: `Required values are Missing 🤦‍♂️`,
     });
   }
 
-  const isValid = handleValidation(
-    "email",
-    emailAddress,
-    res,
-    tnId,
-    riskServiceLogger,
-  );
+  if (emailAddress) {
+    const isValid = handleValidation(
+      "email",
+      emailAddress,
+      res,
+      tnId,
+      riskServiceLogger,
+    );
 
-  if (!isValid) return;
+    if (!isValid) return;
+  }
+  if (domain) {
+    const isValid = handleValidation(
+      "domain",
+      domain,
+      res,
+      tnId,
+      riskServiceLogger,
+    );
+    if (!isValid) return;
+  }
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "DOMAIN",
     tnId,
@@ -55,22 +76,11 @@ exports.handleDomainVerification = async (req, res) => {
     );
 
     // Common: hash identifier
-    let identifierHash;
-    if (domain) {
-      identifierHash = hashIdentifiers(
-        {
-          domain: domain,
-        },
-        riskServiceLogger,
-      );
-    } else {
-      identifierHash = hashIdentifiers(
-        {
-          email: emailAddress,
-        },
-        riskServiceLogger,
-      );
-    }
+
+    const identifierHash = hashIdentifiers(
+      domain ? { domain } : { email: emailAddress },
+      riskServiceLogger,
+    );
 
     const domainRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -121,14 +131,505 @@ exports.handleDomainVerification = async (req, res) => {
 
     let existingDomain;
     if (domain) {
-       existingDomain = await panverificationModel.findOne({
-        panNumber: encryptedValue,
+      existingDomain = await domainVerificationModel.findOne({
+        domain: encryptedValue,
       });
     } else {
-        existingDomain = await panverificationModel.findOne({
-        panNumber: encryptedValue,
+      existingDomain = await domainVerificationModel.findOne({
+        emailAddress: encryptedValue,
       });
     }
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      storingClient,
+      serviceId,
+      categoryId,
+      "success",
+      tnId,
+      riskServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      riskServiceLogger.warn(
+        `Analytics update failed for domain verification: client ${storingClient}, service ${serviceId}`,
+      );
+    }
+
+    riskServiceLogger.info(
+      `Checked for existing domain verify record in DB: ${existingDomain ? "Found" : "Not Found"}`,
+    );
+    const now = new Date();
+    const createdDate = now.toLocaleDateString();
+    const createdTime = now.toLocaleTimeString();
+
+    if (existingDomain) {
+      const isValid = existingDomain?.status === 1;
+
+      const responseData = existingDomain?.response;
+
+      // ✅ Always store response
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: responseData,
+        createdDate,
+        createdTime,
+      });
+
+      riskServiceLogger.info(
+        `Returning cached ${isValid ? "valid" : "invalid"} PAN response for client: ${storingClient}`,
+      );
+
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            responseData,
+            isValid ? "Valid" : "Invalid",
+          ),
+        );
+    }
+
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      riskServiceLogger,
+    );
+
+    if (!service?.length) {
+      riskServiceLogger.warn(
+        `Active service not found for category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    riskServiceLogger.info(
+      `Active service selected for domain verification: ${service.serviceFor}`,
+    );
+    const confirmedData = domain
+      ? { domain: domain, emailAddress: "" }
+      : emailAddress
+        ? { emailAddress: emailAddress, domain: "" }
+        : {};
+
+    let domainResponse = await domainVerifyActiveServiceResponse(
+      confirmedData,
+      service,
+      0,
+      storingClient,
+    );
+
+    riskServiceLogger.info(
+      `Response received from pan verification active service ${domainResponse?.service} with message: ${domainResponse?.message}`,
+    );
+
+    if (domainResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
+    const isValid = domainResponse?.message?.toUpperCase() === "VALID";
+
+    const resultData = isValid
+      ? domainResponse?.result
+      : { emailAddress, domain };
+
+    // ✅ Always CREATE response log
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      result: resultData,
+      TxnID: tnId,
+      createdDate,
+      createdTime,
+    });
+
+    // ✅ Decide unique condition dynamically
+    const query = emailAddress ? { emailAddress } : { domain };
+
+    // ✅ Prepare storing data
+    const storingData = {
+      ...(emailAddress ? { emailAddress } : { domain }),
+      response: resultData,
+      serviceResponse: isValid ? domainResponse?.responseOfService : {},
+      status: isValid ? 1 : 2,
+      ...(mobileNumber && { mobileNumber }),
+      serviceName: domainResponse?.service,
+      createdDate,
+      createdTime,
+    };
+
+    // ✅ Upsert based on available field
+    await domainVerificationModel.findOneAndUpdate(query, storingData, {
+      upsert: true,
+      new: true,
+    });
+
+    riskServiceLogger.info(
+      `${isValid ? "Valid" : "Invalid"} domain verify response stored and sent to client: ${storingClient}`,
+    );
+
+    // ✅ Return response
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          resultData,
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
+  } catch (error) {
+    riskServiceLogger.error(
+      `System error in domain verification for client ${storingClient}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      storingClient,
+      serviceId,
+      categoryId,
+      "failed",
+      tnId,
+      riskServiceLogger,
+    );
+
+    if (!analyticsResult?.success) {
+      riskServiceLogger.info(
+        `[FAILED]: Analytics update failed for domain Verification: clientId ${storingClient}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.handleAdvanceProfile = async (req, res) => {
+  const data = req.body;
+  const { mobileNumber } = data;
+  const storingClient = req.clientId;
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  riskServiceLogger.info(
+    `Generated profile advance txn Id: ${tnId} for the client: ${storingClient}`,
+  );
+
+  const isValid = handleValidation(
+    "mobile",
+    mobileNumber,
+    res,
+    tnId,
+    riskServiceLogger,
+  );
+
+  if (!isValid) return;
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "PROFILE_ADVANCE",
+    tnId,
+    riskServiceLogger,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+  try {
+    riskServiceLogger.info(
+      `Executing profile advance verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+    );
+
+    // Common: hash identifier
+    const identifierHash = hashIdentifiers(
+      {
+        mobile: mobileNumber,
+      },
+      riskServiceLogger,
+    );
+
+    const profileRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      req,
+      TxnID: tnId,
+      logger: riskServiceLogger,
+    });
+
+    if (!profileRateLimitResult.allowed) {
+      riskServiceLogger.warn(
+        `Rate limit exceeded for profile advance verification: client ${storingClient}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: profileRateLimitResult.message,
+      });
+    }
+
+    const maintainanceResponse = await deductCredits(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+      req,
+      riskServiceLogger,
+    );
+
+    if (!maintainanceResponse?.result) {
+      riskServiceLogger.error(
+        `Credit deduction failed for profile advance verification: client ${storingClient}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
+
+    const existingProfileData = await profileAdvanceModel.findOne({
+      mobileNumber: mobileNumber,
+    });
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      storingClient,
+      serviceId,
+      categoryId,
+      "success",
+      tnId,
+      riskServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      riskServiceLogger.warn(
+        `Analytics update failed for profile advance verification: client ${storingClient}, service ${serviceId}`,
+      );
+    }
+
+    riskServiceLogger.info(
+      `Checked for existing profile advance record in DB: ${existingProfileData ? "Found" : "Not Found"}`,
+    );
+    const now = new Date();
+    const createdTime = now.toLocaleTimeString();
+    const createdDate = now.toLocaleDateString();
+    if (existingProfileData) {
+      const { status, response } = existingProfileData;
+
+      const isValid = status === 1;
+      const resultData = isValid ? { ...response } : response;
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        TxnID: tnId,
+        result: resultData,
+        createdTime,
+        createdDate,
+      });
+
+      riskServiceLogger.info(
+        `Returning cached ${isValid ? "valid" : "invalid"} PAN response for client: ${storingClient}`,
+      );
+
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            resultData,
+            isValid ? "Valid" : "Invalid",
+          ),
+        );
+    }
+
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      riskServiceLogger,
+    );
+
+    if (!service?.length) {
+      riskServiceLogger.warn(
+        `Active service not found for category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+
+    riskServiceLogger.info(
+      `Active service selected for profile advance verification: ${service.serviceFor}`,
+    );
+    let profileResponse = await advanceProfileServiceResponse(
+      mobileNumber,
+      service,
+      0,
+      storingClient,
+    );
+
+    riskServiceLogger.info(
+      `Response received from advance profile active service ${profileResponse?.service} with message: ${profileResponse?.message}`,
+    );
+
+    if (profileResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
+    const isValid = profileResponse?.message?.toUpperCase() === "VALID";
+
+    const resultData = isValid
+      ? { ...profileResponse?.result }
+      : { mobileNumber };
+
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      result: isValid ? profileResponse?.result : resultData,
+      createdTime,
+      createdDate,
+    });
+
+    const storingData = {
+      mobileNumber,
+      response: resultData,
+      serviceResponse: isValid ? profileResponse?.responseOfService : {},
+      status: isValid ? 1 : 2,
+      serviceName: profileResponse?.service,
+      createdDate,
+      createdTime,
+    };
+
+    await profileAdvanceModel.findOneAndUpdate(
+      {
+        mobileNumber,
+      },
+      storingData,
+      { upsert: true, new: true },
+    );
+
+    riskServiceLogger.info(
+      `${isValid ? "Valid" : "Invalid"} profile advance response stored and sent
+      } to client: ${storingClient}`,
+    );
+
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          resultData,
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
+  } catch (error) {
+    riskServiceLogger.error(
+      `System error in PAN verification for client ${storingClient}: ${error.message}`,
+      error,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      storingClient,
+      serviceId,
+      categoryId,
+      "failed",
+      tnId,
+      riskServiceLogger,
+    );
+
+    if (!analyticsResult?.success) {
+      riskServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${storingClient}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.handleCourtRecords = async (req, res) => {
+  const data = req.body;
+  const { recordName, address, mobileNumber = "" } = data;
+  const storingClient = req.clientId;
+
+  if (!recordName || !address) {
+    res.status(400).json({
+      ...ERROR_CODES?.BAD_REQUEST,
+      response: `Required values are Missing 🤦‍♂️`,
+    });
+  }
+  // Always generate txnId
+  const tnId = genrateUniqueServiceId();
+  riskServiceLogger.info(
+    `Generated court record check txn Id: ${tnId} for the client: ${storingClient}`,
+  );
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "COURT_CASE",
+    tnId,
+    riskServiceLogger,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+  try {
+    riskServiceLogger.info(
+      `Executing court record check for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
+    );
+
+    // Common: hash identifier
+    const identifierHash = hashIdentifiers(
+      {
+        name: recordName,
+        address: address,
+      },
+      riskServiceLogger,
+    );
+
+    const courtRecordRateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      req,
+      TxnID: tnId,
+      logger: riskServiceLogger,
+    });
+
+    if (!courtRecordRateLimitResult.allowed) {
+      riskServiceLogger.warn(
+        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: courtRecordRateLimitResult.message,
+      });
+    }
+
+    const maintainanceResponse = await deductCredits(
+      storingClient,
+      serviceId,
+      categoryId,
+      tnId,
+      req,
+      riskServiceLogger,
+    );
+
+    if (!maintainanceResponse?.result) {
+      riskServiceLogger.error(
+        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
+
+    const existingCourtRecordData = await courtRecordModel.findOne({
+      recordName: recordName,
+      address: address,
+    });
 
     const analyticsResult = await AnalyticsDataUpdate(
       storingClient,
@@ -145,638 +646,141 @@ exports.handleDomainVerification = async (req, res) => {
     }
 
     riskServiceLogger.info(
-      `Checked for existing domain verify record in DB: ${existingDomain ? "Found" : "Not Found"}`,
+      `Checked for existing court record check record in DB: ${existingCourtRecordData ? "Found" : "Not Found"}`,
     );
-    if (existingDomain) {
-      const decryptedPanNumber = decryptData(existingDomain?.panNumber);
-      const resOfPan = existingDomain?.response;
 
-      if (existingDomain?.status == 1) {
-        const decryptedResponse = {
-          ...existingDomain?.response
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: decryptedResponse,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        riskServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
+    const now = new Date();
+    const createdTime = now.toLocaleTimeString();
+    const createdDate = now.toLocaleDateString();
+
+    if (existingCourtRecordData) {
+      const resOfcourtRecord = existingCourtRecordData?.response;
+      const isValid = existingCourtRecordData?.status == 1;
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        TxnID: tnId,
+        result: resOfcourtRecord,
+        createdTime,
+        createdDate,
+      });
+
+      riskServiceLogger.info(
+        `Returning cached ${isValid ? "valid" : "Invalid"} court record check response for client: ${storingClient}`,
+      );
+
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            resOfcourtRecord,
+            isValid ? "Valid" : "Invalid",
+          ),
         );
-        return res
-          .status(200)
-          .json(createApiResponse(200, decryptedResponse, "Valid"));
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: resOfPan,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        riskServiceLogger.info(
-          `Returning cached invalid PAN response for client: ${storingClient}`,
-        );
-        return res
-          .status(404)
-          .json(createApiResponse(404, resOfPan, "Invalid"));
-      }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      riskServiceLogger,
+    );
 
-    if (!service) {
+    if (!service?.length) {
       riskServiceLogger.warn(
         `Active service not found for category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    riskServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
-    let panNumberResponse = await PanActiveServiceResponse(
-      panNumber,
+    let courtRecordResponse = await courtRecordCheckServiceResponse(
+      { address, recordName },
       service,
       0,
       storingClient,
     );
 
     riskServiceLogger.info(
-      `Response received from pan verification active service ${panNumberResponse?.service} with message: ${panNumberResponse?.message}`,
+      `Response received from court record check active service ${courtRecordResponse?.service} with message: ${courtRecordResponse?.message} and response: ${courtRecordResponse}`,
     );
 
-    if (panNumberResponse?.message?.toLowerCase() === "all services failed") {
-      throw new Error("All pan to gst services failed");
+    if (courtRecordResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
     }
 
-    if (panNumberResponse?.message?.toUpperCase() == "VALID") {
-      const encryptedPan = encryptData(panNumberResponse?.result?.PAN);
-      const encryptedResponse = {
-        ...panNumberResponse?.result,
-        PAN: encryptedPan,
-      };
+    const isValid = courtRecordResponse?.message?.toUpperCase() === "VALID";
 
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: panNumberResponse?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
+    const resultData = isValid
+      ? { ...courtRecordResponse?.result }
+      : { address: address, recordName: recordName };
 
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: panNumberResponse?.result?.Name,
-        response: encryptedResponse,
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 1,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await panverificationModel.create(storingData);
-      riskServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
-      );
-
-      return res
-        .status(200)
-        .json(createApiResponse(200, panNumberResponse?.result, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: { pan: panNumber },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: "",
-        response: { pan: panNumber },
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 2,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await panverificationModel.create(storingData);
-      riskServiceLogger.info(
-        `Invalid PAN response received and sent to client: ${storingClient}`,
-      );
-      return res
-        .status(404)
-        .json(createApiResponse(404, { pan: panNumber }, "Invalid"));
-    }
-  } catch (error) {
-    riskServiceLogger.error(
-      `System error in PAN verification for client ${storingClient}: ${error.message}`,
-      error,
-    );
-    const analyticsResult = await AnalyticsDataUpdate(
-      clientId,
-      serviceId,
-      categoryId,
-      "failed",
-    );
-
-    if (!analyticsResult?.success) {
-      riskServiceLogger.info(
-        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
-      );
-    }
-    const errorObj = mapError(error);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
-};
-
-exports.handleAdvanceProfile = async (req, res) => {
-  const data = req.body;
-  const { mobileNumber } = data;
-  const storingClient = req.clientId;
-
-  const isValid = handleValidation("email", emailAddress, res, storingClient);
-
-  if (!isValid) return;
-  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "DOMAIN",
-    storingClient,
-  );
-  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
-
-  const categoryId = idOfCategory;
-  const serviceId = idOfService;
-  try {
-    riskServiceLogger.info(
-      `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    riskServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
-    );
-
-    // Common: hash identifier
-    const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
-    });
-
-    const panRateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
+    await responseModel.create({
       serviceId,
       categoryId,
       clientId: storingClient,
+      result: resultData,
+      TxnID: tnId,
+      createdTime,
+      createdDate,
     });
 
-    if (!panRateLimitResult.allowed) {
-      riskServiceLogger.warn(
-        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
-      );
-      return res.status(429).json({
-        success: false,
-        message: panRateLimitResult.message,
-      });
-    }
+    // storing data
+    const storingData = {
+      address,
+      recordName,
+      response: resultData,
+      serviceResponse: courtRecordResponse?.responseOfService,
+      status: isValid ? 1 : 2,
+      ...(mobileNumber && { mobileNumber }),
+      serviceName: courtRecordResponse?.service,
+      createdDate,
+      createdTime,
+    };
 
-    const maintainanceResponse = await deductCredits(
-      storingClient,
-      serviceId,
-      "PANSERVICES",
-      tnId,
-      req,
-    );
-
-    if (!maintainanceResponse?.result) {
-      riskServiceLogger.error(
-        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
-      );
-      return res.status(500).json({
-        success: false,
-        message: maintainanceResponse?.message || "Invalid",
-        response: {},
-      });
-    }
-
-    const encryptedPan = encryptData(capitalPanNumber);
-
-    const existingPanNumber = await panverificationModel.findOne({
-      panNumber: encryptedPan,
-    });
-
-    const analyticsResult = await AnalyticsDataUpdate(
-      storingClient,
-      serviceId,
-      categoryId,
-    );
-    if (!analyticsResult.success) {
-      riskServiceLogger.warn(
-        `Analytics update failed for PAN verification: client ${storingClient}, service ${serviceId}`,
-      );
-    }
-
-    riskServiceLogger.info(
-      `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
-    );
-    if (existingPanNumber) {
-      const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-      const resOfPan = existingPanNumber?.response;
-
-      if (existingPanNumber?.status == 1) {
-        const decryptedResponse = {
-          ...existingPanNumber?.response,
-          PAN: decryptedPanNumber,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: decryptedResponse,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        riskServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
-        );
-        return res
-          .status(200)
-          .json(createApiResponse(200, decryptedResponse, "Valid"));
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: resOfPan,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        riskServiceLogger.info(
-          `Returning cached invalid PAN response for client: ${storingClient}`,
-        );
-        return res
-          .status(404)
-          .json(createApiResponse(404, resOfPan, "Invalid"));
-      }
-    }
-
-    const service = await selectService(categoryId, serviceId);
-
-    if (!service) {
-      riskServiceLogger.warn(
-        `Active service not found for category ${categoryId}, service ${serviceId}`,
-      );
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-    }
-
-    riskServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
-    let panNumberResponse = await PanActiveServiceResponse(
-      panNumber,
-      service,
-      0,
-      storingClient,
+    // only this changed to findOneAndUpdate
+    await courtRecordModel.findOneAndUpdate(
+      {
+        address,
+        recordName,
+      },
+      storingData,
+      { upsert: true, new: true },
     );
 
     riskServiceLogger.info(
-      `Response received from pan verification active service ${panNumberResponse?.service} with message: ${panNumberResponse?.message}`,
+      `${isValid ? "Valid" : "Invalid"} court record response stored and sent to client: ${storingClient} fot this txnId: ${tnId}`,
     );
 
-    if (panNumberResponse?.message?.toLowerCase() === "all services failed") {
-      throw new Error("All pan to gst services failed");
-    }
-
-    if (panNumberResponse?.message?.toUpperCase() == "VALID") {
-      const encryptedPan = encryptData(panNumberResponse?.result?.PAN);
-      const encryptedResponse = {
-        ...panNumberResponse?.result,
-        PAN: encryptedPan,
-      };
-
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: panNumberResponse?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: panNumberResponse?.result?.Name,
-        response: encryptedResponse,
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 1,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await panverificationModel.create(storingData);
-      riskServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          resultData,
+          isValid ? "Valid" : "Invalid",
+        ),
       );
-
-      return res
-        .status(200)
-        .json(createApiResponse(200, panNumberResponse?.result, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: { pan: panNumber },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: "",
-        response: { pan: panNumber },
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 2,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await panverificationModel.create(storingData);
-      riskServiceLogger.info(
-        `Invalid PAN response received and sent to client: ${storingClient}`,
-      );
-      return res
-        .status(404)
-        .json(createApiResponse(404, { pan: panNumber }, "Invalid"));
-    }
   } catch (error) {
     riskServiceLogger.error(
-      `System error in PAN verification for client ${storingClient}: ${error.message}`,
+      `System error in court record check for client ${storingClient}: ${error.message}`,
       error,
     );
     const analyticsResult = await AnalyticsDataUpdate(
-      clientId,
+      storingClient,
       serviceId,
       categoryId,
       "failed",
+      tnId,
+      riskServiceLogger,
     );
 
     if (!analyticsResult?.success) {
       riskServiceLogger.info(
-        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
-      );
-    }
-    const errorObj = mapError(error);
-    return res.status(errorObj.httpCode).json(errorObj);
-  }
-};
-
-exports.handleCourtRecords = async (req, res) => {
-  const data = req.body;
-  const { domain, emailAddress, mobileNumber = "" } = data;
-  const storingClient = req.clientId;
-
-  const isValid = handleValidation("email", emailAddress, res, storingClient);
-
-  if (!isValid) return;
-  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "DOMAIN",
-    storingClient,
-  );
-  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
-
-  const categoryId = idOfCategory;
-  const serviceId = idOfService;
-  try {
-    riskServiceLogger.info(
-      `Executing PAN verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
-    );
-
-    // Always generate txnId
-    const tnId = genrateUniqueServiceId();
-    riskServiceLogger.info(
-      `Generated PAN txn Id: ${tnId} for the client: ${storingClient}`,
-    );
-
-    // Common: hash identifier
-    const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
-    });
-
-    const panRateLimitResult = await checkingRateLimit({
-      identifiers: { identifierHash },
-      serviceId,
-      categoryId,
-      clientId: storingClient,
-    });
-
-    if (!panRateLimitResult.allowed) {
-      riskServiceLogger.warn(
-        `Rate limit exceeded for PAN verification: client ${storingClient}, service ${serviceId}`,
-      );
-      return res.status(429).json({
-        success: false,
-        message: panRateLimitResult.message,
-      });
-    }
-
-    const maintainanceResponse = await deductCredits(
-      storingClient,
-      serviceId,
-      "PANSERVICES",
-      tnId,
-      req,
-    );
-
-    if (!maintainanceResponse?.result) {
-      riskServiceLogger.error(
-        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
-      );
-      return res.status(500).json({
-        success: false,
-        message: maintainanceResponse?.message || "Invalid",
-        response: {},
-      });
-    }
-
-    const encryptedPan = encryptData(capitalPanNumber);
-
-    const existingPanNumber = await panverificationModel.findOne({
-      panNumber: encryptedPan,
-    });
-
-    const analyticsResult = await AnalyticsDataUpdate(
-      storingClient,
-      serviceId,
-      categoryId,
-    );
-    if (!analyticsResult.success) {
-      riskServiceLogger.warn(
-        `Analytics update failed for PAN verification: client ${storingClient}, service ${serviceId}`,
-      );
-    }
-
-    riskServiceLogger.info(
-      `Checked for existing PAN record in DB: ${existingPanNumber ? "Found" : "Not Found"}`,
-    );
-    if (existingPanNumber) {
-      const decryptedPanNumber = decryptData(existingPanNumber?.panNumber);
-      const resOfPan = existingPanNumber?.response;
-
-      if (existingPanNumber?.status == 1) {
-        const decryptedResponse = {
-          ...existingPanNumber?.response,
-          PAN: decryptedPanNumber,
-        };
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: decryptedResponse,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        riskServiceLogger.info(
-          `Returning cached valid PAN response for client: ${storingClient}`,
-        );
-        return res
-          .status(200)
-          .json(createApiResponse(200, decryptedResponse, "Valid"));
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: resOfPan,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        riskServiceLogger.info(
-          `Returning cached invalid PAN response for client: ${storingClient}`,
-        );
-        return res
-          .status(404)
-          .json(createApiResponse(404, resOfPan, "Invalid"));
-      }
-    }
-
-    const service = await selectService(categoryId, serviceId);
-
-    if (!service) {
-      riskServiceLogger.warn(
-        `Active service not found for category ${categoryId}, service ${serviceId}`,
-      );
-      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
-    }
-
-    riskServiceLogger.info(
-      `Active service selected for PAN verification: ${service.serviceFor}`,
-    );
-    let panNumberResponse = await PanActiveServiceResponse(
-      panNumber,
-      service,
-      0,
-      storingClient,
-    );
-
-    riskServiceLogger.info(
-      `Response received from pan verification active service ${panNumberResponse?.service} with message: ${panNumberResponse?.message}`,
-    );
-
-    if (panNumberResponse?.message?.toLowerCase() === "all services failed") {
-      throw new Error("All pan to gst services failed");
-    }
-
-    if (panNumberResponse?.message?.toUpperCase() == "VALID") {
-      const encryptedPan = encryptData(panNumberResponse?.result?.PAN);
-      const encryptedResponse = {
-        ...panNumberResponse?.result,
-        PAN: encryptedPan,
-      };
-
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: panNumberResponse?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: panNumberResponse?.result?.Name,
-        response: encryptedResponse,
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 1,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-
-      await panverificationModel.create(storingData);
-      riskServiceLogger.info(
-        `Valid PAN response stored and sent to client: ${storingClient}`,
-      );
-
-      return res
-        .status(200)
-        .json(createApiResponse(200, panNumberResponse?.result, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: { pan: panNumber },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        panNumber: encryptedPan,
-        userName: "",
-        response: { pan: panNumber },
-        serviceResponse: panNumberResponse?.responseOfService,
-        status: 2,
-        ...(mobileNumber && { mobileNumber }),
-        serviceName: panNumberResponse?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await panverificationModel.create(storingData);
-      riskServiceLogger.info(
-        `Invalid PAN response received and sent to client: ${storingClient}`,
-      );
-      return res
-        .status(404)
-        .json(createApiResponse(404, { pan: panNumber }, "Invalid"));
-    }
-  } catch (error) {
-    riskServiceLogger.error(
-      `System error in PAN verification for client ${storingClient}: ${error.message}`,
-      error,
-    );
-    const analyticsResult = await AnalyticsDataUpdate(
-      clientId,
-      serviceId,
-      categoryId,
-      "failed",
-    );
-
-    if (!analyticsResult?.success) {
-      riskServiceLogger.info(
-        `[FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`,
+        `[FAILED]: Analytics update failed for court record check for this clientId ${storingClient}, service ${serviceId}`,
       );
     }
     const errorObj = mapError(error);

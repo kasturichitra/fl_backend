@@ -11,6 +11,7 @@ const CATEGORIES = {
   BANK: "BANKINGFINANCIAL",
   EMPLOYMENT: "EMPLOYMENTINCOME",
   OTHER: "OTHERSERVICES",
+  RISK: "RISKDUEDILIGENCE",
 };
 
 const SERVICES = {
@@ -164,7 +165,7 @@ const SERVICES = {
 
   // contact services
   MOBILE_OTP_VERIFY: {
-     category: "CONTACT",
+    category: "CONTACT",
     serviceId: "MOBILEOTPVERIFICATION",
   },
   MOBILE_TO_PAN: {
@@ -225,13 +226,27 @@ const SERVICES = {
     category: "EMPLOYMENT",
     serviceId: "BASICUANVERIFICATION",
   },
-    DUAL_EMPLOYMENT: {
+  DUAL_EMPLOYMENT: {
     category: "EMPLOYMENT",
     serviceId: "DUALEMPLOYMENTCHECK",
   },
 
-   // other services
-   NAME_MATCH: {
+  // risk and due diligence services
+  DOMAIN: {
+    category: "RISK",
+    serviceId: "DOMAINVERIFICATION",
+  },
+  COURT_CASE: {
+    category: "RISK",
+    serviceId: "COURTRECORDSCHECKDIY",
+  },
+  PROFILE_ADVANCE: {
+    category: "RISK",
+    serviceId: "PROFILEADVANCE",
+  },
+
+  // other services
+  NAME_MATCH: {
     category: "OTHER",
     serviceId: "NAMEMATCH",
   },
