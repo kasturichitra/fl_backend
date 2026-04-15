@@ -1,6 +1,6 @@
 const mongoose = require("mongoose");
 
-const passportDetails = new mongoose.Schema(
+const passportOcrDetails = new mongoose.Schema(
   {
     passportNo: {
       type: String,
@@ -61,4 +61,4 @@ const passportDetails = new mongoose.Schema(
   }
 );
 
-module.exports = mongoose.model("passportVerification", passportDetails);
+module.exports = mongoose.model("passportOcrVerification", passportOcrDetails);

@@ -49,13 +49,20 @@ const domainVerifyActiveServiceResponse = async (
 };
 const domainApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
+  const { emailAddress, domain } = data;
+
+  console.log('emailAddress and domain ===>>', emailAddress, domain, data)
 
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "417",
-        docNumber: data,
+        docType: 417,
+        ...(domain
+          ? { domainName: domain }
+          : emailAddress
+            ? { emailAddress: emailAddress }
+            : {}),
       },
       url: process.env.TRUTHSCREEN_DOMAIN_VERIFY,
       header: {
@@ -83,28 +90,15 @@ const domainApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: riskServiceLogger,
       });
-      console.log(
-        "[voter id verification api call] TruthScreen API response:",
-        JSON.stringify(ApiResponse),
-      );
     }
   } catch (error) {
     console.log(
       `[voter id verification api call] API Error in ${service}:`,
       error.message,
     );
-    if (error?.statusCode != 500) {
-      return {
-        success: false,
-        data: {
-          result: "NoDataFound",
-          message: "Invalid",
-          responseOfService: {},
-          service: service,
-        },
-      };
-    }
     return {
       success: false,
       data: null,
@@ -112,8 +106,8 @@ const domainApiCall = async (data, service, CID) => {
   }
 
   const obj = ApiResponse;
-  console.log(
-    `[voter id verification api call] ${service} API Response Object:`,
+  riskServiceLogger.info(
+    `[domain verification api call] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 
@@ -176,11 +170,15 @@ const advanceProfileServiceResponse = async (
   try {
     const res = await advanceProfileApiCall(data, serviceName, client);
 
+     riskServiceLogger.info(
+      `[advanceProfileServiceResponse] ${serviceName} response Data: ${JSON.stringify(res)} with service: ${res?.service}`,
+    );
+
     if (res?.data) {
       return res.data;
     }
 
-    console.log(
+    riskServiceLogger.info(
       `[advanceProfileServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
     return advanceProfileServiceResponse(data, services, index + 1);
@@ -198,9 +196,9 @@ const advanceProfileApiCall = async (data, service, CID) => {
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
-        transID: tskId,
-        docType: "220",
-        docNumber: data,
+        trans_id: tskId,
+        docType: 220,
+        mobile: data,
       },
       url: process.env.TRUTHSCREEN_PROFILE_ADVANCE,
       header: {
@@ -229,6 +227,8 @@ const advanceProfileApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: riskServiceLogger,
       });
       console.log(
         "[passport file no api call] TruthScreen API response:",
@@ -240,17 +240,6 @@ const advanceProfileApiCall = async (data, service, CID) => {
       `[passport file no api call] API Error in ${service}:`,
       error.message,
     );
-    if (error?.statusCode != 500) {
-      return {
-        success: false,
-        data: {
-          result: "NoDataFound",
-          message: "Invalid",
-          responseOfService: {},
-          service: service,
-        },
-      }; // fallback trigger
-    }
     return {
       success: false,
       data: null,
@@ -346,7 +335,8 @@ const courtRecordCheckApiCall = async (data, service, CID) => {
       BodyData: {
         transID: tskId,
         docType: "9",
-        docNumber: data,
+        address: data?.address,
+        name: data?.recordName
       },
       url: process.env.TRUTHSCREEN_COURT_RECORDS_CHECK,
       header: {
@@ -375,28 +365,15 @@ const courtRecordCheckApiCall = async (data, service, CID) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: riskServiceLogger,
       });
-      console.log(
-        "[passport file no api call] TruthScreen API response:",
-        JSON.stringify(ApiResponse),
-      );
     }
   } catch (error) {
-    console.log(
-      `[passport file no api call] API Error in ${service}:`,
+    riskServiceLogger.info(
+      `[court record check] API Error in ${service}:`,
       error.message,
     );
-    if (error?.statusCode != 500) {
-      return {
-        success: false,
-        data: {
-          result: "NoDataFound",
-          message: "Invalid",
-          responseOfService: {},
-          service: service,
-        },
-      }; // fallback trigger
-    }
     return {
       success: false,
       data: null,
@@ -404,14 +381,14 @@ const courtRecordCheckApiCall = async (data, service, CID) => {
   }
 
   const obj = ApiResponse;
-  console.log(
-    `[passport file no api call] ${service} API Response Object:`,
+  riskServiceLogger.info(
+    `[court record check] ${service} API Response Object:`,
     JSON.stringify(obj),
   );
 
   let returnedObj = {};
 
-  if (obj.status != "1") {
+  if (obj.status == 0) {
     return {
       success: false,
       data: {
@@ -444,5 +421,5 @@ const courtRecordCheckApiCall = async (data, service, CID) => {
 module.exports = {
   domainVerifyActiveServiceResponse,
   advanceProfileServiceResponse,
-  courtRecordCheckServiceResponse
+  courtRecordCheckServiceResponse,
 };

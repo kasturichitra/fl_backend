@@ -382,16 +382,21 @@ exports.verifyPanNameDob = async (req, res) => {
   const data = req.body;
   const { panNumber, fullName, dateOfBirth, mobileNumber = "" } = data;
   const storingClient = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  panServiceLogger.info(
+    `Generated PAN NameDob txn Id: ${tnId} for this client: ${storingClient}`,
+  );
   const isDobValid = await handleValidation(
     "DateOfBirth",
     dateOfBirth,
     res,
-    storingClient,
+    tnId,
+    panServiceLogger,
   );
   if (!isDobValid) return;
   const capitalPanNumber = reusablePanNumberFieldVerification(
     panNumber,
-    storingClient,
+    tnId,
     res,
   );
 
@@ -399,7 +404,8 @@ exports.verifyPanNameDob = async (req, res) => {
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "PAN_TO_AADHAAR",
-    storingClient,
+    tnId,
+    panServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -411,11 +417,14 @@ exports.verifyPanNameDob = async (req, res) => {
       `Executing PAN NameDob verification for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
-      name: fullName,
-      dob: dateOfBirth,
-    });
+    const identifierHash = hashIdentifiers(
+      {
+        panNo: capitalPanNumber,
+        name: fullName,
+        dob: dateOfBirth,
+      },
+      panServiceLogger,
+    );
 
     const panRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -423,6 +432,8 @@ exports.verifyPanNameDob = async (req, res) => {
       categoryId,
       clientId: storingClient,
       req,
+      TxnID: tnId,
+      logger: panServiceLogger,
     });
 
     if (!panRateLimitResult.allowed) {
@@ -435,18 +446,13 @@ exports.verifyPanNameDob = async (req, res) => {
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    panServiceLogger.info(
-      `Generated PAN NameDob txn Id: ${tnId} for this client: ${storingClient}`,
-    );
-
     const maintainanceResponse = await deductCredits(
       storingClient,
       serviceId,
       categoryId,
       tnId,
       req,
-      panServiceLogger
+      panServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -483,54 +489,57 @@ exports.verifyPanNameDob = async (req, res) => {
       );
     }
 
+    const now = new Date();
+    const createdTime = now.toLocaleTimeString();
+    const createdDate = now.toLocaleDateString();
+
     if (existingPanNumber) {
-      if (existingPanNumber?.status == 1) {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: existingPanNumber?.response,
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        panServiceLogger.info(
-          `Returning cached valid PAN NameDob response for client: ${storingClient}`,
+      const isValid = existingPanNumber?.status === 1;
+
+      const resultData = isValid
+        ? existingPanNumber?.response
+        : { pan: panNumber, fullName: fullName, dateOfBirth: dateOfBirth };
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: storingClient,
+        result: resultData,
+        TxnID: tnId,
+        createdTime,
+        createdDate,
+      });
+
+      panServiceLogger.info(
+        `Returning cached ${isValid ? "valid" : "invalid"} PAN NameDob response for client: ${storingClient}`,
+      );
+
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            existingPanNumber?.response,
+            "Valid",
+          ),
         );
-        return res
-          .status(200)
-          .json(createApiResponse(200, existingPanNumber?.response, "Valid"));
-      } else {
-        await responseModel.create({
-          serviceId,
-          categoryId,
-          clientId: storingClient,
-          result: {
-            pan: panNumber,
-          },
-          createdTime: new Date().toLocaleTimeString(),
-          createdDate: new Date().toLocaleDateString(),
-        });
-        panServiceLogger.info(
-          `Returning cached invalid PAN NameDob response for client: ${storingClient}`,
-        );
-        return res
-          .status(404)
-          .json(createApiResponse(404, existingPanNumber?.response, "Valid"));
-      }
     }
 
-    const service = await selectService(categoryId, serviceId);
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      panServiceLogger,
+    );
 
-    if (!service) {
+    if (!service.length) {
       panServiceLogger.warn(
         `Active service not found for PAN NameDob category ${categoryId}, service ${serviceId}`,
       );
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
 
-    panServiceLogger.info(
-      `Active service selected for PAN NameDob verification: ${service.serviceFor}`,
-    );
     const response = await PANDobActiveServiceResponse(
       { panNumber, dateOfBirth, fullName },
       service,
@@ -543,81 +552,57 @@ exports.verifyPanNameDob = async (req, res) => {
     );
 
     if (response?.message?.toLowerCase() === "all services failed") {
-      throw new Error("All pan to gst services failed");
+      throw new Error("All services failed");
     }
 
-    if (response?.message?.toUpperCase() == "VALID") {
-      const encryptedPan = encryptData(response?.result?.panNumber);
-      const encryptedResponse = {
-        ...response?.result,
-        panNumber: encryptedPan,
-      };
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: response?.result,
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        panNumber: encryptedPan,
-        response: encryptedResponse,
-        fullName,
-        dateOfBirth,
-        ...(mobileNumber && { mobileNumber }),
-        serviceResponse: response?.responseOfService,
-        status: 1,
-        serviceName: response?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await panNameDob.create(storingData);
-      panServiceLogger.info(
-        `Valid PAN NameDob response stored and sent to client: ${storingClient}`,
-      );
-      return res
-        .status(200)
-        .json(createApiResponse(200, response?.result, "Valid"));
-    } else {
-      await responseModel.create({
-        serviceId,
-        categoryId,
-        clientId: storingClient,
-        result: {
-          panNumber: panNumber,
-        },
-        createdTime: new Date().toLocaleTimeString(),
-        createdDate: new Date().toLocaleDateString(),
-      });
-      const storingData = {
-        panNumber: encryptedPan,
-        fullName,
-        dateOfBirth,
-        response: {
-          panNumber: panNumber,
-        },
-        ...(mobileNumber && { mobileNumber }),
-        serviceResponse: {},
-        status: 2,
-        serviceName: response?.service,
-        createdDate: new Date().toLocaleDateString(),
-        createdTime: new Date().toLocaleTimeString(),
-      };
-      await panNameDob.create(storingData);
-      panServiceLogger.info(
-        `Invalid PAN NameDob response received and sent to client: ${storingClient}`,
-      );
-      return res.status(404).json(
+    const isValid = response?.message?.toUpperCase() === "VALID";
+
+    const resultPayload = isValid ? response?.result : { panNumber };
+
+    const encryptedResponse = isValid
+      ? { ...response?.result, panNumber: encryptedPan }
+      : { panNumber };
+
+    await responseModel.create({
+      serviceId,
+      categoryId,
+      clientId: storingClient,
+      TxnID: tnId,
+      result: resultPayload,
+      createdTime,
+      createdDate,
+    });
+
+    const storingData = {
+      panNumber: encryptedPan,
+      fullName,
+      dateOfBirth,
+      response: encryptedResponse,
+      ...(mobileNumber && { mobileNumber }),
+      serviceResponse: isValid ? response?.responseOfService : {},
+      status: isValid ? 1 : 2,
+      serviceName: response?.service,
+      createdDate,
+      createdTime,
+    };
+
+    await panNameDob.create(storingData);
+
+    panServiceLogger.info(
+      `${isValid ? "Valid" : "Invalid"} PAN NameDob response ${
+        isValid ? "stored and sent" : "received and sent"
+      } to client: ${storingClient}`,
+    );
+
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
         createApiResponse(
-          404,
-          {
-            panNumber: panNumber,
-          },
-          "Invalid",
+          isValid ? 200 : 404,
+          resultPayload,
+          isValid ? "Valid" : "Invalid",
         ),
       );
-    }
   } catch (error) {
     panServiceLogger.info(
       `System error in PAN NameDob verification for client ${storingClient}: ${error.message}`,
@@ -642,7 +627,7 @@ exports.handlePanTanVerification = async (req, res) => {
     tanNumber,
     res,
     tnId,
-    panServiceLogger
+    panServiceLogger,
   );
   if (!isTanValid) return;
 
@@ -658,7 +643,7 @@ exports.handlePanTanVerification = async (req, res) => {
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
     "PAN_TAN_VERIFY",
     tnId,
-    panServiceLogger
+    panServiceLogger,
   );
   console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
 
@@ -669,10 +654,13 @@ exports.handlePanTanVerification = async (req, res) => {
       `Executing PAN To Father name for client: ${storingClient}, service: ${serviceId}, category: ${categoryId}`,
     );
 
-    const identifierHash = hashIdentifiers({
-      panNo: capitalPanNumber,
-      tanNo: capitalTanNumber,
-    }, panServiceLogger);
+    const identifierHash = hashIdentifiers(
+      {
+        panNo: capitalPanNumber,
+        tanNo: capitalTanNumber,
+      },
+      panServiceLogger,
+    );
 
     const panTanRateLimitResult = await checkingRateLimit({
       identifiers: { identifierHash },
@@ -681,7 +669,7 @@ exports.handlePanTanVerification = async (req, res) => {
       clientId: storingClient,
       req,
       TxnID: tnId,
-      logger: panServiceLogger
+      logger: panServiceLogger,
     });
 
     if (!panTanRateLimitResult.allowed) {
@@ -700,7 +688,7 @@ exports.handlePanTanVerification = async (req, res) => {
       categoryId,
       tnId,
       req,
-      panServiceLogger
+      panServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {
@@ -947,7 +935,7 @@ exports.panItdStatusOtpGeneration = async (req, res) => {
       categoryId,
       tnId,
       req,
-      panServiceLogger
+      panServiceLogger,
     );
 
     if (!maintainanceResponse?.result) {

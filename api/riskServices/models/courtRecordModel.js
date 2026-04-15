@@ -1,10 +1,10 @@
 const mongoose = require("mongoose");
 
-const domainVerification = new mongoose.Schema({
-  domain: {
+const courtRecordSchema = new mongoose.Schema({
+  recordName:{
     type: String,
   },
-  emailAddress: {
+  address:{
     type: String,
   },
   mobileNumber: {
@@ -36,4 +36,4 @@ const domainVerification = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("domainVerification", domainVerification);
+module.exports = mongoose.model("courtRecord", courtRecordSchema);

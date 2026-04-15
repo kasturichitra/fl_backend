@@ -172,6 +172,12 @@ const ID_RULES = {
     regex: /^[A-Z]{2}[0-9]{2}[A-Z]{1}[0-9]{7}$/,
     displayName: "Udyog Aadhaar Memorandum (UAM)",
   },
+  domain: {
+    min: 3,
+    max: 253,
+    regex: /^(?:[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/,
+    displayName: "Domain",
+  },
   iec: {
     length: 10,
     regex: /^([A-Z]{5}[0-9]{4}[A-Z]{1}|\d{10})$/,
@@ -182,9 +188,19 @@ const ID_RULES = {
     regex: /^\d{11}$/,
     displayName: "Tax Identification Number (TIN)",
   },
+  mrz1: {
+    length: 44,
+    regex: /^[A-Z0-9<]+$/,
+    displayName: "MRZ Line 1",
+  },
+  mrz2: {
+    length: 44,
+    regex: /^[A-Z0-9<]+$/,
+    displayName: "MRZ Line 2",
+  },
 };
 
-const validateId = (type, value, TxnID,logger) => {
+const validateId = (type, value, TxnID, logger) => {
   const rule = ID_RULES[type];
   logger.info(
     `Rule for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>> ${JSON.stringify(rule)}`,
@@ -195,13 +211,23 @@ const validateId = (type, value, TxnID,logger) => {
 
   const trimmed = value.trim();
 
-  logger.info(
-    `Validating ${type} value ${trimmed} for TxnID ${TxnID}`,
-  );
+  logger.info(`Validating ${type} value ${trimmed} for TxnID ${TxnID}`);
 
-  if (rule.length && trimmed.length !== rule.length) return {success:false, message: `${value} should be ${rule?.length} in length`};
-  if (rule.min && trimmed.length < rule.min) return {success:false, message: `${value} length should be more than ${rule?.min} `};
-  if (rule.max && trimmed.length > rule.max) return {success:false, message: `${value} length should be more than ${rule?.length} `};
+  if (rule.length && trimmed.length !== rule.length)
+    return {
+      success: false,
+      message: `${value} should be ${rule?.length} in length`,
+    };
+  if (rule.min && trimmed.length < rule.min)
+    return {
+      success: false,
+      message: `${value} length should be more than ${rule?.min} `,
+    };
+  if (rule.max && trimmed.length > rule.max)
+    return {
+      success: false,
+      message: `${value} length should be more than ${rule?.length} `,
+    };
 
   logger.info(
     `length check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
@@ -214,13 +240,13 @@ const validateId = (type, value, TxnID,logger) => {
     `regex check completed successfully for this type: ${type} of value: ${value} for this TxnID: ${TxnID} ====>>`,
   );
 
-  return {success:true};
+  return { success: true };
 };
 
-const handleValidation = (type, value, res, TxnID,logger) => {
+const handleValidation = (type, value, res, TxnID, logger) => {
   const rule = ID_RULES[type];
   const stringValue = String(value || "").trim();
-  if (!stringValue?.trim() && !["email", "domain"].includes(type)) {
+  if (!stringValue?.trim()) {
     res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
       response: `${rule.displayName} is Missing 🤦‍♂️`,
@@ -236,7 +262,9 @@ const handleValidation = (type, value, res, TxnID,logger) => {
 
     res.status(400).json({
       ...ERROR_CODES?.BAD_REQUEST,
-      response: isValid?.message ? isValid?.message : `${rule.displayName} is Invalid 🤦‍♂️`,
+      response: isValid?.message
+        ? isValid?.message
+        : `${rule.displayName} is Invalid 🤦‍♂️`,
     });
     return false;
   }

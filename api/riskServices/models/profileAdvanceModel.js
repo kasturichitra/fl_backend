@@ -1,12 +1,6 @@
 const mongoose = require("mongoose");
 
-const domainVerification = new mongoose.Schema({
-  domain: {
-    type: String,
-  },
-  emailAddress: {
-    type: String,
-  },
+const profileAdvanceSchema = new mongoose.Schema({
   mobileNumber: {
     type: String,
   },
@@ -36,4 +30,4 @@ const domainVerification = new mongoose.Schema({
   }
 );
 
-module.exports = mongoose.model("domainVerification", domainVerification);
+module.exports = mongoose.model("profileAdvanceRecord", profileAdvanceSchema);

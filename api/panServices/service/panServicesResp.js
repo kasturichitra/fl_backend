@@ -80,6 +80,8 @@ const panDobApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -209,6 +211,8 @@ const panNameApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan name match api call] TruthScreen API response:",
@@ -340,6 +344,8 @@ const PanToGstApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan to gst api call] TruthScreen API response:",
@@ -442,10 +448,10 @@ const PanToGst_inApiCall = async (data, service) => {
     TRUTHSCREEN: {
       BodyData: {
         transID: tskId,
-        docType: "64",
+        docType: 64,
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTNSCREEN_ID_SEARCH_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -471,6 +477,8 @@ const PanToGst_inApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan to gst api call] TruthScreen API response:",
@@ -493,7 +501,7 @@ const PanToGst_inApiCall = async (data, service) => {
 
   let returnedObj = {};
 
-  if (obj.status != "1" || obj.msg == "No record found") {
+  if (obj.status == 9 || obj?.msg?.toLowercase().includes("no record")) {
     return {
       success: false,
       data: {
@@ -602,6 +610,8 @@ const PanDirectorApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -741,6 +751,8 @@ const PanToFatherNameApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -880,6 +892,8 @@ const panTanVerificationApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -1019,6 +1033,8 @@ const PanItdStatusOtpGenerateApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -1159,6 +1175,8 @@ const PanItdStatusOtpValidateApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
