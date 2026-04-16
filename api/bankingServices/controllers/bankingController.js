@@ -1,18 +1,20 @@
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
 const { encryptData } = require("../../../utils/EncryptAndDecrypt");
-const { ERROR_CODES } = require("../../../utils/errorCodes");
+const { ERROR_CODES, mapError } = require("../../../utils/errorCodes");
 const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 const handleValidation = require("../../../utils/lengthCheck");
 const { bankServiceLogger, cibilLogger } = require("../../Logger/logger");
 const AdvanceBankModel = require("../models/AdvanceBank.model");
 const CibilServicesModel = require("../models/CibilServices.model");
-const {
-  BankActiveServiceResponse,
-} = require("../services/bankingServiceResponse");
-const {
-  chequeClassifyActiveServiceResponse,
-} = require("../service/bankingServiceResp");
+const { BankActiveServiceResponse } = require("../services/bankingServiceResponse");
+const { chequeClassifyActiveServiceResponse } = require("../service/bankingServiceResp");
+const { createApiResponse } = require("../../../utils/ApiResponseHandler");
+const responseModel = require("../../serviceResponses/model/serviceResponseModel");
+const { selectService } = require("../../service/serviceSelector");
+const { deductCredits } = require("../../../services/CreditService");
+const { hashIdentifiers } = require("../../../utils/hashIdentifier");
+const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 
 exports.handleBSAViaNetBanking = async (req, res) => {
   const { panNumber, mobileNumber = "" } = req.body;
@@ -247,6 +249,7 @@ exports.handleBSAViaNetBanking = async (req, res) => {
 exports.AdvanceBankAccountVerification = async (req, res) => {
   const { accountNumber, ifscCode, mobileNumber = "" } = req.body;
   const clientId = req.clientId;
+  const TxnID = genrateUniqueServiceId();
 
   if (!accountNumber || !ifscCode) {
     return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
@@ -255,16 +258,10 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
     `Advance bankAccount verification, AccountNO:${accountNumber}, ifscCode: ${ifscCode}`,
   );
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } =
-      await getCategoryIdAndServiceId("AddvanceBank", clientId);
+    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('ADVANCE_BANKACCOUNT_VERY', TxnID,bankServiceLogger);
 
-    const isaccount = handleValidation(
-      "accountNumber",
-      accountNumber,
-      res,
-      clientId,
-    );
-    const isifsc = handleValidation("ifsc", ifscCode, res, clientId);
+    const isaccount = handleValidation("accountNumber", accountNumber, res, TxnID, bankServiceLogger);
+    const isifsc = handleValidation("ifsc", ifscCode, res, TxnID,bankServiceLogger);
     if (!isaccount || !isifsc) return;
 
     bankServiceLogger.info(
@@ -272,7 +269,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
     );
 
     //1. HASH DIN NUMBER
-    const indetifierHash = hashIdentifiers({ accountNumber, ifscCode });
+    const indetifierHash = hashIdentifiers({ accountNumber, ifscCode }, bankServiceLogger);
 
     //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
     const bankAccRateLimitResult = await checkingRateLimit({
@@ -281,6 +278,8 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
       categoryId,
       clientId,
       req,
+      TxnID,
+      logger:bankServiceLogger
     });
 
     if (!bankAccRateLimitResult.allowed) {
@@ -293,22 +292,20 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
       });
     }
 
-    const tnId = genrateUniqueServiceId();
-    bankServiceLogger.info(`Generated Advance bankAccount txn Id: ${tnId}`);
+    bankServiceLogger.info(`Generated Advance bankAccount txn Id: ${TxnID}`);
 
     // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
     const maintainanceResponse = await deductCredits(
       clientId,
       serviceId,
       categoryId,
-      tnId,
-      req.environment,
+      TxnID,
+      req,
+      bankServiceLogger
     );
 
     if (!maintainanceResponse?.result) {
-      bankServiceLogger.info(
-        `[FAILED]: Credit deduction failed for Advance bankAccount verification: client ${clientId}, txnId ${tnId}`,
-      );
+      bankServiceLogger.info(`[FAILED]: Credit deduction failed for Advance bankAccount verification: client ${clientId}, txnId ${TxnID}`);
       return res.status(500).json({
         success: false,
         message: maintainanceResponse?.message || "InValid",
@@ -330,6 +327,9 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
       clientId,
       serviceId,
       categoryId,
+      "success",
+      TxnID,
+      bankServiceLogger
     );
     if (!analyticsResult.success) {
       bankServiceLogger.info(
@@ -357,6 +357,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
           serviceId,
           categoryId,
           clientId,
+          TxnID,
           result: existingAdvanceBank?.response,
           createdTime: new Date().toLocaleTimeString(),
           createdDate: new Date().toLocaleDateString(),
@@ -372,6 +373,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
         await responseModel.create({
           serviceId,
           categoryId,
+          TxnID,
           clientId,
           result: existingAdvanceBank?.response,
           createdTime: new Date().toLocaleTimeString(),
@@ -384,8 +386,8 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
       }
     }
 
-    //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId);
+    //7. IF NOT DATA FOUND THEN CALL TO SERVICE 
+    const service = await selectService(categoryId, serviceId,TxnID,req,bankServiceLogger);
     if (!service.length) {
       bankServiceLogger.info(
         `[FAILED]: Active service not found for Advance bankAccount category ${categoryId}, service ${serviceId}`,
@@ -393,19 +395,13 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
     }
     bankServiceLogger.info(
-      `Active service selected for Advance bankAccount verification: ${service.serviceFor}`,
-    );
+      `Active service selected for Advance bankAccount verification: ${service}`);
 
-    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
-    let response = await BankActiveServiceResponse(
-      dinNumber,
-      service,
-      "AdvanceBankApiCall",
-      0,
-    );
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    let response = await BankActiveServiceResponse({accountNumber, ifscCode,}, service, "AdvanceBankApiCall", 0,TxnID);
 
     bankServiceLogger.info(
-      `Active service selected for Advance bankAccount service ${service.service}: ${response?.message}`,
+      `Active service selected for Advance bankAccount service ${response.service}: ${JSON.stringify(response)}`,
     );
 
     // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
@@ -419,6 +415,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
         serviceId,
         categoryId,
         clientId,
+        TxnID,
         result: response?.result,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
@@ -448,6 +445,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
         serviceId,
         categoryId,
         clientId,
+        TxnID,
         result: {
           accountNumber,
           ifscCode,
@@ -660,13 +658,8 @@ exports.CibilVerification = async (req, res) => {
       `Active service selected for Cibil verification: ${service.serviceFor}`,
     );
 
-    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
-    let response = await BankActiveServiceResponse(
-      dinNumber,
-      service,
-      "AdvanceBankApiCall",
-      0,
-    );
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE 
+    let response = await BankActiveServiceResponse({panNumber, customerName, customerMobile}, service, "AdvanceBankApiCall", 0);
 
     cibilLogger.info(
       `Active service selected for Cibil service ${service.service}: ${response?.message}`,

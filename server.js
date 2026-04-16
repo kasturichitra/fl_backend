@@ -11,7 +11,7 @@ const clientValidation = require("./middleware/ClientValidation.middleware");
 const { decryptMiddleware, encryptMiddleware } = require("./middleware/decryptPayload");
 const { decryptPayload, encryptPayload } = require("./middleware/clientDecryptPayload");
 const { connectDB } = require("./config/db.config");
-const { WalletApiroutes } = require("./api/WalletTopup/Routes.js/WalletRoutes");
+// const { WalletApiroutes } = require("./api/WalletTopup/Routes.js/WalletRoutes");
 
 const app = express();
 
@@ -61,7 +61,7 @@ app.get('/health', (req, res) => {
 
 
 
-app.use("/kyc/api/v1/ApiModuels", WalletApiroutes);
+// app.use("/kyc/api/v1/ApiModuels", WalletApiroutes);
 
 const serverMiddleware = [clientValidation, decryptPayload, encryptPayload];
 const server = [ decryptPayload, encryptPayload ];
@@ -72,6 +72,7 @@ const clientMiddleware = [clientValidation, decryptMiddleware, encryptMiddleware
 app.use("/kyc/api/v1/internal", ...serverMiddleware, mainRoutes); // SERVER TO SERVER
 app.use("/kyc/api/v1", mainRoutes); // SERVER TO SERVER
 app.use("/kyc/api", ...serverSkippedMiddleware, mainRoutes); // SERVER TO SERVER
+app.use("/kyc/client", ...serverSkippedMiddleware, mainRoutes); // SERVER TO SERVER
 app.use("/kyc/api/v1/client", ...clientMiddleware, mainRoutes); // FRONTEND TO SERVER
 
 // ================== FOR TruthScreen Testing ==================

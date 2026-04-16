@@ -115,6 +115,7 @@ exports.dinVerification = async (req, res) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -166,7 +167,7 @@ exports.dinVerification = async (req, res) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req);
+    const service = await selectService(categoryId, serviceId, TxnID, req, businessServiceLogger);
     if (!service.length) {
       businessServiceLogger.info(`[FAILED]: Active service not found for DIN category txnId: ${TxnID}, ${categoryId}, service ${serviceId}`);
       return res.status(404).json(ERROR_CODES?.NOT_FOUND);
@@ -573,6 +574,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -1019,6 +1021,7 @@ exports.gstinViewAndTrack = async (req, res) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -1075,7 +1078,7 @@ exports.gstinViewAndTrack = async (req, res) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
+    const service = await selectService(categoryId, serviceId, TxnID, req, businessServiceLogger);
 
     if (!service.length) {
       businessServiceLogger.warn(
@@ -1494,6 +1497,7 @@ exports.CompanVerification = async (req, res, next) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -1737,6 +1741,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -2214,6 +2219,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -2288,6 +2294,7 @@ exports.udyamNumberVerfication = async (req, res, next) => {
       service,
       0,
       TxnID,
+      clientId
     );
 
     businessServiceLogger.info(

@@ -14,6 +14,7 @@ const { selectService } = require("../../service/serviceSelector");
 const gstSolutionModel = require("../model/gstSolutionModel");
 const { gstActiveServiceResponse } = require("../services/gstActiveServiceResponse");
 const AdvanceGstModel = require("../model/AdvanceGstModel");
+const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
 
 exports.ComprehensiveGSTSolution = async (req, res) => {
     const { gstNo, year, mobileNumber } = req.body;
@@ -78,7 +79,7 @@ exports.ComprehensiveGSTSolution = async (req, res) => {
         const analyticsResult = await AnalyticsDataUpdate(
             clientId,
             serviceId,
-            categoryId
+            categoryId,"success",TxnID,gstServiceLogger
         );
         if (!analyticsResult?.success) {
             gstServiceLogger.info(`[FAILED]: Analytics update failed for gstNo: verification: client${clientId} service: ${serviceId}`)
@@ -221,6 +222,7 @@ exports.ComprehensiveGSTSolution = async (req, res) => {
 exports.GstAdvance = async (req, res) => {
     const { GstNo, mobileNumber } = req.body;
     const clientId = req.clientId;
+    const TxnID = genrateUniqueServiceId();//TxnID
 
     if (!GstNo) {
         return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
@@ -228,9 +230,9 @@ exports.GstAdvance = async (req, res) => {
     gstServiceLogger.info(`GstAdvance Details: ${GstNo}`)
 
     try {
-        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('gstAdvance', clientId);
+        const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId('gstAdvance', TxnID, gstServiceLogger);
 
-        const isValid = handleValidation('gstin', gstNo, res, clientId);
+        const isValid = handleValidation('gstin', GstNo, res, TxnID, gstServiceLogger);
         if (!isValid) return;
 
         gstServiceLogger.info(`Executing GstAdvance solution for client: ${clientId}, service:${serviceId}, category:${categoryId}`);
@@ -238,12 +240,12 @@ exports.GstAdvance = async (req, res) => {
         //1.HASH ADVANCE GST NUMBER
         const indetifierHash = hashIdentifiers({
             GstNo
-        });
+        },gstServiceLogger);
 
         //2.CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
         const RateLimit = await checkingRateLimit({
             identifiers: { indetifierHash },
-            serviceId, categoryId, clientId
+            serviceId, categoryId, clientId,req,TxnID,logger:gstServiceLogger
         });
 
         if (!RateLimit?.allowed) {
@@ -254,20 +256,20 @@ exports.GstAdvance = async (req, res) => {
             })
         }
 
-        const tnId = genrateUniqueServiceId();
-        gstServiceLogger.info(`Generated gstNo Txn Id: ${tnId}`);
+        gstServiceLogger.info(`Generated GstNo Txn Id: ${TxnID}`);
 
         //3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
         const maintainanceResponse = await deductCredits(
             clientId,
             serviceId,
             categoryId,
-            tnId,
-            req.environment
+            TxnID,
+            req,
+            gstServiceLogger
         );
 
         if (!maintainanceResponse?.result) {
-            gstServiceLogger.info(`[FAILED]: credit deduction for gstNo Verification: clientID:${clientId}, tnId:${tnId}`);
+            gstServiceLogger.info(`[FAILED]: credit deduction for GstNo Verification: clientID:${clientId}, tnId:${TxnID}`);
             return res.status(500)?.json({ success: false, message: maintainanceResponse?.message || 'InValid', response: {} })
         }
 
@@ -279,12 +281,13 @@ exports.GstAdvance = async (req, res) => {
         const analyticsResult = await AnalyticsDataUpdate(
             clientId,
             serviceId,
-            categoryId
+            categoryId,'success',
+            TxnID, gstServiceLogger
         );
         if (!analyticsResult?.success) {
             gstServiceLogger.info(`[FAILED]: Analytics update failed for Advance GSTNo Verification, client ${clientId}, serviceId: ${serviceId}`);
         };
-        gstServiceLogger.info(`checked for existing Advance gstNo record in DB: ${existingGstNo ? 'Found' : 'Not Found'}`);
+        gstServiceLogger.info(`checked for existing Advance GstNo record in DB: ${existingGstNo ? 'Found' : 'Not Found'}`);
 
         //6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
         if (existingGstNo) {
@@ -299,6 +302,7 @@ exports.GstAdvance = async (req, res) => {
                     serviceId,
                     categoryId,
                     clientId,
+                    TxnID,
                     result: existingGstNo?.response,
                     createdTime: new Date().toLocaleTimeString(),
                     createdDate: new Date().toLocaleDateString(),
@@ -315,6 +319,7 @@ exports.GstAdvance = async (req, res) => {
                     serviceId,
                     categoryId,
                     clientId,
+                    TxnID,
                     result: existingGstNo?.response,
                     createdTime: new Date().toLocaleTimeString(),
                     createdDate: new Date().toLocaleDateString(),
@@ -327,27 +332,27 @@ exports.GstAdvance = async (req, res) => {
         }
 
         //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-        const service = await selectService(categoryId, serviceId);
+        const service = await selectService(categoryId, serviceId, TxnID, req, gstServiceLogger);
         if (!service.length) {
             gstServiceLogger.info(`[FAILED]: Active SErvice not found for advance gst categoryId ${categoryId}, service ${serviceId}`)
             return res.status(404).json(ERROR_CODES?.NOT_FOUND);
         };
 
-        gstServiceLogger.info(`Active Service selected for gstNo verification: ${service}`);
+        gstServiceLogger.info(`Active Service selected for GstNo verification: ${service}`);
 
         //8. CALL TO SERVICE PROFVIDERS AND GET RESPONSE
-        let response = await gstActiveServiceResponse(GstNo, service, 'GstAdvanceApiCall', 0);
+        let response = await gstActiveServiceResponse(GstNo, service, 'GstAdvanceApiCall', 0,clientId);
 
-        gstServiceLogger.info(`Active Service Selected for gstNo verification service: ${response?.service}: ${response?.message}`)
+        gstServiceLogger.info(`Active Service Selected for GstNo verification service: ${response?.service}: ${response?.message}`)
 
         //9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
         if (response?.message?.toUpperCase() === 'VALID') {
             const encryptedResponse = {
                 ...response?.result,
-                GstNo: existingGstNo, year
+                GstNo: existingGstNo,
             };
             await responseModel.create({
-                serviceId, categoryId, clientId,
+                serviceId, categoryId, clientId,TxnID,
                 result: response?.result,
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString()
@@ -368,7 +373,7 @@ exports.GstAdvance = async (req, res) => {
             return res.status(200).json(createApiResponse(200, response?.result, 'Success'))
         } else {
             await responseModel.create({
-                serviceId, categoryId, clientId,
+                serviceId, categoryId, clientId,TxnID,
                 result: { GstNo: GstNo },
                 createdTime: new Date().toLocaleTimeString(),
                 createdDate: new Date().toLocaleDateString()

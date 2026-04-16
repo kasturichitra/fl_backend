@@ -12,7 +12,9 @@ const GSTActiveServiceResponse = async (
   TxnID = "",
 ) => {
   console.log("GSTActiveServiceResponse called");
-  businessServiceLogger.info(`GSTActiveServiceResponse called for this with value: ${data?.slice(-4)}`);
+  businessServiceLogger.info(
+    `GSTActiveServiceResponse called for this with value: ${data?.slice(-4)}`,
+  );
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -115,7 +117,7 @@ const GSTApiCall = async (data, service, TxnID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        logger:businessServiceLogger
+        logger: businessServiceLogger,
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -128,7 +130,7 @@ const GSTApiCall = async (data, service, TxnID = "") => {
     }
   } catch (error) {
     console.log(`[GSTApiCall] API Error in ${service}:`, error.message);
-        if (service?.toLowerCase() == "invincible" && error.status == 404) {
+    if (service?.toLowerCase() == "invincible" && error.status == 404) {
       return {
         success: false,
         data: {
@@ -146,7 +148,7 @@ const GSTApiCall = async (data, service, TxnID = "") => {
   const obj = ApiResponse.data || ApiResponse;
   console.log(`[GSTApiCall] ${service} Response Object:`, JSON.stringify(obj));
   businessServiceLogger.info(
-    `[GSTApiCall] with service: ${service} Response Object: ${JSON.stringify(obj)}`
+    `[GSTApiCall] with service: ${service} Response Object: ${JSON.stringify(obj)}`,
   );
 
   let returnedObj = {};
@@ -208,9 +210,7 @@ const GSTApiCall = async (data, service, TxnID = "") => {
         typeof obj?.msg === "string" &&
         obj.msg.toLowerCase().includes("no record")
       ) {
-        employmentServiceLogger.info(
-          `[${service}] no record`,
-        );
+        employmentServiceLogger.info(`[${service}] no record`);
         return {
           success: false,
           data: {
@@ -224,32 +224,32 @@ const GSTApiCall = async (data, service, TxnID = "") => {
 
       if (obj?.status !== 1) {
         console.log(`[${service}] Invalid status received → fallback`);
-        console.log(
-          `[${service}] Invalid status received → fallback`,
-        );
+        console.log(`[${service}] Invalid status received → fallback`);
         return { success: false, data: null };
       }
       returnedObj = {
-        gstinNumber: obj?.result?.essentials?.gstin || "",
-        business_constitution:
-          obj?.result?.result?.gstnDetailed?.constitutionOfBusiness || "",
-        central_jurisdiction:
-          obj?.result?.result?.gstnDetailed?.centreJurisdiction || "",
-        gstin: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-        companyName: obj?.result?.result?.gstnDetailed?.gstinStatus || "",
-        other_business_address:
-          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
-          "",
-        register_cancellation_date:
-          obj?.result?.result?.gstnDetailed?.cancellationDate || "",
-        state_jurisdiction:
-          obj?.result?.result?.gstnDetailed?.stateJurisdiction || "",
-        tax_payer_type: obj?.result?.result?.gstnDetailed?.taxPayerType || "",
-        trade_name:
-          obj?.result?.result?.gstnDetailed?.tradeNameOfBusiness || "",
-        primary_business_address:
-          obj?.result?.result?.gstnDetailed?.principalPlaceAddress?.address ||
-          "",
+        AdministrativeOffice: obj?.msg?.AdministrativeOffice,
+        AnnualAggregateTurnover: obj?.msg?.AnnualAggregateTurnover,
+        ConstitutionOfBusiness: obj?.msg?.ConstitutionOfBusiness,
+        "Date of Cancellation": obj?.msg?.["Date of Cancellation"],
+        "Date of registration": obj?.msg?.["Date of registration"],
+        "GSTIN / UIN Status": obj?.msg?.["GSTIN / UIN Status"],
+        "GSTIN/ UIN": obj?.msg?.["GSTIN/ UIN"],
+        GrossTotalIncome: obj?.msg?.GrossTotalIncome,
+        "Legal Name of Business": obj?.msg?.["Legal Name of Business"],
+        NatureOfBusinessActivities: obj?.msg?.NatureOfBusinessActivities,
+        NatureOfCoreBusinessActivity: obj?.msg?.NatureOfCoreBusinessActivity,
+        OtherOffice: obj?.msg?.OtherOffice,
+        PercentageOfTaxPaymentInCash: obj?.msg?.PercentageOfTaxPaymentInCash,
+        "Taxpayer Type": obj?.msg?.["Taxpayer Type"],
+        "Trade Name": obj?.msg?.["Trade Name"],
+        WhetherAadhaarAuthenticated: obj?.msg?.WhetherAadhaarAuthenticated,
+        "WhetherE-KYCVerified": obj?.msg?.["WhetherE-KYCVerified"],
+        field_visit_conducted: obj?.msg?.field_visit_conducted,
+        filingData: obj?.msg?.filingData,
+        goods_n_service: obj?.msg?.goods_n_service,
+        placeOfBusinessData: obj?.msg?.placeOfBusinessData,
+        proprietor_name: obj?.msg?.proprietor_name,
       };
       break;
   }
@@ -321,7 +321,7 @@ const GSTToPANApiCall = async (data, service, TxnID = "") => {
         docType: 47,
         docNumber: data,
       },
-      url: process.env.TRUTHSCREEN_API_URL,
+      url: process.env.TRUTNSCREEN_BUSINESSVERIFICATION_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -347,7 +347,7 @@ const GSTToPANApiCall = async (data, service, TxnID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
-        logger:businessServiceLogger
+        logger: businessServiceLogger,
       });
       console.log(
         "[gst to Pan Api Call] TruthScreen API response:",
@@ -372,9 +372,7 @@ const GSTToPANApiCall = async (data, service, TxnID = "") => {
     typeof obj?.msg === "string" &&
     obj.msg.toLowerCase().includes("no record")
   ) {
-    employmentServiceLogger.info(
-      `[${service}] no record`,
-    );
+    employmentServiceLogger.info(`[${service}] no record`);
     return {
       success: false,
       data: {
@@ -388,17 +386,13 @@ const GSTToPANApiCall = async (data, service, TxnID = "") => {
 
   if (obj?.status !== 1) {
     console.log(`[${service}] Invalid status received → fallback`);
-    console.log(
-      `[${service}] Invalid status received → fallback`,
-    );
+    console.log(`[${service}] Invalid status received → fallback`);
     return { success: false, data: null };
   }
 
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = {
-        gstinNumber: obj?.result?.essentials?.gstin || "",
-      };
+      returnedObj = obj?.msg
       break;
   }
   return {

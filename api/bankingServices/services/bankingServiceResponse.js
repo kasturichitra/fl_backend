@@ -29,7 +29,7 @@ const BankActiveServiceResponse = async (data, services = [], ActiveService, ind
                 break;
         }
 
-        if (res?.success) {
+        if (res?.data) {
             return res.data;
         }
 
@@ -82,6 +82,9 @@ const AdvanceBankApiCall = async (data, service, TxnID) => {
                 payload: config.BodyData,
                 username: config.header.username,
                 password: config.header.token,
+                CID:"",
+                logger:businessServiceLogger
+                
             });
             console.log('[AdvanceBankApiCall] TruthScreen API response:', JSON.stringify(ApiResponse));
 

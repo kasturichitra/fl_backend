@@ -24,6 +24,7 @@ const locationRouter = require("../api/locationServices/routes/locationRoutes.js
 const riskRouter = require("../api/riskServices/routes/riskRoutes.js");
 const faceAndAiRouter = require("../api/FaceAndAiServices/routes/faceRoutes.js");
 const professionalRoute = require("../api/ProfessionalServices/routes/professional.routes.js");
+const gstRouter = require("../api/gstServices/routes/gstServicesRoutes.js");
 
 //Routes
 mainRouter.use("/pan", panRouter);
@@ -33,6 +34,7 @@ mainRouter.use("/aadhaar", aadhaarRouter);
 mainRouter.use("/mobileNumber", otpRouter);
 // mainRouter.use("/email", sendEmail);
 mainRouter.use("/face", faceRouter);
+mainRouter.use("/gst",gstRouter)
 mainRouter.use("/account", accountRouter);
 mainRouter.use("/instant", instantPayRouter);
 mainRouter.use("/common", nameRouter);

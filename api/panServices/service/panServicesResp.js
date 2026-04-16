@@ -584,7 +584,7 @@ const PanDirectorApiCall = async (data, service) => {
         docType: "26",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_API_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
