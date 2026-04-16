@@ -1,12 +1,16 @@
 const { businessServiceLogger } = require("../../Logger/logger");
-const { generateTransactionId } = require("../../truthScreen/callTruthScreen");
+const {
+  generateTransactionId,
+  callTruthScreenAPI,
+} = require("../../truthScreen/callTruthScreen");
 const { default: axios } = require("axios");
 
 const udyamActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  TxnID = ""
+  TxnID = "",
+  CID,
 ) => {
   businessServiceLogger.info("udyamActiveServiceResponse called");
   if (index >= services?.length) {
@@ -20,7 +24,7 @@ const udyamActiveServiceResponse = async (
     businessServiceLogger.info(
       `No service with priority ${index + 1}, trying next`,
     );
-    return udyamActiveServiceResponse(data, services, index + 1, TxnID);
+    return udyamActiveServiceResponse(data, services, index + 1, TxnID, CID);
   }
 
   const serviceName = newService.providerId || "";
@@ -30,7 +34,7 @@ const udyamActiveServiceResponse = async (
   );
 
   try {
-    const res = await udyamApiCall(data, serviceName, TxnID);
+    const res = await udyamApiCall(data, serviceName, TxnID, CID);
 
     if (res?.data) {
       return res.data;
@@ -42,7 +46,7 @@ const udyamActiveServiceResponse = async (
     businessServiceLogger.info(
       `[udyamActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return udyamActiveServiceResponse(data, services, index + 1, TxnID);
+    return udyamActiveServiceResponse(data, services, index + 1, TxnID, CID);
   } catch (err) {
     console.log(
       `[udyamActiveServiceResponse] Error from ${serviceName}:`,
@@ -52,17 +56,17 @@ const udyamActiveServiceResponse = async (
       `[udyamActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return udyamActiveServiceResponse(data, services, index + 1, TxnID);
+    return udyamActiveServiceResponse(data, services, index + 1, TxnID, CID);
   }
 };
 
-const udyamApiCall = async (data, service, TxnID = "") => {
+const udyamApiCall = async (data, service, TxnID = "", CID) => {
   const transID = TxnID || generateTransactionId(12);
 
   const ApiData = {
     INVINCIBLE: {
       BodyData: { udyamNumber: data },
-      url: INVINCIBLE_UDYAM_URL,
+      url: process.env.INVINCIBLE_UDYAM_URL,
       header: {
         accept: "application/json",
         clientId: process.env.INVINCIBLE_CLIENT_ID,
@@ -75,7 +79,11 @@ const udyamApiCall = async (data, service, TxnID = "") => {
         docType: 435,
         udyamNumber: data,
       },
-      url: TRUTNSCREEN_UDYAM_URL,
+      url: process.env.TRUTNSCREEN_UDYAM_URL,
+      header: {
+        username: process.env.TRUTHSCREEN_USERNAME,
+        password: process.env.TRUTHSCREEN_TOKEN,
+      },
     },
   };
 
@@ -97,7 +105,8 @@ const udyamApiCall = async (data, service, TxnID = "") => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.password,
-        logger: businessServiceLogger
+        cld: CID,
+        logger: businessServiceLogger,
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
@@ -109,11 +118,9 @@ const udyamApiCall = async (data, service, TxnID = "") => {
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse.data;
+  const obj = ApiResponse.data || ApiResponse ;
   console.log(
-    `[udyamApiCall] ${service} Response Object:`,
-    JSON.stringify(obj),
-  );
+    `[udyamApiCall] ${service} Response Object:`,ApiResponse);
   businessServiceLogger.info(
     `[udyamApiCall] ${service} Response Object:`,
     JSON.stringify(obj),
@@ -191,63 +198,45 @@ const udyamApiCall = async (data, service, TxnID = "") => {
       };
       break;
     case "TRUTHSCREEN":
-      returnedObj = {
-        udyam: data,
-        "Date of Commencement of Production/Business":
-          obj?.udyamData["Date of Commencement of Production/Business"],
-        "Date of Incorporation": obj?.udyamData["Date of Incorporation"],
-        "Date of Udyam Registration":
-          obj?.udyamData["Date of Udyam Registration"],
-        "MSME-DFO": obj?.udyamData["MSME-DFO"],
-        "Major Activity": obj?.udyamData["Major Activity"],
-        "Name of Enterprise": obj?.udyamData["Name of Enterprise"],
-        "Organisation Type": obj?.udyamData["Organisation Type"],
-        "Social Category": obj?.udyamData["Social Category"],
-        "Enterprise Type": obj?.udyamData["Enterprise Type"]?.map((item) => ({
-          "Classification Date": item["Classification Date"],
-          "Classification Year": item["Classification Year"],
-          "Enterprise Type": item["Enterprise Type"],
-        })),
-        "National Industry Classification Code(S)": obj?.udyamData[
-          "National Industry Classification Code(S)"
-        ]?.map((item) => ({
-          Activity: item["Activity"],
-          Date: item["Date"],
-          "Nic 2 Digit": item["Nic 2 Digit"],
-          "Nic 4 Digit": item["Nic 4 Digit"],
-          "Nic 5 Digit": item["Nic 5 Digit"],
-        })),
-        "Official address of Enterprise": {
-          "Flat/Door/Block No":
-            obj?.udyamData["Official address of Enterprise"]?.[
-              "Flat/Door/Block No"
-            ] || null,
-          "Name of Premises/ Building":
-            obj?.udyamData["Official address of Enterprise"]?.[
-              "Name of Premises/ Building"
-            ] || null,
-          "Village/Town":
-            obj?.udyamData["Official address of Enterprise"]?.[
-              "Village/Town"
-            ] || null,
-          Block:
-            obj?.udyamData["Official address of Enterprise"]?.["Block"] || null,
-          "Road/Street/Lane":
-            obj?.udyamData["Official address of Enterprise"]?.[
-              "Road/Street/Lane"
-            ] || null,
-          City:
-            obj?.udyamData["Official address of Enterprise"]?.["City"] || null,
-          State:
-            obj?.udyamData["Official address of Enterprise"]?.["State"] || null,
-          District:
-            obj?.udyamData["Official address of Enterprise"]?.["District"] ||
-            null,
-          Mobile:
-            obj?.udyamData["Official address of Enterprise"]?.["Mobile"] ||
-            null,
-          Email:
-            obj?.udyamData["Official address of Enterprise"]?.["Email"] || null,
+      if (
+        obj?.status === 0 &&
+        typeof obj?.msg === "string" &&
+        obj.msg.toLowerCase().includes("no record")
+      ) {
+        businessServiceLogger.info(`[${service}] no record`);
+        return {
+          success: false,
+          data: {
+            result: "NoDataFound",
+            message: "NO RECORD FOUND",
+            responseOfService: obj,
+            service,
+          },
+        };
+      }
+
+      if (obj?.status !== 1) {
+        console.log(`[${service}] Invalid status received → fallback`);
+        businessServiceLogger.info(
+          `[${service}] Invalid status received → fallback`,
+        );
+        return { success: false, data: null };
+      }
+      const msg = obj?.msg;
+
+      if (!msg || msg?.STATUS === "INVALID") {
+        return invalidResponse(service, msg);
+      }
+
+      returnedObj = msg;
+
+      return {
+        success: true,
+        data: {
+          result: returnedObj,
+          message: "Valid",
+          responseOfService: msg,
+          service: service,
         },
       };
       break;

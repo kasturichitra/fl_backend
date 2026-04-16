@@ -1,3 +1,4 @@
+const { gstServiceLogger } = require("../../Logger/logger");
 const {
   generateTransactionId,
   callTruthScreenAPI,
@@ -35,6 +36,7 @@ const gstActiveServiceResponse = async (
         res = await ComprehensiveGstApiCall(data, serviceName, client);
         break;
       case "GstAdvanceApiCall":
+        console.log('advance gst details:', data)
         res = await GstAdvanceApiCall(data, serviceName, client);
         break;
     }
@@ -190,15 +192,15 @@ const ComprehensiveGstApiCall = async (data, service, CID) => {
 };
 // ActiveService
 const GstAdvanceApiCall = async (data, service, CID) => {
-  console.log("[CompanySearchApiCall] Triggered with data:", data);
+  console.info("[CompanySearchApiCall] Triggered with data:", data,service,CID);
   const tskId = generateTransactionId(12);
 
   const ApiData = {
     TRUTHSCREEN: {
       BodyData: {
-        transID: tskId,
-        docType: 457, 
-        docNumber: data,
+        trans_id: tskId,
+        doc_type: 457, 
+        doc_number: data,
       },
       url: process.env.TRUTNSCREEN_UAMADDHAARVERIFICATION_URL,
       header: {
@@ -226,6 +228,7 @@ const GstAdvanceApiCall = async (data, service, CID) => {
         username: config.header.username,
         password: config.header.password,
         cId: CID,
+        logger:gstServiceLogger
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {

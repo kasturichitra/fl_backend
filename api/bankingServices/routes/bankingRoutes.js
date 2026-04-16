@@ -3,8 +3,8 @@ const { handleBSAViaNetBanking, AdvanceBankAccountVerification, CibilVerificatio
 
 const bankingRouter = express.Router();
 
-bankingRouter.post("/statement", handleBSAViaNetBanking);
+bankingRouter.post("/statement", handleBSAViaNetBanking); // need to conferm
 bankingRouter.post("/bankAccount/Verify", AdvanceBankAccountVerification);
 bankingRouter.post("/cibil/verify", CibilVerification);
 
-module.exports = bankingRouter;
+module.exports = bankingRouter;

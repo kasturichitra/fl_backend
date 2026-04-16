@@ -4,9 +4,9 @@ const { handleRcVerification, handleStolenVehicleVerification, handleChallanViaR
 const vehicleRouter = express.Router();
 
 vehicleRouter.post("/rcverify", handleRcVerification)
+vehicleRouter.post("/driving_license/verify", handleDrivingLicenseVerification)
 vehicleRouter.post("/register", handleVehicleRegisteration)
 vehicleRouter.post("/stolen_vehicle/verification", handleStolenVehicleVerification)
 vehicleRouter.post("/challan_via_rc", handleChallanViaRc)
-vehicleRouter.post("/driving_license/verify", handleDrivingLicenseVerification)
 
 module.exports = vehicleRouter

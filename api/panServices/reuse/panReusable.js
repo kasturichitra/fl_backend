@@ -186,8 +186,9 @@ async function handlePanVerification({
   transformValidResponse,
   transformInvalidResponse,
 }) {
+  console.log('handle pan verification is triggred')
   const { panNumber, mobileNumber = "" } = req.body;
-  const clientId = req.clientId || "CID-6140971541";
+  const clientId = req.clientId ;
   const txnId = genrateUniqueServiceId();
 
   const capitalPan = reusablePanNumberFieldVerification(panNumber, txnId, res);
@@ -315,6 +316,7 @@ async function handlePanVerification({
       categoryId,
       clientId,
       result: invalidResult,
+      txnId
     });
 
     await model.findOneAndUpdate(

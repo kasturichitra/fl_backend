@@ -576,7 +576,7 @@ const PanDirectorApiCall = async (data, service) => {
         docType: "26",
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_UTILITY_URL,
+      url: process.env.TRUTHSCREEN_API_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -602,6 +602,8 @@ const PanDirectorApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: "",
+        logger: panServiceLogger
       });
       console.log(
         "[pan director api call] TruthScreen API response:",

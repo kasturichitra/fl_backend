@@ -10,7 +10,8 @@ const CATEGORIES = {
   FACE: "FACEAIVERIFICATION",
   BANK: "BANKINGFINANCIAL",
   EMPLOYMENT: "EMPLOYMENTINCOME",
-  OTHER: "OTHERSERVICES"
+  OTHER: "OTHERSERVICES",
+  GSTADVANCE:"GSTSERVICES"
 };
 
 const SERVICES = {
@@ -56,6 +57,10 @@ const SERVICES = {
   ACCOUNT_PENNY_LESS: {
     category: "BANK",
     serviceId: "ACCOUNTPENNYLESS",
+  },
+  ADVANCE_BANKACCOUNT_VERY: {
+    category: "BANK",
+    serviceId: "ADVANCEBANKACCOUNTVERIFICATION",
   },
 
   // geo and location
@@ -123,9 +128,9 @@ const SERVICES = {
     category: "Business",
     serviceId: "DINVERIFICATION",
   },
-  TIN: {
-    category: "GOVERNMENT",
-    serviceId: "TINVERIFICATION",
+  UDYAMNUMBER: {
+    category: "Business",
+    serviceId: "UDYAMVERIFICATION",
   },
   GSTIN: {
     category: "Business",
@@ -146,6 +151,12 @@ const SERVICES = {
   SHOP: {
     category: "Business",
     serviceId: "SHOPESTABLISHMENT",
+  },
+
+  // GST_SERVICES
+  GSTADVANCE:{
+    category: "GSTADVANCE",
+    serviceId: "GSTADVANCEDSEARCH",
   },
 
   // aadhaar services
@@ -207,6 +218,10 @@ const SERVICES = {
     category: "GOVERNMENT",
     serviceId: "MOBILETOUAN",
   },
+  TIN: {
+    category: "GOVERNMENT",
+    serviceId: "TINVERIFICATION",
+  },
   VOTER_ID: {
     category: "GOVERNMENT",
     serviceId: "ADVANCEDMOBILEDATASEARCH",
@@ -248,8 +263,8 @@ const getCategoryIdAndServiceId = (type, TxnID, logger) => {
   if (!service) return { categoryId: "", serviceId: "" };
 
   return {
-    idOfCategory: CATEGORIES[service.category] || "",
-    idOfService: service.serviceId || "",
+    idOfCategory: CATEGORIES[service?.category] || "",
+    idOfService: service?.serviceId || "",
   };
 };
 

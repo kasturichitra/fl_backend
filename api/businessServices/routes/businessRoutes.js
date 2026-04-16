@@ -13,20 +13,22 @@ const { dinVerification, gstinverify, handleCINVerification,
         udyogAadhaarVerification,
         udyogwithPhoneAadhaarVerification} = require("../controller/businessServices.Controller");
 
+businessRouters.post('/Cin/verify', handleCINVerification);
+businessRouters.post('/udyam/verify', udyamNumberVerfication);
+businessRouters.post('/IEC/verify', handleIECVerification);
+businessRouters.post('/cinbased/company/search', CompanSearchVerification);
+businessRouters.post('/companylist/verify', CompanVerification);
 businessRouters.post("/din/verify", dinVerification);
 businessRouters.post('/Gstin/verify', gstinverify);
 businessRouters.post('/Gstintopan/verify', handleGST_INtoPANDetails);
 businessRouters.post('/GstIn/TaxPayer/verify', gstInTaxPayerVerification);
-businessRouters.post('/Gstin/ViewAndTrack/verfiy', gstinViewAndTrack);
-businessRouters.post('/Cin/verify', handleCINVerification);
-businessRouters.post('/companylist/verify', CompanVerification);
-businessRouters.post('/cinbased/company/search', CompanSearchVerification);
-businessRouters.post('/IEC/verify', handleIECVerification);
-businessRouters.post('/udyam/verify', udyamNumberVerfication);
+businessRouters.post('/Gstin/ViewAndTrack/verify', gstinViewAndTrack);
 businessRouters.post('/DGFT/verify', DGFTVerification);
 businessRouters.post('/LEI/verify', LEIVerification);
 businessRouters.post('/udyogAadhaar/verify', udyogAadhaarVerification);
 businessRouters.post('/udyog/phoneAadhaar/verify', udyogwithPhoneAadhaarVerification);
+
+
 businessRouters.post('/shopest/verify', handleCreateShopEstablishment);
 
 module.exports = businessRouters;
