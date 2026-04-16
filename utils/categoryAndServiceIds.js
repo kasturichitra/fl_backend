@@ -11,7 +11,7 @@ const CATEGORIES = {
   BANK: "BANKINGFINANCIAL",
   EMPLOYMENT: "EMPLOYMENTINCOME",
   OTHER: "OTHERSERVICES",
-  GSTADVANCE:"GSTSERVICES"
+  GSTADVANCE: "GSTSERVICES",
 };
 
 const SERVICES = {
@@ -31,6 +31,10 @@ const SERVICES = {
   PAN_NAME_DOB: {
     category: "PAN",
     serviceId: "PANNAMEDOB",
+  },
+  PAN_DIRECTOR: {
+    category: "PAN",
+    serviceId: "PANDIRECTOR",
   },
   PAN_TO_FATHER_NAME: {
     category: "PAN",
@@ -154,7 +158,7 @@ const SERVICES = {
   },
 
   // GST_SERVICES
-  GSTADVANCE:{
+  GSTADVANCE: {
     category: "GSTADVANCE",
     serviceId: "GSTADVANCEDSEARCH",
   },

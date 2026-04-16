@@ -1,3 +1,4 @@
+const { panServiceLogger } = require("../../Logger/logger");
 const { generateTransactionId } = require("../../truthScreen/callTruthScreen")
 const { default: axios } = require("axios");
 
@@ -16,6 +17,7 @@ const PantoAadhaarActiveServiceResponse = async (data, services, index = 0) => {
 
     const serviceName = newService.providerId || "";
     console.log(`[PantoAadhaarActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
+    panServiceLogger.info(`[PantoAadhaarActiveServiceResponse] Trying service with priority ${index + 1}:`, newService);
 
     try {
         const res = await PantoAadhaarApiCall(data, serviceName, 0);

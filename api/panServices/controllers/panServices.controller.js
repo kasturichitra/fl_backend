@@ -109,7 +109,7 @@ exports.verifyPanToDirector = (req, res) =>
   handlePanVerification({
     req,
     res,
-    serviceType: SERVICE_TYPES.PAN_TO_GST_IN,
+    serviceType: SERVICE_TYPES.PAN_DIRECTOR,
     model: panDirectorModel,
     activeServiceFn: PANDirectorActiveServiceResponse,
     transformValidResponse: (result, encryptedPan) => ({

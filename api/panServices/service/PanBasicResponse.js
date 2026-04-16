@@ -138,6 +138,7 @@ const PanApiCall = async (data, service, CID = "") => {
         username: config.header.username,
         password: config.header.token,
         cId: CID,
+        logger: panServiceLogger
       });
     } else {
       ApiResponse = await axios.post(config.url, config.BodyData, {
