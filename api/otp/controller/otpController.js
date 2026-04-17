@@ -9,6 +9,9 @@ const { contactServiceLogger } = require("../../Logger/logger");
 const handleValidation = require("../../../utils/lengthCheck");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
+const genrateUniqueServiceId = require("../../../utils/genrateUniqueId");
+const checkingRateLimit = require("../../../utils/checkingRateLimit");
+const { deductCredits } = require("../../../services/CreditService");
 
 dotenv.config();
 
@@ -173,6 +176,7 @@ const mobileOtpGeneration = async (req, res, next) => {
       categoryId,
       clientId: storingClient,
       req,
+      TxnID:tnId,
       logger: contactServiceLogger,
     });
 
