@@ -14,9 +14,9 @@ const Gstin_pandetails = new mongoose.Schema(
     status: {
       type: Number,
     },
-    result: { type: Object },
+    response: { type: Object },
     message: { type: String },
-    responseOfService: { type: Object },
+    serviceResponse: { type: Object },
     service: { type: String },
   },
   {

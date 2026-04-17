@@ -9,6 +9,7 @@ const { contactServiceLogger } = require("../../Logger/logger");
 const handleValidation = require("../../../utils/lengthCheck");
 const { hashIdentifiers } = require("../../../utils/hashIdentifier");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
+const checkingRateLimit = require("../../../utils/checkingRateLimit");
 
 dotenv.config();
 
@@ -82,9 +83,9 @@ const verifyMobileOtp = async (req, res, next) => {
 };
 
 // step 2
-const handleOTPSend = async (mobileNumber, res, storingClient, next) => {
+const handleOTPSend = async (mobileNumber, res, req, storingClient, serviceId, categoryId, tnId, next) => {
   console.log("handle otp send is Triggred");
-  const service = await selectService("SMSOTP");
+  const service = await selectService(categoryId, serviceId, tnId, req, contactServiceLogger);
   console.log("handle Otp Send is called ===>", service);
   try {
     // Generate OTP and message
@@ -172,6 +173,7 @@ const mobileOtpGeneration = async (req, res, next) => {
       serviceId,
       categoryId,
       clientId: storingClient,
+      TxnID: tnId,
       req,
       logger: contactServiceLogger,
     });
@@ -197,7 +199,7 @@ const mobileOtpGeneration = async (req, res, next) => {
 
     if (!maintainanceResponse?.result) {
       contactServiceLogger.info(
-        `Credit deduction failed for PAN verification: client ${storingClient}, txnId ${tnId}`,
+        `Credit deduction failed for mobile otp verification: client ${storingClient}, txnId ${tnId}`,
       );
       return res.status(500).json({
         success: false,
@@ -205,7 +207,7 @@ const mobileOtpGeneration = async (req, res, next) => {
         response: {},
       });
     }
-    await handleOTPSend(mobileNumber, res, storingClient, next);
+    await handleOTPSend(mobileNumber, res, req, storingClient, serviceId, categoryId, tnId, next);
   } catch (err) {
     return next(ERROR_CODES?.SERVER_ERROR);
   }
