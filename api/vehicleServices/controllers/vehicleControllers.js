@@ -995,11 +995,7 @@ exports.handleChallanViaRc = async (req, res) => {
 
 exports.handleDrivingLicenseVerification = async (req, res) => {
   const data = req.body;
-  const {
-    licenseNo,
-    DateOfBirth,
-    mobileNumber = ""
-  } = data;
+  const {licenseNo,DateOfBirth,mobileNumber = ""} = data;
   const capitalLicenseNumber = licenseNo?.toUpperCase();
   const storingClient = req.clientId;
   // Always generate txnId
