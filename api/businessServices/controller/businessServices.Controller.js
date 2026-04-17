@@ -793,6 +793,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
       serviceId,
       categoryId,
       'success',
+      TxnID,
       businessServiceLogger
     );
     if (!analyticsResult.success) {
@@ -849,7 +850,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
     }
 
     //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
-    const service = await selectService(categoryId, serviceId, clientId, req, businessServiceLogger);
+    const service = await selectService(categoryId, serviceId,TxnID, req, businessServiceLogger);
 
     if (!service.length) {
       businessServiceLogger.warn(
