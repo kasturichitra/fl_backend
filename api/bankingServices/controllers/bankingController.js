@@ -382,7 +382,7 @@ exports.AdvanceBankAccountVerification = async (req, res) => {
         const dataToShow = existingAdvanceBank?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -642,7 +642,7 @@ exports.CibilVerification = async (req, res) => {
         const dataToShow = existingCibl?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 

@@ -162,7 +162,7 @@ exports.dinVerification = async (req, res) => {
         const dataToShow = existingDin?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -391,7 +391,7 @@ exports.gstinverify = async (req, res, next) => {
         const dataToShow = existingGstin?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -626,7 +626,7 @@ exports.handleGST_INtoPANDetails = async (req, res, next) => {
         const dataToShow = existingGstin?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -844,7 +844,7 @@ exports.gstInTaxPayerVerification = async (req, res) => {
         const dataToShow = existingGstin?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -1073,7 +1073,7 @@ exports.gstinViewAndTrack = async (req, res) => {
         const dataToShow = existingGstin?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -1311,7 +1311,7 @@ exports.handleCINVerification = async (req, res, next) => {
         const dataToShow = existingCIN?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -1550,7 +1550,7 @@ exports.CompanVerification = async (req, res, next) => {
         const dataToShow = existingCompanyName?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -1794,7 +1794,7 @@ exports.CompanSearchVerification = async (req, res, next) => {
         const dataToShow = existingCompanyName?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -2027,7 +2027,7 @@ exports.handleIECVerification = async (req, res) => {
         const dataToShow = existingIEC?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     };
 
@@ -2521,7 +2521,7 @@ exports.DGFTVerification = async (req, res) => {
         const dataToShow = existingDGFT?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -2760,7 +2760,7 @@ exports.LEIVerification = async (req, res) => {
         const dataToShow = existingLEI?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -3000,7 +3000,7 @@ exports.udyogAadhaarVerification = async (req, res) => {
         const dataToShow = existingUAM?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -3240,7 +3240,7 @@ exports.udyogwithPhoneAadhaarVerification = async (req, res) => {
         const dataToShow = existingUAM?.response;
         return res
           .status(404)
-          .json(createApiResponse(404, dataToShow, "inValid"));
+          .json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -3477,7 +3477,7 @@ exports.handleCreateShopEstablishment = async (req, res, next) => {
         });
         return res
           .status(404)
-          .json(createApiResponse(404, existingDetails?.response, "inValid"));
+          .json(createApiResponse(404, existingDetails?.response, "Invalid"));
       }
     }
 
