@@ -109,6 +109,7 @@ async function handleMobileVerification({
         serviceId: idOfService,
         categoryId: idOfCategory,
         clientId,
+        TxnID: txnId,
         result: existing.status === 1 ? existing?.response : { mobileNumber },
         createdTime,
         createdDate,
@@ -118,7 +119,7 @@ async function handleMobileVerification({
         .json(
           createApiResponse(
             existing.status === 1 ? 200 : 404,
-            { mobileNumber },
+            existing.status === 1 ? existing?.response : { mobileNumber },
             existing.status === 1 ? "Valid" : "Invalid",
           ),
         );

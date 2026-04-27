@@ -31,7 +31,7 @@ const vehicleRcVerificationServiceResponse = async (
   );
 
   try {
-    const res = await rcVerificationApiCall(data, serviceName, 0);
+    const res = await rcVerificationApiCall(data, serviceName, client);
 
     if (res?.data) {
       return res.data;
@@ -52,7 +52,7 @@ const vehicleRcVerificationServiceResponse = async (
     return vehicleRcVerificationServiceResponse(data, services, index + 1);
   }
 };
-const rcVerificationApiCall = async (data, service) => {
+const rcVerificationApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -88,6 +88,8 @@ const rcVerificationApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: vehicleServiceLogger
       });
       console.log(
         "[vehicle rc verification] TruthScreen API response:",
@@ -215,6 +217,8 @@ const stolenVehicleVerificationApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: vehicleServiceLogger
       });
       console.log(
         "[stolen vehicle verification] TruthScreen API response:",
@@ -267,7 +271,7 @@ const stolenVehicleVerificationApiCall = async (data, service) => {
   };
 };
 
-const challanViaRcServiceResponse = async (data, services = [], index = 0) => {
+const challanViaRcServiceResponse = async (data, services = [], index = 0, client) => {
   console.log("challanViaRcServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
@@ -287,7 +291,7 @@ const challanViaRcServiceResponse = async (data, services = [], index = 0) => {
   );
 
   try {
-    const res = await challanViaRcApiCall(data, serviceName, 0);
+    const res = await challanViaRcApiCall(data, serviceName, client);
 
     if (res?.data) {
       return res.data;
@@ -305,7 +309,7 @@ const challanViaRcServiceResponse = async (data, services = [], index = 0) => {
     return challanViaRcServiceResponse(data, services, index + 1);
   }
 };
-const challanViaRcApiCall = async (data, service) => {
+const challanViaRcApiCall = async (data, service, CID) => {
   const tskId = generateTransactionId(12);
 
   const ApiData = {
@@ -341,6 +345,8 @@ const challanViaRcApiCall = async (data, service) => {
         payload: config.BodyData,
         username: config.header.username,
         password: config.header.token,
+        cId: CID,
+        logger: vehicleServiceLogger
       });
       console.log(
         "[challan via rc api call] TruthScreen API response:",

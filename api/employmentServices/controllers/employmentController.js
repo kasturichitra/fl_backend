@@ -207,11 +207,6 @@ exports.handleBasicUanVerify = async (req, res) => {
     const isNoRecord = message === "NO RECORD FOUND";
     const isInvalid = !isValid && !isNoRecord;
 
-    const constructedData = {
-      uan: encryptedUan,
-      result: uanNumberResponse?.result,
-    };
-
     // Common responseModel create
     await responseModel.create({
       serviceId,
@@ -219,7 +214,7 @@ exports.handleBasicUanVerify = async (req, res) => {
       clientId: storingClient,
       TxnID: tnId,
       result: isValid
-        ? constructedData
+        ? uanNumberResponse?.result
         : isNoRecord
           ? { uanNumber, message: "No Record Found" }
           : { uanNumber },
@@ -231,7 +226,7 @@ exports.handleBasicUanVerify = async (req, res) => {
     const storingData = {
       uanNumber: encryptedUan,
       userName: isValid ? uanNumberResponse?.result?.Name : "",
-      response: isValid ? constructedData : { uanNumber },
+      response: isValid ? uanNumberResponse?.result : { uanNumber },
       serviceResponse: uanNumberResponse?.responseOfService,
       status: isValid ? 1 : isNoRecord ? 3 : 2, // 1=valid, 2=invalid, 3=no record
       ...(mobileNumber && { mobileNumber }),
@@ -255,7 +250,7 @@ exports.handleBasicUanVerify = async (req, res) => {
 
       return res
         .status(200)
-        .json(createApiResponse(200, constructedData, "Valid"));
+        .json(createApiResponse(200, uanNumberResponse?.result, "Valid"));
     }
 
     if (isNoRecord) {

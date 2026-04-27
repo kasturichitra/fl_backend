@@ -4,7 +4,12 @@ const {
   generateTransactionId,
 } = require("../../truthScreen/callTruthScreen");
 
-const PANDobActiveServiceResponse = async (data, services = [], index = 0, client) => {
+const PANDobActiveServiceResponse = async (
+  data,
+  services = [],
+  index = 0,
+  client,
+) => {
   console.log("PANDobActiveServiceResponse called");
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
@@ -51,8 +56,8 @@ const panDobApiCall = async (data, service) => {
         transID: tskId,
         docType: "359",
         panNumber: data?.panNumber,
-        fullName: data?.nameToMatch,
-        dob: data?.dateOfBirth
+        fullName: data?.fullName,
+        dob: data?.dateOfBirth,
       },
       url: process.env.TRUTNSCREEN_PAN_DOB_URL,
       header: {
@@ -81,7 +86,7 @@ const panDobApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[PanApiCall] TruthScreen API response:",
@@ -101,41 +106,40 @@ const panDobApiCall = async (data, service) => {
 
   let returnedObj = {};
 
-  if (obj.status != "1") {
+  if (obj.status == 0) {
     return {
       success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
-      },
+      data: null,
     };
   }
 
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = {
-        ...(obj?.msg || ""),
-      };
+      if (obj?.status == 1) {
+        return {
+          success: true,
+          data: {
+            result: returnedObj,
+            message: "Valid",
+            responseOfService: obj?.msg,
+            service: service,
+          },
+        };
+      } else {
+        return {
+          success: false,
+          data: null,
+        };
+      }
       break;
   }
-  return {
-    success: true,
-    data: {
-      result: returnedObj,
-      message: "Valid",
-      responseOfService: obj?.msg,
-      service: service,
-    },
-  };
 };
 
 const PANNameMatchActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("PANNameMatchActiveServiceResponse called");
   if (index >= services?.length) {
@@ -212,7 +216,7 @@ const panNameApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan name match api call] TruthScreen API response:",
@@ -269,7 +273,7 @@ const PANtoGSTActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("PANtoGSTActiveServiceResponse called");
   if (index >= services?.length) {
@@ -345,7 +349,7 @@ const PanToGstApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan to gst api call] TruthScreen API response:",
@@ -402,7 +406,7 @@ const PANtoGST_InActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("PANtoGST_InActiveServiceResponse called");
   if (index >= services?.length) {
@@ -451,7 +455,7 @@ const PanToGst_inApiCall = async (data, service) => {
         docType: 64,
         docNumber: data,
       },
-      url: process.env.TRUTNSCREEN_ID_SEARCH_URL,
+      url: process.env.TRUTHSCREEN_ID_SEARCH_URL,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -478,7 +482,7 @@ const PanToGst_inApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan to gst api call] TruthScreen API response:",
@@ -535,7 +539,7 @@ const PANDirectorActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("PANDirectorActiveServiceResponse called");
   if (index >= services?.length) {
@@ -611,7 +615,7 @@ const PanDirectorApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -676,7 +680,7 @@ const PANToFatherNameActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("PANToFatherNameActiveServiceResponse called");
   if (index >= services?.length) {
@@ -752,7 +756,7 @@ const PanToFatherNameApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -798,7 +802,7 @@ const PanToFatherNameApiCall = async (data, service) => {
   switch (service) {
     case "TRUTHSCREEN":
       returnedObj = {
-        ...(obj?.msg || ""),
+        ...(obj?.msg?.data || ""),
       };
       break;
   }
@@ -817,7 +821,7 @@ const panTanActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("panTanActiveServiceResponse called");
   if (index >= services?.length) {
@@ -893,7 +897,7 @@ const panTanVerificationApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -905,10 +909,7 @@ const panTanVerificationApiCall = async (data, service) => {
       );
     }
   } catch (error) {
-    console.log(
-      `[pan tan api call] API Error in ${service}:`,
-      error.message,
-    );
+    console.log(`[pan tan api call] API Error in ${service}:`, error.message);
     return { success: false, data: null }; // fallback trigger
   }
 
@@ -958,7 +959,7 @@ const PANItdStatusOtpGenerateActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("PANItdStatusOtpGenerateActiveServiceResponse called");
   if (index >= services?.length) {
@@ -969,7 +970,11 @@ const PANItdStatusOtpGenerateActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return PANItdStatusOtpGenerateActiveServiceResponse(data, services, index + 1);
+    return PANItdStatusOtpGenerateActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   }
 
   const serviceName = newService.providerId || "";
@@ -988,13 +993,21 @@ const PANItdStatusOtpGenerateActiveServiceResponse = async (
     console.log(
       `[PANItdStatusOtpGenerateActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return PANItdStatusOtpGenerateActiveServiceResponse(data, services, index + 1);
+    return PANItdStatusOtpGenerateActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   } catch (err) {
     console.log(
       `[PANItdStatusOtpGenerateActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return PANItdStatusOtpGenerateActiveServiceResponse(data, services, index + 1);
+    return PANItdStatusOtpGenerateActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   }
 };
 const PanItdStatusOtpGenerateApiCall = async (data, service) => {
@@ -1034,7 +1047,7 @@ const PanItdStatusOtpGenerateApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -1099,7 +1112,7 @@ const PANItdStatusOtpValidateActiveServiceResponse = async (
   data,
   services = [],
   index = 0,
-  client
+  client,
 ) => {
   console.log("PANItdStatusOtpValidateActiveServiceResponse called");
   if (index >= services?.length) {
@@ -1110,7 +1123,11 @@ const PANItdStatusOtpValidateActiveServiceResponse = async (
 
   if (!newService) {
     console.log(`No service with priority ${index + 1}, trying next`);
-    return PANItdStatusOtpValidateActiveServiceResponse(data, services, index + 1);
+    return PANItdStatusOtpValidateActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   }
 
   const serviceName = newService.providerId || "";
@@ -1129,13 +1146,21 @@ const PANItdStatusOtpValidateActiveServiceResponse = async (
     console.log(
       `[PANItdStatusOtpValidateActiveServiceResponse] ${serviceName} responded failure. Data: ${JSON.stringify(res)} → trying next service`,
     );
-    return PANItdStatusOtpValidateActiveServiceResponse(data, services, index + 1);
+    return PANItdStatusOtpValidateActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   } catch (err) {
     console.log(
       `[PANItdStatusOtpValidateActiveServiceResponse] Error from ${serviceName}:`,
       err.message,
     );
-    return PANItdStatusOtpValidateActiveServiceResponse(data, services, index + 1);
+    return PANItdStatusOtpValidateActiveServiceResponse(
+      data,
+      services,
+      index + 1,
+    );
   }
 };
 const PanItdStatusOtpValidateApiCall = async (data, service) => {
@@ -1147,7 +1172,7 @@ const PanItdStatusOtpValidateApiCall = async (data, service) => {
         transID: tskId,
         docType: "349",
         docNumber: data,
-        otp: data?.otp
+        otp: data?.otp,
       },
       url: process.env.TRUTNSCREEN_PAN_ITD_STATUS_OTP_VERIFY_URL,
       header: {
@@ -1176,7 +1201,7 @@ const PanItdStatusOtpValidateApiCall = async (data, service) => {
         username: config.header.username,
         password: config.header.token,
         cId: "",
-        logger: panServiceLogger
+        logger: panServiceLogger,
       });
       console.log(
         "[pan director api call] TruthScreen API response:",
@@ -1246,5 +1271,5 @@ module.exports = {
   PANToFatherNameActiveServiceResponse,
   panTanActiveServiceResponse,
   PANItdStatusOtpGenerateActiveServiceResponse,
-  PANItdStatusOtpValidateActiveServiceResponse
+  PANItdStatusOtpValidateActiveServiceResponse,
 };
