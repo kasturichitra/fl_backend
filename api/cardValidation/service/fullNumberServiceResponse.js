@@ -8,7 +8,7 @@ const fullNumberServiceResponse = async (
   clientId,
 ) => {
   console.log("fullNumberServiceResponse called");
-  if (index >= services.length) {
+  if (index > services.length) {
     return { success: false, message: "All services failed" };
   }
 
@@ -141,37 +141,7 @@ const FullNumberApiCall = async (data, service) => {
     return {
       success: true,
       data: {
-        result: {
-          cardNumber: obj?.card_number || "",
-          is_Valid: obj?.is_valid,
-          Brand: obj?.issuer_info?.Brand || "",
-          Type: obj?.issuer_info?.Type || "",
-          Category:
-            obj?.issuer_info?.Category || obj?.brand?.split(" ")[1] || "",
-          CountryName: obj?.issuer_info?.CountryName || obj?.country || "",
-          Issuer: obj?.issuer_info?.Issuer || "",
-        },
-        message: "Valid",
-        responseOfService: obj,
-        service,
-      },
-    };
-  }
-
-  if (service === "INVINCIBLE") {
-    if (!obj?.result?.is_verified) return invalidResponse(service, obj);
-    return {
-      success: true,
-      data: {
-        result: {
-          cardNumber: obj?.result?.card || "",
-          is_Verified: obj?.result?.is_verified,
-          Brand: obj?.result?.brand || obj?.result?.provider || "",
-          Type: obj?.result?.type || "",
-          Category: obj?.result?.brand?.split(" ")[1] || "",
-          CountryName: obj?.result?.country || "",
-          Issuer: "",
-        },
+        result: obj,
         message: "Valid",
         responseOfService: obj,
         service,
