@@ -146,7 +146,7 @@ async function callTruthScreenAPI({
   username,
   password,
   cId = "",
-  logger = "" 
+  logger = "",
 }) {
   // displaying password in logs is bad practice, removing it.
   logger.info(
@@ -225,7 +225,7 @@ async function callTruthScreenAPIForImage({
   username,
   password,
   cId = "",
-  logger = ""
+  logger = "",
 }) {
   // displaying password in logs is bad practice, removing it.
   commonLogger.info(
@@ -307,6 +307,106 @@ async function callTruthScreenAPIForImage({
         );
       }
     }
+    throw new Error(
+      `TruthScreen request failed: ${JSON.stringify(error?.response?.data || error.message)}`,
+    );
+  }
+}
+
+async function callTruthScreenAPIForFaceMatch({
+  url,
+  payload,
+  image,
+  document,
+  username,
+  password,
+  cId = "cid4587798",
+  logger = "",
+}) {
+  commonLogger.info(
+    `Details for the request with client: ${cId} url: ${url} payload: ${JSON.stringify(payload)} username: ${username} ===>>`,
+  );
+
+  const form = new FormData();
+   const encryptedPayload = await encryptData(payload?.secretToken, username);
+
+  try {
+    // ✅ Validate FIRST
+    if (!image) throw new Error("Image is missing from request");
+    if (!document) throw new Error("Document is missing from request");
+
+    const encryptedData = encrypt(JSON.stringify(payload), password);
+
+    commonLogger.info(
+      `encryptedData: ${JSON.stringify(payload)} in truthscreen for this client: ${cId}`,
+    );
+
+    // ✅ Match CURL EXACTLY
+    form.append("tsTransID", payload.transID);
+    form.append("secretToken", encryptedPayload);
+
+    form.append("image", image.buffer, {
+      filename: image.originalname,
+      contentType: image.mimetype,
+    });
+
+    form.append("document", document.buffer, {
+      filename: document.originalname,
+      contentType: document.mimetype,
+    });
+
+    commonLogger.info(
+      `FormData prepared successfully for client: ${cId} ====>>>`,
+    );
+
+    const response = await axios.post(url, form, {
+      headers: {
+        ...form.getHeaders(),
+        username,
+        password,
+      },
+    });
+
+    commonLogger.info(`HTTP Status: ${response?.status}`);
+    commonLogger.info(
+      `response in truth screen ====>>> ${JSON.stringify(response?.data)} for this client ${cId}`,
+    );
+
+    const encryptedResponseData =
+      response?.data?.responseData || response?.data;
+
+    if (!encryptedResponseData || typeof encryptedResponseData !== "string") {
+      throw new Error(
+        "Invalid or missing encrypted responseData from TruthScreen",
+      );
+    }
+
+    const decrypted = decrypt(encryptedResponseData, password);
+    commonLogger.info(`decrypted in truth screen ====>>> ${decrypted}`);
+
+    return JSON.parse(decrypted);
+  } catch (error) {
+    console.log("error in truthscreen error?.message===>>", error?.message);
+    console.log(
+      "error in truthscreen error?.response?.data===>>",
+      error?.response?.data,
+    );
+
+    commonLogger.error(
+      `TruthScreen API Error: ${JSON.stringify(error?.response?.data)} ${JSON.stringify(error.message)}`,
+    );
+
+    if (error?.response?.data?.responseData) {
+      try {
+        const decrypted = decrypt(error.response.data.responseData, password);
+        commonLogger.error(`decrypted in error: ${decrypted}`);
+      } catch (decryptionErr) {
+        commonLogger.error(
+          `Decryption failed for error response: ${decryptionErr.message}`,
+        );
+      }
+    }
+
     throw new Error(
       `TruthScreen request failed: ${JSON.stringify(error?.response?.data || error.message)}`,
     );
@@ -420,9 +520,7 @@ async function performFaceVerificationEncrypted({
 
   const encryptedPayload = await encryptData(secretToken, username);
 
-  commonLogger.info(
-    `encryptedPayload in face -------->>> ${encryptedPayload}`,
-  );
+  commonLogger.info(`encryptedPayload in face -------->>> ${encryptedPayload}`);
 
   const form = new FormData();
   form.append("tsTransID", tsTransID);
@@ -493,4 +591,5 @@ module.exports = {
   callTruthScreen,
   callTruthScreenAPIForImage,
   generateTransactionId,
+  callTruthScreenAPIForFaceMatch,
 };

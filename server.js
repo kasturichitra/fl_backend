@@ -76,8 +76,8 @@ app.use("/kyc/client", ...serverSkippedMiddleware, mainRoutes); // SERVER TO SER
 app.use("/kyc/api/v1/client", ...clientMiddleware, mainRoutes); // FRONTEND TO SERVER
 
 // ================== FOR TruthScreen Testing ==================
-app.post("/kyc/api/v1/TruthScreen/Encryption", encryptresponseData);
-app.post("/kyc/api/v1/TruthScreen/Decryption", DecryptTruthScreenResponse);
+app.post("/kyc/TruthScreen/Encryption", encryptresponseData);
+app.post("/kyc/TruthScreen/Decryption", DecryptTruthScreenResponse);
 
 app.use(exceptionHandling.GlobalExceptionHandling);
 

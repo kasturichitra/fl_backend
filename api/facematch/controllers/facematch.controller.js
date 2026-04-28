@@ -19,6 +19,8 @@ const {
 const { generateTransactionId } = require("../../../utils/helper");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
 const checkingRateLimit = require("../../../utils/checkingRateLimit");
+const { FaceMatchActiveServiceResponse } = require("../services/fatchMatch");
+const { deductCredits } = require("../../../services/CreditService");
 
 const convertImageToBase64 = async (url) => {
   try {
@@ -165,112 +167,337 @@ const convertImageToBase64 = async (url) => {
 // };
 
 exports.faceMatchVerification = async (req, res) => {
-  const { userImage, aadhaarImage } = req.body;
-  console.log("----active service for FACEMATCH Verify is ----", service);
-  faceServiceLogger.info(
-    `----active service for FACEMATCH Verify is ----, ${service}`,
-  );
-  const storingClient = req.clientId || "";
-  const tnId = genrateUniqueServiceId();
-  faceServiceLogger.info(`face match service txn Id ${tnId} ===>>`);
+  const userImage = req?.files?.userImages?.[0];
+  const aadhaarImage = req?.files?.aadhaarImages?.[0];
+  // const {userImage, aadhaarImage} = req?.files;
+  console.log("req.files ===>", req.files);
+  const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
+  faceServiceLogger.info(`face match service txn Id ${TxnID} ===>>`);
 
-  if (!userImage || !aadhaarImage) {
-    return res.status(400).json({
-      ...ERROR_CODES?.BAD_REQUEST,
-      response: "Images are missing",
-    });
-  }
-
-  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "FACE_MATCH",
-    storingClient,
-    faceServiceLogger,
-  );
-  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
-
-  const categoryId = idOfCategory;
-  const serviceId = idOfService;
-
-  const identifierHash = hashIdentifiers(
-    {
-      user: userImage?.slice(0, 10),
-      aadhaar: aadhaarImage?.slice(0, 10),
-    },
-    faceServiceLogger,
-  );
-
-  const faceRateLimitResult = await checkingRateLimit({
-    identifiers: { identifierHash },
-    serviceId,
-    categoryId,
-    clientId: storingClient,
-    req,
-    TxnID: tnId,
-    logger: faceServiceLogger
-  });
-
-  if (!faceRateLimitResult.allowed) {
-    return res.status(429).json({
-      success: false,
-      message: faceRateLimitResult.message,
-    });
-  }
-
-  const maintainanceResponse = await deductCredits(
-    storingClient,
-    serviceId,
-    categoryId,
-    tnId,
-    req,
-    faceServiceLogger,
-  );
-
-  if (!maintainanceResponse?.result) {
-    return res.status(500).json({
-      success: false,
-      message: "Invalid",
-      response: {},
-    });
-  }
-
-  const service = await selectService(
-    categoryId,
-    serviceId,
-    tnId,
-    req,
-    faceServiceLogger
-  );
-
-  if (!service.length) {
-    return res.status(503).json({ error: "No service available" });
-  }
+  faceServiceLogger.info(`TxnID:${TxnID}, FACE MATCH Details`);
   try {
-    console.log("FACEMATCH inverify activer service", service?.serviceFor);
+    const { idOfCategory: categoryId, idOfService: serviceId } =
+      getCategoryIdAndServiceId("FACE_MATCH", TxnID, faceServiceLogger);
+    console.log("idOfService and idOfCategory ====>>", categoryId, serviceId);
+
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      TxnID,
+      req,
+      faceServiceLogger,
+    );
+
+    if (!maintainanceResponse?.result) {
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
+
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      TxnID,
+      req,
+      faceServiceLogger,
+    );
+
+    if (!service.length) {
+      return res.status(503).json({ error: "No service available" });
+    }
+
+    console.log("FACEMATCH inverify activer service", service);
     const dataTosend = {
       userImage,
       aadhaarImage,
     };
-    let response;
-    switch (service?.serviceFor) {
-      case "ZOOP":
-        response = await zoop.faceMatch(dataTosend, service);
-        break;
-      case "INVINCIBLE":
-        response = await invincible.faceMatch(dataTosend, service);
-        break;
-      case "TRUTHSCREEN":
-        response = await truthscreen.faceMatch(dataTosend, service);
-        break;
-      default:
-        throw new Error(`Unsupported FACEMATCH service`);
-    }
-    console.log("facematch verify response ===>", JSON.stringify(response));
-    // Update in DB
+    let response = await FaceMatchActiveServiceResponse(
+      dataTosend,
+      service,
+      (index = 0),
+      TxnID,
+    );
+    console.log(
+      "Face match verification is activer service response message:",
+      response,
+    );
+
     return res
       .status(200)
-      .json({ message: "Success", data: response?.result, success: true });
+      .json({
+        message: "Success",
+        data: {
+          is_match: response?.result?.is_match,
+          match_score: response?.result?.match_score,
+        },
+        success: true,
+      });
   } catch (error) {
     console.log("Error While FaceMatchVerification", error);
     return res.status(500).json(ERROR_CODES?.SERVER_ERROR);
+  }
+};
+
+exports.dinVerification = async (req, res) => {
+  const { dinNumber, mobileNumber = "" } = req.body;
+  const clientId = req.clientId;
+  const TxnID = await generateTransactionId(12);
+
+  if (!dinNumber) {
+    return res.status(400).json(ERROR_CODES?.BAD_REQUEST);
+  }
+  businessServiceLogger.info(
+    `TxnID:${TxnID}, DIN NUMBER Details: ${dinNumber}`,
+  );
+  try {
+    const { idOfCategory: categoryId, idOfService: serviceId } =
+      await getCategoryIdAndServiceId("DIN", TxnID, businessServiceLogger);
+
+    const isValid = handleValidation(
+      "din",
+      dinNumber,
+      res,
+      TxnID,
+      businessServiceLogger,
+    );
+    if (!isValid) return;
+
+    businessServiceLogger.info(
+      `TxnID:${TxnID}, Executing DIN verification for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`,
+    );
+
+    //1. HASH DIN NUMBER
+    const indetifierHash = hashIdentifiers(
+      {
+        dinNo: dinNumber,
+      },
+      businessServiceLogger,
+    );
+
+    //2. CHECK THE RATE LIMIT AND IS PRODUCT IS SUBSCRIBE
+    const dinRateLimitResult = await checkingRateLimit({
+      identifiers: { indetifierHash },
+      serviceId,
+      categoryId,
+      clientId,
+      req,
+      TxnID,
+      logger: businessServiceLogger,
+    });
+
+    if (!dinRateLimitResult.allowed) {
+      businessServiceLogger.info(
+        `[FAILED]: Rate limit exceeded for DIN verification TxnID:${TxnID}, client ${clientId}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: dinRateLimitResult.message,
+      });
+    }
+    businessServiceLogger.info(`Generated DIN txnId: ${TxnID}`);
+
+    // 3. DEBIT THE WALLET AMOUNT BASED ON USEAGE
+    const maintainanceResponse = await deductCredits(
+      clientId,
+      serviceId,
+      categoryId,
+      TxnID,
+      req,
+      businessServiceLogger,
+    );
+
+    if (!maintainanceResponse?.result) {
+      businessServiceLogger.info(
+        `[FAILED]: Credit deduction failed for DIN verification: client ${clientId}, txnId ${TxnID}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "InValid",
+        response: {},
+      });
+    }
+
+    // 4. CHECK IN THE DB IS DATA PRESENT
+    const encryptedDin = encryptData(dinNumber);
+
+    const existingDin = await din_verifyModel.findOne({
+      dinNumber: encryptedDin,
+    });
+
+    // 5. UPDATE TO THE ANALYTICS COLLECTION
+    const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "success",
+      TxnID,
+      businessServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      businessServiceLogger.info(
+        `[FAILED]: Analytics update failed for DIN verification txnId: ${TxnID}, client ${clientId}, service ${serviceId}`,
+      );
+    }
+
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Checked for existing DIN record in DB: ${existingDin ? "Found" : "Not Found"}`,
+    );
+
+    // 6. IF DATA IS PRESENT THEN RETURN THE RESPONSE
+    if (existingDin) {
+      if (existingDin?.status == 1) {
+        businessServiceLogger.info(
+          `txnId: ${TxnID}, Returning cached DIN response for client: ${clientId}`,
+        );
+
+        const decrypted = {
+          ...existingDin?.response,
+          dinNumber: dinNumber,
+        };
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          TxnID,
+          clientId,
+          result: existingDin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = decrypted;
+        return res
+          .status(200)
+          .json(createApiResponse(200, dataToShow, "Valid"));
+      } else {
+        businessServiceLogger.info(
+          `txnId: ${TxnID}, Returning cached din response for client: ${clientId}`,
+        );
+        await responseModel.create({
+          serviceId,
+          categoryId,
+          TxnID,
+          clientId,
+          result: existingDin?.response,
+          createdTime: new Date().toLocaleTimeString(),
+          createdDate: new Date().toLocaleDateString(),
+        });
+        const dataToShow = existingDin?.response;
+        return res
+          .status(404)
+          .json(createApiResponse(404, dataToShow, "inValid"));
+      }
+    }
+
+    //7. IF NOT DATA FOUND THEN CALL TO SERVICE PROVIDERS
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      TxnID,
+      req,
+      businessServiceLogger,
+    );
+    if (!service.length) {
+      businessServiceLogger.info(
+        `[FAILED]: Active service not found for DIN category txnId: ${TxnID}, ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Active service selected for DIN verification: ${service}`,
+    );
+
+    // 8. CALL TO SERVICE PROVIDERS AND GET RESPONSE
+    let response = await DinActiveServiceResponse(dinNumber, service, 0, TxnID);
+
+    businessServiceLogger.info(
+      `txnId: ${TxnID}, Active service selected for DINverification service ${response.service}: ${response?.message}`,
+    );
+
+    // 9. IF RESPONSE IS VALID THEN UPDATE TO THE DB AND SEND RESPONSE
+    if (response?.message?.toUpperCase() == "VALID") {
+      const encryptedResponse = {
+        ...response?.result,
+        dinNumber: encryptedDin,
+      };
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        TxnID,
+        clientId,
+        result: response?.result,
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 1,
+        dinNumber: encryptedDin,
+        response: encryptedResponse,
+        serviceResponse: response?.responseOfService,
+        serviceName: response?.service,
+        message: response?.message,
+        mobileNumber,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await din_verifyModel.findOneAndUpdate(
+        { dinNumber: encryptedDin },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+      businessServiceLogger.info(
+        `Valid DIN response stored and sent to client: ${clientId}`,
+      );
+      return res
+        .status(200)
+        .json(createApiResponse(200, response?.result, "Success"));
+    } else {
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId,
+        TxnID,
+        result: {
+          dinNumber: dinNumber,
+        },
+        createdTime: new Date().toLocaleTimeString(),
+        createdDate: new Date().toLocaleDateString(),
+      });
+      const storingData = {
+        status: 2,
+        dinNumber: encryptedDin,
+        response: {
+          dinNumber: dinNumber,
+        },
+        serviceResponse: {},
+        serviceName: response?.service,
+        mobileNumber,
+        message: response?.message,
+        createdDate: new Date().toLocaleDateString(),
+        createdTime: new Date().toLocaleTimeString(),
+      };
+
+      await din_verifyModel.findOneAndUpdate(
+        { dinNumber: encryptedDin },
+        { $setOnInsert: storingData },
+        { upsert: true, new: true },
+      );
+      businessServiceLogger.info(
+        `txnId: ${TxnID}, Invalid DIN response received and sent to client: ${clientId}`,
+      );
+      return res
+        .status(404)
+        .json(createApiResponse(404, { dinNumber: dinNumber }, "Failed"));
+    }
+  } catch (error) {
+    businessServiceLogger.error(
+      `txnId: ${TxnID}, System error in DIN verification for client ${clientId}: ${error.message}`,
+      error,
+    );
+    const errorObj = mapError(error);
+    return res.status(errorObj.httpCode).json(errorObj);
   }
 };

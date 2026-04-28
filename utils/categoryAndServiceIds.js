@@ -178,7 +178,7 @@ const SERVICES = {
     category: "AADHAAR",
     serviceId: "DIGILOCKERVERIFYACCOUNT",
   },
-
+  
   // contact services
   MOBILE_OTP_VERIFY: {
     category: "CONTACT",

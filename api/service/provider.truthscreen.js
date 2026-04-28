@@ -342,7 +342,7 @@ async function verifyGstin(gstinNumber, service) {
   return resData
 }
 async function faceMatch(data, service) {
-  const url = "https://www.truthscreen.com/api/v2.2/utilitysearch";
+  const url = "https://www.truthscreen.com/api/v2.2/faceapi/token";
   const transID = generateTransactionId(14);
   const detailsToSend = { transID, docType: 201 }
   const step1Response = await apiCall(url, detailsToSend, service);
@@ -377,6 +377,7 @@ async function faceMatch(data, service) {
   };
   console.log('Face match Api response ===>', faceResponse)
   return faceResponse;
+  return step1Response?.msg
 }
 
 module.exports = {

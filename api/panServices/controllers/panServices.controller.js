@@ -403,7 +403,7 @@ exports.verifyPanNameDob = async (req, res) => {
   if (!capitalPanNumber) return;
 
   const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
-    "PAN_TO_AADHAAR",
+    "PAN_NAME_DOB",
     tnId,
     panServiceLogger,
   );
@@ -482,6 +482,9 @@ exports.verifyPanNameDob = async (req, res) => {
       storingClient,
       serviceId,
       categoryId,
+      "success",
+      tnId,
+      panServiceLogger
     );
     if (!analyticsResult.success) {
       panServiceLogger.info(

@@ -1,6 +1,5 @@
 const crypto = require("crypto");
 const { commonLogger } = require("../api/Logger/logger");
-const DUMMY_PASSWORD = process.env.DUMMY_PASSWORD_FOR_ONBOARDING
 
 function generateKey(password) {
     const hash = crypto.createHash("sha512");
@@ -22,7 +21,7 @@ const encrypt = (plainText, password) => {
 
 exports.encryptPayload = async (req, res, next) => {
     try {
-        const password = req.client_secret || DUMMY_PASSWORD;
+        const password = req.client_secret;
 
         const oldJson = res.json.bind(res);
         res.json = async function (data) {
@@ -60,7 +59,7 @@ const decrypt = (encryptedText, password) => {
 
 exports.decryptPayload = async (req, res, next) => {
     try {
-        const password = req.client_secret || DUMMY_PASSWORD
+        const password = req.client_secret;
         console.log("req?.body ===>>", req?.body)
         if (!req?.body.data) {
             commonLogger.warn("[STS] Missing encrypted payload fields in request.");

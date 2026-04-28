@@ -67,6 +67,7 @@ module.exports = {
   bankServiceLogger: createSectionLogger('bankService'),
   gstServiceLogger: createSectionLogger('gstService'),
   businessServiceLogger: createSectionLogger('businessService'),
+  docClassificationLogger: createSectionLogger('docClassification'),
   contactServiceLogger: createSectionLogger('contactService'),
   faceServiceLogger: createSectionLogger('faceService'),
   employmentServiceLogger: createSectionLogger('employmentService'),
