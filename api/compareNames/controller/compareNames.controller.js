@@ -384,7 +384,7 @@ exports.compareNamesWithServices = async (req, res) => {
           createdDate: new Date().toLocaleDateString(),
         });
         const dataToShow = existingNames?.response;
-        return res.status(404).json(createApiResponse(404, dataToShow, "inValid"));
+        return res.status(404).json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 
@@ -602,7 +602,7 @@ exports.FSSAIVerification = async (req, res) => {
           createdDate: new Date().toLocaleDateString(),
         });
         const dataToShow = existingFssai?.response;
-        return res.status(404).json(createApiResponse(404, dataToShow, "inValid"));
+        return res.status(404).json(createApiResponse(404, dataToShow, "Invalid"));
       }
     }
 

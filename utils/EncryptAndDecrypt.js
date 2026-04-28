@@ -3,7 +3,7 @@ const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "12345678901234567890123456
 const IV = process.env.ENCRYPTION_IV || "1234567890123456"; 
 
 function encryptData(normalText) {
-  console.log('call at the encrypte DATA ===>',normalText)
+  console.log('call at the encrypte DATA ===>', normalText?.length > 5 ? normalText?.slice(0,4) : normalText)
   const trimmedNormalText = normalText?.trim();
   const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(ENCRYPTION_KEY), IV);
   let encrypted = cipher.update(trimmedNormalText, "utf8", "hex");

@@ -492,6 +492,472 @@ exports.handleDigilockerAccountVerify = async (req, res) => {
   }
 };
 
+exports.handleE_AadhaarUpload = async (req, res) => {
+  const { mobileNumber = "" } = req.body;
+
+  const client_Id = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  aadhaarServiceLogger.info(
+    `Generated Aadhaar digilocker txn Id: ${tnId} for this client: ${client_Id}`,
+  );
+
+  const isValid = handleValidation(
+    "mobile",
+    mobileNumber,
+    res,
+    tnId,
+    aadhaarServiceLogger,
+  );
+  if (!isValid) return false;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "DIGILOCKER_ACCOUNT_VERIFY",
+    tnId,
+    aadhaarServiceLogger,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
+  aadhaarServiceLogger.info(
+    `Executing Aadhaar to Masked Pan Verification for client: ${client_Id}, service: ${serviceId}, category: ${categoryId}`,
+  );
+  try {
+    const identifierHash = hashIdentifiers(
+      {
+        mobileNo: mobileNumber,
+      },
+      aadhaarServiceLogger,
+    );
+
+    const rateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: client_Id,
+      req,
+      TxnID: tnId,
+      logger: aadhaarServiceLogger,
+    });
+
+    if (!rateLimitResult.allowed) {
+      aadhaarServiceLogger.warn(
+        `Rate limit exceeded for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: rateLimitResult.message,
+      });
+    }
+
+    const maintainanceResponse = await deductCredits(
+      client_Id,
+      serviceId,
+      categoryId,
+      tnId,
+      req,
+      aadhaarServiceLogger,
+    );
+    console.log("maintainanceResponse", maintainanceResponse);
+    if (!maintainanceResponse?.result) {
+      aadhaarServiceLogger.error(
+        `Credit deduction failed for Aadhaar Masked: client ${client_Id}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
+
+    const isExistAadhaar = await digilockerverify.findOne({
+      mobileNumber: mobileNumber,
+    });
+
+    const now = new Date();
+    const createdTime = now.toLocaleTimeString();
+    const createdDate = now.toLocaleDateString();
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      client_Id,
+      serviceId,
+      categoryId,
+      "success",
+      tnId,
+      aadhaarServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      aadhaarServiceLogger.warn(
+        `Analytics update failed for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
+      );
+    }
+
+    aadhaarServiceLogger.info(
+      `Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"} for this txnId: ${tnId} of client ${client_Id}`,
+    );
+    aadhaarServiceLogger.info(
+      `Returning cached Aadhaar response for client: ${client_Id}`,
+    );
+    if (isExistAadhaar) {
+      const statusOne = isExistAadhaar?.status == 1;
+      const noRecord = isExistAadhaar?.status == 3;
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: client_Id,
+        TxnID: tnId,
+        result: statusOne
+          ? isExistAadhaar?.response
+          : {
+            mobileNumber: mobileNumber,
+          },
+        createdTime,
+        createdDate,
+      });
+
+      return res
+        .status(statusOne ? 200 : noRecord ? 404 : 400)
+        .json(
+          createApiResponse(
+            statusOne ? 200 : noRecord ? 404 : 400,
+            isExistAadhaar?.response,
+            statusOne || noRecord ? "Valid" : "Invalid",
+          ),
+        );
+    }
+
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      aadhaarServiceLogger,
+    );
+    if (!service.length) {
+      aadhaarServiceLogger.warn(
+        `Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+    const aadhaarResponse = await digilockerVerifyActiveServiceResponse(
+      mobileNumber,
+      service,
+      0,
+      client_Id,
+    );
+
+    aadhaarServiceLogger.info(
+      `Response received from active service ${aadhaarResponse?.service} with message: ${aadhaarResponse?.message} of reponse: ${JSON.stringify(aadhaarResponse)}`,
+    );
+
+    if (aadhaarResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
+    const isValid = aadhaarResponse?.message?.toUpperCase() === "VALID";
+    const noRecord =
+      aadhaarResponse?.message?.toUpperCase() === "NO RECORD FOUND";
+
+    await responseModel.create({
+      serviceId: idOfService,
+      categoryId: idOfCategory,
+      clientId: client_Id,
+      TxnID: tnId,
+      result: isValid ? aadhaarResponse?.result : { mobileNumber },
+      createdTime,
+      createdDate,
+    });
+
+    const basePayload = {
+      mobileNumber,
+      response: isValid ? aadhaarResponse?.result : { mobileNumber },
+      serviceName: aadhaarResponse?.service,
+      serviceResponse: isValid ? aadhaarResponse?.responseOfService : {},
+      createdTime,
+      createdDate,
+    };
+
+    await digilockerverify.findOneAndUpdate(
+      { mobileNumber }, // 🔥 use mobileNumber as filter
+      {
+        ...basePayload,
+        status: isValid ? 1 : noRecord ? 2 : 3,
+      },
+      { new: true, upsert: true },
+    );
+
+    aadhaarServiceLogger.info(
+      `Aadhaar ${isValid ? "Valid" : "Invalid"} response sent successfully for client: ${client_Id} with txnId: ${tnId}`,
+    );
+
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          isValid ? aadhaarResponse?.result : { mobileNumber },
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
+  } catch (err) {
+    aadhaarServiceLogger.error(
+      `System error in digilocker account verify for client ${client_Id} with txnId: ${tnId}: ${err.message}`,
+      err,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      client_Id,
+      serviceId,
+      categoryId,
+      "failed",
+      tnId,
+      aadhaarServiceLogger,
+    );
+
+    if (!analyticsResult?.success) {
+      employmentServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: client ${client_Id}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
+exports.handleAadhaarBasedSign = async (req, res) => {
+  const { mobileNumber = "" } = req.body;
+
+  const client_Id = req.clientId;
+  const tnId = genrateUniqueServiceId();
+  aadhaarServiceLogger.info(
+    `Generated Aadhaar digilocker txn Id: ${tnId} for this client: ${client_Id}`,
+  );
+
+  const isValid = handleValidation(
+    "mobile",
+    mobileNumber,
+    res,
+    tnId,
+    aadhaarServiceLogger,
+  );
+  if (!isValid) return false;
+
+  const { idOfCategory, idOfService } = getCategoryIdAndServiceId(
+    "DIGILOCKER_ACCOUNT_VERIFY",
+    tnId,
+    aadhaarServiceLogger,
+  );
+  console.log("idOfService and idOfCategory ====>>", idOfService, idOfCategory);
+
+  const categoryId = idOfCategory;
+  const serviceId = idOfService;
+
+  aadhaarServiceLogger.info(
+    `Executing Aadhaar to Masked Pan Verification for client: ${client_Id}, service: ${serviceId}, category: ${categoryId}`,
+  );
+  try {
+    const identifierHash = hashIdentifiers(
+      {
+        mobileNo: mobileNumber,
+      },
+      aadhaarServiceLogger,
+    );
+
+    const rateLimitResult = await checkingRateLimit({
+      identifiers: { identifierHash },
+      serviceId,
+      categoryId,
+      clientId: client_Id,
+      req,
+      TxnID: tnId,
+      logger: aadhaarServiceLogger,
+    });
+
+    if (!rateLimitResult.allowed) {
+      aadhaarServiceLogger.warn(
+        `Rate limit exceeded for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
+      );
+      return res.status(429).json({
+        success: false,
+        message: rateLimitResult.message,
+      });
+    }
+
+    const maintainanceResponse = await deductCredits(
+      client_Id,
+      serviceId,
+      categoryId,
+      tnId,
+      req,
+      aadhaarServiceLogger,
+    );
+    console.log("maintainanceResponse", maintainanceResponse);
+    if (!maintainanceResponse?.result) {
+      aadhaarServiceLogger.error(
+        `Credit deduction failed for Aadhaar Masked: client ${client_Id}, txnId ${tnId}`,
+      );
+      return res.status(500).json({
+        success: false,
+        message: maintainanceResponse?.message || "Invalid",
+        response: {},
+      });
+    }
+
+    const isExistAadhaar = await digilockerverify.findOne({
+      mobileNumber: mobileNumber,
+    });
+
+    const now = new Date();
+    const createdTime = now.toLocaleTimeString();
+    const createdDate = now.toLocaleDateString();
+
+    const analyticsResult = await AnalyticsDataUpdate(
+      client_Id,
+      serviceId,
+      categoryId,
+      "success",
+      tnId,
+      aadhaarServiceLogger,
+    );
+    if (!analyticsResult.success) {
+      aadhaarServiceLogger.warn(
+        `Analytics update failed for Aadhaar Masked: client ${client_Id}, service ${serviceId}`,
+      );
+    }
+
+    aadhaarServiceLogger.info(
+      `Checked for existing Aadhaar record in DB: ${isExistAadhaar ? "Found" : "Not Found"} for this txnId: ${tnId} of client ${client_Id}`,
+    );
+    aadhaarServiceLogger.info(
+      `Returning cached Aadhaar response for client: ${client_Id}`,
+    );
+    if (isExistAadhaar) {
+      const statusOne = isExistAadhaar?.status == 1;
+      const noRecord = isExistAadhaar?.status == 3;
+
+      await responseModel.create({
+        serviceId,
+        categoryId,
+        clientId: client_Id,
+        TxnID: tnId,
+        result: statusOne
+          ? isExistAadhaar?.response
+          : {
+            mobileNumber: mobileNumber,
+          },
+        createdTime,
+        createdDate,
+      });
+
+      return res
+        .status(statusOne ? 200 : noRecord ? 404 : 400)
+        .json(
+          createApiResponse(
+            statusOne ? 200 : noRecord ? 404 : 400,
+            isExistAadhaar?.response,
+            statusOne || noRecord ? "Valid" : "Invalid",
+          ),
+        );
+    }
+
+    const service = await selectService(
+      categoryId,
+      serviceId,
+      tnId,
+      req,
+      aadhaarServiceLogger,
+    );
+    if (!service.length) {
+      aadhaarServiceLogger.warn(
+        `Active service not found for Aadhaar Masked category ${categoryId}, service ${serviceId}`,
+      );
+      return res.status(404).json(ERROR_CODES?.NOT_FOUND);
+    }
+    const aadhaarResponse = await digilockerVerifyActiveServiceResponse(
+      mobileNumber,
+      service,
+      0,
+      client_Id,
+    );
+
+    aadhaarServiceLogger.info(
+      `Response received from active service ${aadhaarResponse?.service} with message: ${aadhaarResponse?.message} of reponse: ${JSON.stringify(aadhaarResponse)}`,
+    );
+
+    if (aadhaarResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
+    const isValid = aadhaarResponse?.message?.toUpperCase() === "VALID";
+    const noRecord =
+      aadhaarResponse?.message?.toUpperCase() === "NO RECORD FOUND";
+
+    await responseModel.create({
+      serviceId: idOfService,
+      categoryId: idOfCategory,
+      clientId: client_Id,
+      TxnID: tnId,
+      result: isValid ? aadhaarResponse?.result : { mobileNumber },
+      createdTime,
+      createdDate,
+    });
+
+    const basePayload = {
+      mobileNumber,
+      response: isValid ? aadhaarResponse?.result : { mobileNumber },
+      serviceName: aadhaarResponse?.service,
+      serviceResponse: isValid ? aadhaarResponse?.responseOfService : {},
+      createdTime,
+      createdDate,
+    };
+
+    await digilockerverify.findOneAndUpdate(
+      { mobileNumber }, // 🔥 use mobileNumber as filter
+      {
+        ...basePayload,
+        status: isValid ? 1 : noRecord ? 2 : 3,
+      },
+      { new: true, upsert: true },
+    );
+
+    aadhaarServiceLogger.info(
+      `Aadhaar ${isValid ? "Valid" : "Invalid"} response sent successfully for client: ${client_Id} with txnId: ${tnId}`,
+    );
+
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          isValid ? aadhaarResponse?.result : { mobileNumber },
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
+  } catch (err) {
+    aadhaarServiceLogger.error(
+      `System error in digilocker account verify for client ${client_Id} with txnId: ${tnId}: ${err.message}`,
+      err,
+    );
+    const analyticsResult = await AnalyticsDataUpdate(
+      client_Id,
+      serviceId,
+      categoryId,
+      "failed",
+      tnId,
+      aadhaarServiceLogger,
+    );
+
+    if (!analyticsResult?.success) {
+      employmentServiceLogger.info(
+        `[FAILED]: Analytics update failed for CompareName Verification: client ${client_Id}, service ${serviceId}`,
+      );
+    }
+    const errorObj = mapError(err);
+    return res.status(errorObj.httpCode).json(errorObj);
+  }
+};
+
 // aadhaar digilocker step 1, step 2
 exports.initiateAadhaarDigilocker = async (req, res) => {
   const { callback_url, redirect_url, mobileNumber = "" } = req.body;

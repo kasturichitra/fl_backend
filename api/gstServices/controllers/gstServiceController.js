@@ -122,7 +122,7 @@ exports.ComprehensiveGSTSolution = async (req, res) => {
                 const dataToShow = existingGstNo?.response;
                 return res
                     .status(404)
-                    .json(createApiResponse(404, dataToShow, "inValid"));
+                    .json(createApiResponse(404, dataToShow, "Invalid"));
             }
         }
 
@@ -327,7 +327,7 @@ exports.GstAdvance = async (req, res) => {
                 const dataToShow = existingGstNo?.response;
                 return res
                     .status(404)
-                    .json(createApiResponse(404, dataToShow, "inValid"));
+                    .json(createApiResponse(404, dataToShow, "Invalid"));
             }
         }
 

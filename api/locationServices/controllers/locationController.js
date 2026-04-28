@@ -678,7 +678,7 @@ exports.handleLongLatToDigiPin = async (req, res) => {
         categoryId: idOfCategory,
         clientId,
         TxnID: tnId,
-        result: existingLongLatGeofencing?.response,
+        result: existingdigipinFromLongLat?.response,
         createdTime: new Date().toLocaleTimeString(),
         createdDate: new Date().toLocaleDateString(),
       });
@@ -688,8 +688,8 @@ exports.handleLongLatToDigiPin = async (req, res) => {
           createApiResponse(
             isValid ? 200 : 404,
             isValid
-              ? existingLongLatGeofencing?.response
-              : existingLongLatGeofencing?.response,
+              ? existingdigipinFromLongLat?.response
+              : existingdigipinFromLongLat?.response,
             isValid ? "Valid" : "Invalid",
           ),
         );

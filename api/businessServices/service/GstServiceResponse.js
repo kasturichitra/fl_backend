@@ -228,29 +228,52 @@ const GSTApiCall = async (data, service, TxnID = "") => {
         return { success: false, data: null };
       }
       returnedObj = {
-        AdministrativeOffice: obj?.msg?.AdministrativeOffice,
-        AnnualAggregateTurnover: obj?.msg?.AnnualAggregateTurnover,
-        ConstitutionOfBusiness: obj?.msg?.ConstitutionOfBusiness,
-        "Date of Cancellation": obj?.msg?.["Date of Cancellation"],
-        "Date of registration": obj?.msg?.["Date of registration"],
-        "GSTIN / UIN Status": obj?.msg?.["GSTIN / UIN Status"],
-        "GSTIN/ UIN": obj?.msg?.["GSTIN/ UIN"],
-        GrossTotalIncome: obj?.msg?.GrossTotalIncome,
-        "Legal Name of Business": obj?.msg?.["Legal Name of Business"],
-        NatureOfBusinessActivities: obj?.msg?.NatureOfBusinessActivities,
-        NatureOfCoreBusinessActivity: obj?.msg?.NatureOfCoreBusinessActivity,
-        OtherOffice: obj?.msg?.OtherOffice,
-        PercentageOfTaxPaymentInCash: obj?.msg?.PercentageOfTaxPaymentInCash,
-        "Taxpayer Type": obj?.msg?.["Taxpayer Type"],
-        "Trade Name": obj?.msg?.["Trade Name"],
-        WhetherAadhaarAuthenticated: obj?.msg?.WhetherAadhaarAuthenticated,
-        "WhetherE-KYCVerified": obj?.msg?.["WhetherE-KYCVerified"],
-        field_visit_conducted: obj?.msg?.field_visit_conducted,
-        filingData: obj?.msg?.filingData,
-        goods_n_service: obj?.msg?.goods_n_service,
-        placeOfBusinessData: obj?.msg?.placeOfBusinessData,
-        proprietor_name: obj?.msg?.proprietor_name,
+        gstinNumber: obj?.["GSTIN/ UIN"] || "",
+
+        business_constitution: obj?.["ConstitutionOfBusiness"] || "",
+
+        central_jurisdiction: obj?.["AdministrativeOffice"] || "",
+
+        gstin: obj?.["GSTIN / UIN Status"] || "",
+
+        companyName: obj?.["Legal Name of Business"] || "",
+
+        other_business_address: obj?.placeOfBusinessData?.[0]?.address || "",
+
+        register_cancellation_date: obj?.["Date of Cancellation"] || "",
+
+        state_jurisdiction: obj?.["OtherOffice"] || "",
+
+        tax_payer_type: obj?.["Taxpayer Type"] || "",
+
+        trade_name: obj?.["Trade Name"] || "",
+
+        primary_business_address: obj?.placeOfBusinessData?.[0]?.address || "",
       };
+      // returnedObj = {
+      //   AdministrativeOffice: obj?.msg?.AdministrativeOffice,
+      //   AnnualAggregateTurnover: obj?.msg?.AnnualAggregateTurnover,
+      //   ConstitutionOfBusiness: obj?.msg?.ConstitutionOfBusiness,
+      //   "Date of Cancellation": obj?.msg?.["Date of Cancellation"],
+      //   "Date of registration": obj?.msg?.["Date of registration"],
+      //   "GSTIN / UIN Status": obj?.msg?.["GSTIN / UIN Status"],
+      //   "GSTIN/ UIN": obj?.msg?.["GSTIN/ UIN"],
+      //   GrossTotalIncome: obj?.msg?.GrossTotalIncome,
+      //   "Legal Name of Business": obj?.msg?.["Legal Name of Business"],
+      //   NatureOfBusinessActivities: obj?.msg?.NatureOfBusinessActivities,
+      //   NatureOfCoreBusinessActivity: obj?.msg?.NatureOfCoreBusinessActivity,
+      //   OtherOffice: obj?.msg?.OtherOffice,
+      //   PercentageOfTaxPaymentInCash: obj?.msg?.PercentageOfTaxPaymentInCash,
+      //   "Taxpayer Type": obj?.msg?.["Taxpayer Type"],
+      //   "Trade Name": obj?.msg?.["Trade Name"],
+      //   WhetherAadhaarAuthenticated: obj?.msg?.WhetherAadhaarAuthenticated,
+      //   "WhetherE-KYCVerified": obj?.msg?.["WhetherE-KYCVerified"],
+      //   field_visit_conducted: obj?.msg?.field_visit_conducted,
+      //   filingData: obj?.msg?.filingData,
+      //   goods_n_service: obj?.msg?.goods_n_service,
+      //   placeOfBusinessData: obj?.msg?.placeOfBusinessData,
+      //   proprietor_name: obj?.msg?.proprietor_name,
+      // };
       break;
   }
   return {
@@ -392,7 +415,7 @@ const GSTToPANApiCall = async (data, service, TxnID = "") => {
 
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = obj?.msg
+      returnedObj = obj?.msg;
       break;
   }
   return {

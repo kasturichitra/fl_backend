@@ -1,7 +1,7 @@
 const CATEGORIES = {
   PAN: "PANSERVICES",
   GEO: "GEOLOCATION",
-  VEHICLE: "VEHICLE_TRANSPORT",
+  VEHICLE: "VEHICLETRANSPORT",
   Business: "BUSINESSCOMPANY",
   GST: "GSTSERVICES",
   CONTACT: "CONTACTCOMMUNICATION",
@@ -25,6 +25,10 @@ const SERVICES = {
   PAN_TAN_VERIFY: {
     category: "PAN",
     serviceId: "PANTANVERIFICATION",
+  },
+  PAN_TO_AADHAAR: {
+    category: "PAN",
+    serviceId: "PANTOAADHAAR",
   },
   PAN_NAME_MATCH: {
     category: "PAN",
@@ -102,23 +106,23 @@ const SERVICES = {
   // vehicle services
   DRIVING_LICENSE: {
     category: "VEHICLE",
-    serviceId: "",
+    serviceId: "DRIVINGLICENSE",
   },
   VEHICLE_REGISTER: {
     category: "VEHICLE",
-    serviceId: "",
+    serviceId: "VEHICLERC",
   },
   STOLEN_VEHICLE: {
     category: "VEHICLE",
-    serviceId: "",
+    serviceId: "STOLENVEHICLEVERIFICATION",
   },
   RC_VERIFICATION: {
     category: "VEHICLE",
-    serviceId: "",
+    serviceId: "DETAILEDRCVERIFICATION",
   },
   CHALLAN_VIA_RC: {
     category: "VEHICLE",
-    serviceId: "",
+    serviceId: "CHALLANVIARC",
   },
 
   // business services
@@ -144,7 +148,7 @@ const SERVICES = {
   },
   GSTINTOPAN: {
     category: "Business",
-    serviceId: "GSTINTOPANVERIFICATION",
+    serviceId: "KNOWYOURPANUSINGGSTIN",
   },
   GSTINTAXPAYER: {
     category: "Business",

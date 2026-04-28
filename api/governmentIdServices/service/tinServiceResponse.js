@@ -49,7 +49,7 @@ const TinApiCall = async (data, service, TxnID = "") => {
                 docType: 16,
                 docNumber: data,
             },
-            url: process.env.TRUTNSCREEN_ID_SEARCH_URL, // TIN URL is similar to the Tin
+            url: process.env.TRUTHSCREEN_ID_SEARCH_URL, // TIN URL is similar to the Tin
             header: {
                 username: process.env.TRUTHSCREEN_USERNAME,
                 token: process.env.TRUTHSCREEN_TOKEN,
