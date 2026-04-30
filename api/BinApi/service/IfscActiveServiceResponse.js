@@ -12,7 +12,9 @@ const IfscActiveServiceResponse = async (
   client,
 ) => {
   console.log("IfscActiveServiceResponse called");
-  bankServiceLogger.info(`IfscActiveServiceResponse called for this client: ${client}`);
+  bankServiceLogger.info(
+    `IfscActiveServiceResponse called for this client: ${client}`,
+  );
   if (index >= services?.length) {
     return { success: false, message: "All services failed" };
   }
@@ -54,7 +56,7 @@ const ifscApiCall = async (data, service, CID) => {
   const tskId = await generateTransactionId(12);
   const ApiData = {
     RAPID: {
-      url: RAPID_IFSC_SEARCH,
+      url: process.env.RAPID_IFSC_SEARCH,
       header: {
         "x-rapidapi-key": process.env.RAPID_API_KEY,
         "x-rapidapi-host": process.env.RAPID_API_BANK_HOST,
@@ -66,7 +68,7 @@ const ifscApiCall = async (data, service, CID) => {
         docType: 123,
         docNumber: data,
       },
-      url: process.env.TRUTHSCREEN_IFSC_SEARCH, // DIN URL is similar to the Tin
+      url: process.env.TRUTHSCREEN_IFSC_SEARCH,
       header: {
         username: process.env.TRUTHSCREEN_USERNAME,
         token: process.env.TRUTHSCREEN_TOKEN,
@@ -93,69 +95,78 @@ const ifscApiCall = async (data, service, CID) => {
         username: config.header.username,
         password: config.header.token,
         cId: CID,
-        logger: bankServiceLogger
+        logger: bankServiceLogger,
       });
-      console.log(
-        "[ifscApiCall] TruthScreen API response:",
-        JSON.stringify(ApiResponse),
-      );
     } else {
       const urlWithCard = `${config.url}${data}`;
       ApiResponse = await axios.get(urlWithCard, { headers: config.header });
-      console.log(
-        `[ifscApiCall] ${service} API response success:`,
-        JSON.stringify(ApiResponse.data),
-      );
     }
   } catch (error) {
     console.log(`[ifscApiCall] API Error in ${service}:`, error.message);
     return { success: false, data: null }; // fallback trigger
   }
 
-  const obj = ApiResponse.data || ApiResponse;
-  console.log(`[ifscApiCall] ${service} Response Object:`, JSON.stringify(obj));
+  let obj = {};
+  if (service?.toLowerCase() == "rapid") {
+    obj = ApiResponse?.data;
+  } else {
+    obj = ApiResponse;
+  }
+  console.log(`[ifscApiCall] ${service} Response Object:`, obj);
+  bankServiceLogger.info(
+    `[ifscApiCall] ${service} Response Object:`,
+    JSON.stringify(obj),
+  );
+
   // Format responses by provider
   let returnedObj = {};
-
-  if (obj.response_code === "101") {
-    return {
-      success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
-      },
-    };
-  }
-
-  if (obj.status != 1) {
-    return {
-      success: false,
-      data: {
-        result: "NoDataFound",
-        message: "Invalid",
-        responseOfService: {},
-        service: service,
-      },
-    };
-  }
 
   switch (service) {
     case "RAPID":
       returnedObj = {
-        panNumber: data,
-        aadhaarNumber: obj?.result?.aadhaar,
-        response: obj,
+        ifsc: obj?.IFSC,
+        bank_name: obj?.BANK,
+        branch: obj?.BRANCH,
+        address: obj?.ADDRESS,
+        city: obj?.CITY,
+        district: obj?.DISTRICT,
+        state: obj?.STATE,
+        micr_code: obj?.MICR,
+        contact: obj?.CONTACT,
       };
       break;
 
     case "TRUTHSCREEN":
-      returnedObj = {
-        panNumber: data,
-        aadhaarNumber: obj?.result?.aadhaar,
-        response: obj,
-      };
+      if (obj.status == 0) {
+        return {
+          success: false,
+          data: {
+            result: "NoDataFound",
+            message: "Invalid",
+            responseOfService: {},
+            service: service,
+          },
+        };
+      }
+
+      if (obj.status == 1) {
+        const details = obj?.data?.address_details;
+
+        returnedObj = {
+          ifsc: obj?.data?.ifsc_code,
+          bank_name: obj?.data?.bank_name,
+          branch: details?.branch,
+          address: details?.address,
+          city: details?.city,
+          district: details?.district,
+          state: details?.state,
+          micr_code: details?.micr_code,
+          contact:
+            details?.std_code && details?.contact
+              ? `+91${details.std_code}${details.contact}`
+              : null,
+        };
+      }
       break;
   }
 
@@ -164,7 +175,7 @@ const ifscApiCall = async (data, service, CID) => {
     data: {
       result: returnedObj,
       message: "Valid",
-      responseOfService: obj?.result || obj,
+      responseOfService: obj,
       service: service,
     },
   };

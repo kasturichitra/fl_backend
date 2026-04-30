@@ -49,17 +49,11 @@ const ID_RULES = {
     regex: /^\d+$/,
     displayName: "Bank Account Number",
   },
-  firstName: {
+  Name: {
     min: 2,
     max: 50,
     regex: /^[A-Za-z0-9\s]+$/,
     displayName: "First Name",
-  },
-  secondName: {
-    min: 2,
-    max: 50,
-    regex: /^[A-Za-z0-9\s]+$/,
-    displayName: "Second Name",
   },
   ifsc: {
     length: 11,

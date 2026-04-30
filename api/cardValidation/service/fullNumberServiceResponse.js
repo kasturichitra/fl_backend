@@ -15,9 +15,6 @@ const fullNumberServiceResponse = async (
   const newService = services.find((ser) => ser.priority === index + 1);
 
   if (!newService) {
-    console.log(
-      `No service with priority ${index + 1}, trying next for this client: ${clientId}`,
-    );
     bankServiceLogger.info(
       `No service with priority ${index + 1}, trying next for this client: ${clientId}`,
     );
@@ -25,20 +22,15 @@ const fullNumberServiceResponse = async (
   }
 
   const serviceName = newService.providerId || "";
-  console.log(
-    `[fullNumberServiceResponse] Trying service with priority ${index + 1}: ${newService} for this client: ${clientId}`,
-  );
+
   bankServiceLogger.info(
-    `[fullNumberServiceResponse] Trying service with priority ${index + 1}: ${newService} for this client: ${clientId}`,
+    `[fullNumberServiceResponse] Trying service with priority ${index + 1}: ${serviceName} for this client: ${clientId}`,
   );
 
   try {
-    const res = await FullNumberApiCall(data, serviceName);
+    const res = await FullNumberApiCall(data, serviceName, clientId);
 
     bankServiceLogger.info(
-      `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${clientId}`,
-    );
-    console.log(
       `response from service: ${res?.service} and it's result ${JSON.stringify(res)} for this client: ${clientId}`,
     );
 
@@ -46,20 +38,13 @@ const fullNumberServiceResponse = async (
       return res.data;
     }
 
-    console.log(
-      `[fullNumberServiceResponse] ${serviceName} responded failure. for this client: ${clientId} Data: ${JSON.stringify(res)} → trying next service`,
-    );
     bankServiceLogger.info(
       `[fullNumberServiceResponse] ${serviceName} responded failure. for this client: ${clientId} Data: ${JSON.stringify(res)} → trying next service`,
     );
     return fullNumberServiceResponse(data, services, index + 1);
   } catch (err) {
-    console.log(
-      `[fullNumberServiceResponse] Error from ${serviceName}:`,
-      err.message,
-    );
     bankServiceLogger.info(
-      `[fullNumberServiceResponse] Error from ${serviceName}: ${err.message} and whole error ${JSON.stringify(err)} for this client: ${clientId}`,
+      `[fullNumberServiceResponse] Error from ${serviceName}: ${err.message} and whole error ${err} for this client: ${clientId}`,
     );
     return fullNumberServiceResponse(data, services, index + 1);
   }
@@ -69,7 +54,7 @@ const fullNumberServiceResponse = async (
 //         BIN API CALL (ALL SERVICES)
 // =======================================
 
-const FullNumberApiCall = async (data, service) => {
+const FullNumberApiCall = async (data, service, client) => {
   const ApiData = {
     RAPID: {
       url: process.env.RAPID_FULLCARDVERIFICATION_URL,
@@ -111,7 +96,7 @@ const FullNumberApiCall = async (data, service) => {
       ApiResponse = await axios.get(urlWithCard, { headers: config.header });
     }
   } catch (error) {
-    console.log(`[FullNumberApiCall] API Error in ${service}:`, error.message);
+    console.log(`[FullNumberApiCall] API Error in ${service}:`, error);
     if (service?.toLowerCase() == "invincible" && error.status == 404) {
       return {
         success: false,

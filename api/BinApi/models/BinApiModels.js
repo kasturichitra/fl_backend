@@ -14,9 +14,6 @@ const RapidBinModel = mongoose.Schema(
     serviceResponse: {
       type: Object,
     },
-    serviceId: {
-      type: String,
-    },
     serviceName: {
       type: String,
     },

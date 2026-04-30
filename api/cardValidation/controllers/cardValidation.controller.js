@@ -17,6 +17,7 @@ const { deductCredits } = require("../../../services/CreditService");
 const AnalyticsDataUpdate = require("../../../utils/analyticsStoring");
 const responseModel = require("../../serviceResponses/model/serviceResponseModel");
 const getCategoryIdAndServiceId = require("../../../utils/categoryAndServiceIds");
+const { createApiResponse } = require("../../../utils/ApiResponseHandler");
 require("dotenv").config();
 
 const verifyFullCardNumber = async (req, res, next) => {
@@ -137,11 +138,15 @@ const verifyFullCardNumber = async (req, res, next) => {
         createdDate,
       });
 
-      return res.json({
-        message: isValid ? "Valid" : "Invalid",
-        response: existingCreditCardNumber?.response,
-        success: isValid,
-      });
+      return res
+        .status(isValid ? 200 : 404)
+        .json(
+          createApiResponse(
+            isValid ? 200 : 404,
+            existingCreditCardNumber?.response,
+            isValid ? "Valid" : "Invalid",
+          ),
+        );
     }
 
     const service = await selectService(
@@ -169,7 +174,17 @@ const verifyFullCardNumber = async (req, res, next) => {
     bankServiceLogger.info(
       `cardNumberResponse ===>> ${JSON.stringify(cardNumberResponse)}`,
     );
+
+    if (cardNumberResponse?.message?.toLowerCase() === "all services failed") {
+      throw new Error("All services failed");
+    }
+
     const isValid = cardNumberResponse?.message?.toLowerCase() === "valid";
+
+    const modifiedResponse = {
+      ...cardNumberResponse?.result,
+      lable: cardNumberResponse?.result?.issuer_info?.split("")?.[0],
+    };
 
     // keep this unchanged
     await responseModel.create({
@@ -177,7 +192,7 @@ const verifyFullCardNumber = async (req, res, next) => {
       categoryId,
       clientId: storingClient,
       TxnID: tnId,
-      result: cardNumberResponse?.result,
+      result: modifiedResponse,
       createdTime,
       createdDate,
     });
@@ -185,7 +200,7 @@ const verifyFullCardNumber = async (req, res, next) => {
     // build update object
     const updateData = {
       cardNumber: encryptedNumber,
-      response: cardNumberResponse?.result,
+      response: isValid ? modifiedResponse : { creditCardNumber },
       serviceName: cardNumberResponse?.service,
       serviceResponse: isValid ? cardNumberResponse?.responseOfService : {},
       status: isValid ? 1 : 2,
@@ -200,12 +215,15 @@ const verifyFullCardNumber = async (req, res, next) => {
       { new: true, upsert: true },
     );
 
-    // response
-    return res.status(isValid ? 200 : 404).json({
-      message: isValid ? "Valid" : "Invalid",
-      success: isValid,
-      response: cardNumberResponse?.result,
-    });
+    return res
+      .status(isValid ? 200 : 404)
+      .json(
+        createApiResponse(
+          isValid ? 200 : 404,
+          isValid ? modifiedResponse : { creditCardNumber },
+          isValid ? "Valid" : "Invalid",
+        ),
+      );
   } catch (error) {
     bankServiceLogger.error(
       `error in while fetching Credit Card Response ===>> ${error.message}`,

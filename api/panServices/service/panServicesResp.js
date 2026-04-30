@@ -429,6 +429,10 @@ const PANtoGST_InActiveServiceResponse = async (
   try {
     const res = await PanToGst_inApiCall(data, serviceName, 0);
 
+     console.log(
+      `[PANtoGST_InActiveServiceResponse] ${serviceName} responded success. Data: ${JSON.stringify(res)}`,
+    );
+
     if (res?.data) {
       return res.data;
     }
@@ -484,10 +488,6 @@ const PanToGst_inApiCall = async (data, service) => {
         cId: "",
         logger: panServiceLogger,
       });
-      console.log(
-        "[pan to gst api call] TruthScreen API response:",
-        JSON.stringify(ApiResponse),
-      );
     }
   } catch (error) {
     console.log(
@@ -505,7 +505,7 @@ const PanToGst_inApiCall = async (data, service) => {
 
   let returnedObj = {};
 
-  if (obj.status == 9 || obj?.msg?.toLowercase().includes("no record")) {
+  if (obj.status == 9 && obj?.msg?.toLowerCase().includes("no record")) {
     return {
       success: false,
       data: {
@@ -519,9 +519,11 @@ const PanToGst_inApiCall = async (data, service) => {
 
   switch (service) {
     case "TRUTHSCREEN":
-      returnedObj = {
-        ...(obj?.msg || ""),
-      };
+      if(obj.status == 1){
+        returnedObj = {
+          ...(obj?.msg || ""),
+        };
+      }
       break;
   }
   return {

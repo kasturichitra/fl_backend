@@ -7,7 +7,13 @@ const verify_names = new mongoose.Schema({
   secondName: {
     type: String
   },
-  responseData: {
+  serviceName: {
+    type: String
+  },
+  response: {
+    type: Object,
+  },
+  serviceResponse: {
     type: Object,
   },
   createdTime: {

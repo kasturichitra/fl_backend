@@ -28,7 +28,7 @@ const SERVICES = {
   },
   PAN_TO_AADHAAR: {
     category: "PAN",
-    serviceId: "PANTOAADHAAR",
+    serviceId: "PANTOMASKEDAADHAR",
   },
   PAN_NAME_MATCH: {
     category: "PAN",
@@ -71,6 +71,14 @@ const SERVICES = {
   ADVANCE_BANKACCOUNT_VERY: {
     category: "BANK",
     serviceId: "ADVANCEBANKACCOUNTVERIFICATION",
+  },
+    IFSC_SEARCH: {
+    category: "BANK",
+    serviceId: "IFSCCODECHECK",
+  },
+  BIN_VERIFY: {
+    category: "BANK",
+    serviceId: "BINVERIFICATION",
   },
 
   // geo and location

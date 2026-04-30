@@ -187,7 +187,7 @@ async function handlePanVerification({
   transformValidResponse,
   transformInvalidResponse,
 }) {
-  console.log('handle pan verification is triggred')
+  panServiceLogger.info(`[${serviceType}] is triggred`)
   const { panNumber, mobileNumber = "" } = req.body;
   const clientId = req.clientId ;
   const txnId = genrateUniqueServiceId();
@@ -274,6 +274,10 @@ async function handlePanVerification({
     if (apiResponse?.message?.toLowerCase() === "all services failed") {
       throw new Error("All services failed");
     }
+
+     panServiceLogger.info(
+      `[${serviceType}] response: ${JSON.stringify(apiResponse)} from active provider: ${apiResponse?.service} for this transaction: ${txnId}`,
+    );
 
     const { createdTime, createdDate } = getCurrentTime();
 

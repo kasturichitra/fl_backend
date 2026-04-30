@@ -114,14 +114,15 @@ exports.compareNames = async (req, res, next) => {
 
   otherServiceLogger.info(`TxnID:${TxnID}, Compare Name Details: firstName:${capitalFirstName}, secondName:${capitalSecondName}`);
 
+  const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId("NAME_MATCH", TxnID, otherServiceLogger);
+
+  const isFirstValid = handleValidation("Name", capitalFirstName, res, TxnID, otherServiceLogger);
+  if (!isFirstValid) return;
+
+  const isSecondValid = handleValidation("Name", capitalSecondName, res, TxnID, otherServiceLogger);
+  if (!isSecondValid) return;
+
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId("NAME_MATCH", TxnID, otherServiceLogger);
-
-    const isFirstValid = handleValidation("firstName", capitalFirstName, res, TxnID, otherServiceLogger);
-    if (!isFirstValid) return;
-
-    const isSecondValid = handleValidation("firstName", capitalSecondName, res, TxnID, otherServiceLogger);
-    if (!isSecondValid) return;
 
     otherServiceLogger.info(`TxnID:${TxnID}, Executing CompareNames for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
@@ -278,15 +279,15 @@ exports.compareNamesWithServices = async (req, res) => {
   }
   otherServiceLogger.info(`TxnID:${TxnID}, Compare name with services details firstName:${firstName}, secondName:${secondName}`);
 
+  const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId("NAME_MATCH", TxnID, otherServiceLogger);
+
+  const isFistNameValid = handleValidation("Name", firstName, res, TxnID, otherServiceLogger);
+  if (!isFistNameValid) return;
+
+  const isSecondNameValid = handleValidation("Name", secondName, res, TxnID, otherServiceLogger);
+  if (!isSecondNameValid) return;
+
   try {
-    const { idOfCategory: categoryId, idOfService: serviceId } = await getCategoryIdAndServiceId("CompareNamewithService", TxnID, otherServiceLogger);
-
-    const isFistNameValid = handleValidation("Names", firstName, res, TxnID, otherServiceLogger);
-    if (!isFistNameValid) return;
-
-    const isSecondNameValid = handleValidation("Names", secondName, res, TxnID, otherServiceLogger);
-    if (!isSecondNameValid) return;
-
     otherServiceLogger.info(`TxnID:${TxnID}, Executing CompareNames with service for client: ${clientId}, service: ${serviceId}, category: ${categoryId}`);
 
     const identifierHash = hashIdentifiers({
@@ -347,6 +348,7 @@ exports.compareNamesWithServices = async (req, res) => {
       serviceId,
       categoryId,
       "success",
+      TxnID,
       otherServiceLogger
     );
 
@@ -480,6 +482,18 @@ exports.compareNamesWithServices = async (req, res) => {
       `TxnID:${TxnID}, System error in compare Name with services verification for client ${clientId}: ${error.message}`,
       error,
     );
+      const analyticsResult = await AnalyticsDataUpdate(
+      clientId,
+      serviceId,
+      categoryId,
+      "failed",
+      TxnID,
+      otherServiceLogger
+    );
+
+    if (!analyticsResult?.success) {
+      otherServiceLogger.info(`TxnID:${TxnID}, [FAILED]: Analytics update failed for CompareName Verification: clientId ${clientId}, service ${serviceId}`);
+    }
     const errorObj = mapError(error);
     return res.status(errorObj.httpCode).json(errorObj);
   }

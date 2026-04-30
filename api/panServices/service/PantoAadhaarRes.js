@@ -41,7 +41,7 @@ const PantoAadhaarApiCall = async (data, service) => {
     const ApiData = {
         "INVINCIBLE": {
             BodyData: JSON.stringify({ panNumber: data }),
-            url: PAN_TO_AADHAAR_URL,
+            url: process.env.PAN_TO_AADHAAR_URL,
             header: {
                 clientId: process.env.INVINCIBLE_CLIENT_ID,
                 secretKey: process.env.INVINCIBLE_SECRET_KEY,
@@ -67,9 +67,8 @@ const PantoAadhaarApiCall = async (data, service) => {
             config.BodyData,
             { headers: config.header }
         );
-        console.log(`[PantoAadhaarApiCall] ${service} API response success:`, JSON.stringify(ApiResponse.data));
     } catch (error) {
-        console.log(`[PantoAadhaarApiCall] API Error in ${service}:`, error.message);
+        console.log(`[PantoAadhaarApiCall] API Error in ${service}:`, error);
         return { success: false, data: null }; // fallback trigger
     }
 
@@ -77,18 +76,6 @@ const PantoAadhaarApiCall = async (data, service) => {
     console.log(`[PantoAadhaarApiCall] ${service} Processed Object:`, JSON.stringify(obj));
     // Format responses by provider
     let returnedObj = {};
-
-    if (obj.response_code === "101") {
-        return {
-            success: false,
-            data: {
-                result: "NoDataFound",
-                message: "Invalid",
-                responseOfService: {},
-                service: service,
-            }
-        };
-    }
 
     switch (service) {
         case "INVINCIBLE":
